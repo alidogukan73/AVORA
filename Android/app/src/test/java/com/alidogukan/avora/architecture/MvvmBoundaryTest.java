@@ -47,6 +47,7 @@ public final class MvvmBoundaryTest {
     );
 
     private static final Set<String> VIEWMODEL_FREE_UI_ONLY = new HashSet<>(Arrays.asList(
+            "EdgeToEdgeActivity.java",
             "HelpCenterActivity.java"
     ));
 
@@ -98,6 +99,23 @@ public final class MvvmBoundaryTest {
             if (!source.contains("new ViewModelProvider(")) violations.add(name);
         }
         assertTrue("Stateful Activities without a ViewModel: " + violations,
+                violations.isEmpty());
+    }
+
+    @Test
+    public void everyActivityAvoidsSystemBarAndCutoutOverlap() throws Exception {
+        List<String> violations = new ArrayList<>();
+        for (Path file : activityFiles()) {
+            String source = Files.readString(file, StandardCharsets.UTF_8);
+            boolean usesSharedInsets = source.contains("extends EdgeToEdgeActivity");
+            boolean handlesInsetsDirectly =
+                    source.contains("WindowInsetsCompat.Type.systemBars()")
+                            && source.contains("WindowInsetsCompat.Type.displayCutout()");
+            if (!usesSharedInsets && !handlesInsetsDirectly) {
+                violations.add(file.getFileName().toString());
+            }
+        }
+        assertTrue("Activities without system-bar and cutout protection: " + violations,
                 violations.isEmpty());
     }
 

@@ -80,10 +80,10 @@ public final class PlantAssistantViewModel extends AndroidViewModel {
                 zone, symptoms, note, weather, hasPhoto, growthStatusRequested);
     }
 
-    public void saveRecommendation(String zoneId, String urgency,
+    public void saveRecommendation(String zoneId, String seasonId, String urgency,
                                    String title, String advice) {
         PlantAssistantRecommendationStore.save(
-                getApplication(), zoneId, urgency, title, advice);
+                getApplication(), zoneId, seasonId, urgency, title, advice);
     }
 
     public JSONObject analyzeVision(Bitmap bitmap, JSONObject context) throws Exception {

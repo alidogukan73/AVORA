@@ -11,6 +11,7 @@ public final class PlantAssistantRecommendationStore {
     private static final String KEY_TITLE = "title";
     private static final String KEY_ADVICE = "advice";
     private static final String KEY_ZONE_ID = "zone_id";
+    private static final String KEY_SEASON_ID = "season_id";
     private static final String KEY_URGENCY = "urgency";
     private static final String KEY_CREATED_AT = "created_at";
 
@@ -27,6 +28,11 @@ public final class PlantAssistantRecommendationStore {
             String title,
             String advice
     ) {
+        save(context, zoneId, "", urgency, title, advice);
+    }
+
+    public static void save(Context context, String zoneId, String seasonId,
+                            String urgency, String title, String advice) {
         String cleanAdvice = clean(advice);
         if (cleanAdvice.isEmpty()) return;
         preferences(context)
@@ -34,6 +40,7 @@ public final class PlantAssistantRecommendationStore {
                 .putString(KEY_TITLE, clean(title))
                 .putString(KEY_ADVICE, cleanAdvice)
                 .putString(KEY_ZONE_ID, clean(zoneId))
+                .putString(KEY_SEASON_ID, clean(seasonId))
                 .putString(KEY_URGENCY, clean(urgency))
                 .putLong(KEY_CREATED_AT, System.currentTimeMillis() / 1000L)
                 .apply();
@@ -43,6 +50,7 @@ public final class PlantAssistantRecommendationStore {
         SharedPreferences preferences = preferences(context);
         return new PlantAssistantHealthSignal(
                 preferences.getString(KEY_ZONE_ID, ""),
+                preferences.getString(KEY_SEASON_ID, ""),
                 preferences.getString(KEY_URGENCY, ""),
                 preferences.getString(KEY_TITLE, ""),
                 preferences.getLong(KEY_CREATED_AT, 0L)
@@ -82,6 +90,7 @@ public final class PlantAssistantRecommendationStore {
                 .putString(KEY_TITLE, previous.getString(KEY_TITLE, ""))
                 .putString(KEY_ADVICE, advice)
                 .putString(KEY_ZONE_ID, previous.getString(KEY_ZONE_ID, ""))
+                .putString(KEY_SEASON_ID, previous.getString(KEY_SEASON_ID, ""))
                 .putString(KEY_URGENCY, previous.getString(KEY_URGENCY, ""))
                 .putLong(KEY_CREATED_AT, previous.getLong(KEY_CREATED_AT, 0L))
                 .apply();

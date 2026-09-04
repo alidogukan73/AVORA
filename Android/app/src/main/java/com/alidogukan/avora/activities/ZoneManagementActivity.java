@@ -36,7 +36,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /** Adds, maps, edits and safely archives up to eight garden zones. */
-public final class ZoneManagementActivity extends AppCompatActivity {
+public final class ZoneManagementActivity extends EdgeToEdgeActivity {
     private ZoneManagementViewModel viewModel;
     private final List<GardenZone> zones = new ArrayList<>();
     private List<CropCatalogItem> crops = new ArrayList<>();

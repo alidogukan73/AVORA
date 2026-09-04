@@ -37,7 +37,7 @@ import java.util.List;
 import java.util.Set;
 
 /** Chronological AVORA notification center with state and category filters. */
-public class NotificationCenterActivity extends AppCompatActivity {
+public class NotificationCenterActivity extends EdgeToEdgeActivity {
     private static final String ALL = "ALL", SAVED = "SAVED", READ = "READ", UNREAD = "UNREAD";
     private NotificationCenterAdapter adapter;
     private TextView summary, empty;

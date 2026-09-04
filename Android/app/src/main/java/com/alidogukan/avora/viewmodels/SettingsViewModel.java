@@ -17,7 +17,6 @@ import com.alidogukan.avora.models.GardenZone;
 import com.alidogukan.avora.models.IrrigationTimingSettings;
 import com.alidogukan.avora.zones.ZoneCapacityPolicy;
 import com.google.android.gms.tasks.Task;
-import com.google.android.gms.tasks.Tasks;
 
 import java.util.List;
 
@@ -62,12 +61,9 @@ public class SettingsViewModel extends AndroidViewModel {
         if (Boolean.TRUE.equals(saving.getValue())) return;
         saving.setValue(true);
         saveSuccess.setValue(false);
-        Task<Void> globalSettingsTask = repository.saveGlobalSettingsAndSyncZones(
+        repository.saveIrrigationSettingsAndSyncZones(
                 moistureLimit, pumpDuration, cooldownSeconds, restartDelta,
-                enabled, autoMode);
-        Task<Void> timingSettingsTask =
-                repository.saveIrrigationTimingSettings(timingSettings);
-        Tasks.whenAll(globalSettingsTask, timingSettingsTask)
+                enabled, autoMode, timingSettings)
                 .addOnSuccessListener(unused -> {
                     saving.setValue(false);
                     saveSuccess.setValue(true);

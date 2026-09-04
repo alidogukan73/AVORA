@@ -198,7 +198,7 @@ public class FeedbackActivity extends AppCompatActivity {
     private void applyWindowInsets() {
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.feedbackRoot),
                 (view, insets) -> {
-                    Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+                    Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
                     view.setPadding(bars.left, bars.top, bars.right, bars.bottom);
                     return insets;
                 });

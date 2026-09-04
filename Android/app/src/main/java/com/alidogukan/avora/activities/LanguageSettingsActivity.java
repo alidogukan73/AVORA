@@ -100,7 +100,7 @@ public class LanguageSettingsActivity extends AppCompatActivity {
     private void applyWindowInsets() {
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.languageSettingsRoot),
                 (view, insets) -> {
-                    Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+                    Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
                     view.setPadding(bars.left, bars.top, bars.right, bars.bottom);
                     return insets;
                 });

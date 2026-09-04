@@ -98,6 +98,37 @@ public final class SeasonDisplayIdentityTest {
                 SeasonDisplayIdentity.stackedCropAreaLabel(null, first));
     }
 
+    @Test
+    public void journalTitleShowsNumberedAreaBeforeSeasonCrop() {
+        GardenZone current = zone("Domates", "🍅");
+        current.setZone_id("zone-004");
+        GardenSeason eggplant = season("Patlıcan", "Patlıcan", "🍆");
+
+        assertEquals("4. Bölge · Patlıcan",
+                SeasonDisplayIdentity.areaCropName(eggplant, current));
+    }
+
+    @Test
+    public void journalTitlesDistinguishIdenticalCropsByAreaFirst() {
+        GardenZone first = zone("Biber", "🌶️");
+        first.setArea_name("Ön Bahçe");
+        GardenZone second = zone("Biber", "🌶️");
+        second.setArea_name("Sera");
+
+        assertEquals("Ön Bahçe · Biber",
+                SeasonDisplayIdentity.areaCropName(null, first));
+        assertEquals("Sera · Biber",
+                SeasonDisplayIdentity.areaCropName(null, second));
+    }
+
+    @Test
+    public void journalTitleWithoutCropHasNoTrailingSeparator() {
+        GardenZone current = zone("", "");
+        current.setZone_id("zone-003");
+
+        assertEquals("3. Bölge", SeasonDisplayIdentity.areaCropName(null, current));
+    }
+
     private static GardenZone zone(String name, String emoji) {
         GardenZone zone = new GardenZone();
         zone.setName(name);

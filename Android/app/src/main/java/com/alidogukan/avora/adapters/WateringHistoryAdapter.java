@@ -14,57 +14,38 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.alidogukan.avora.R;
 import com.alidogukan.avora.models.WateringHistory;
+import com.alidogukan.avora.models.GardenSeason;
+import com.alidogukan.avora.models.GardenZone;
+import com.alidogukan.avora.history.WateringHistoryPresentation;
 import com.google.android.material.card.MaterialCardView;
 
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.time.ZoneId;
 import java.util.Locale;
-import java.util.Objects;
+import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 
 public class WateringHistoryAdapter extends ListAdapter<
         WateringHistory,
         WateringHistoryAdapter.HistoryViewHolder
         > {
 
-    private static final SimpleDateFormat FIREBASE_DATE_FORMAT =
-            new SimpleDateFormat(
-                    "yyyy-MM-dd'T'HH:mm:ss",
-                    Locale.US
-            );
+    private final Map<String, GardenZone> zones = new HashMap<>();
+    private final Map<String, GardenSeason> seasons = new HashMap<>();
 
-    private static SimpleDateFormat displayDateFormat() {
-        return new SimpleDateFormat(
-                "dd-MM-yyyy",
-                Locale.getDefault()
-        );
-    }
+    public WateringHistoryAdapter() { super(DIFF_CALLBACK); }
 
-    private static SimpleDateFormat displayTimeFormat() {
-        return new SimpleDateFormat(
-                "HH:mm",
-                Locale.getDefault()
-        );
-    }
-
-    private java.util.Map<String, String> zoneLabels =
-            java.util.Collections.emptyMap();
-
-    public WateringHistoryAdapter() {
-
-        super(DIFF_CALLBACK);
-    }
-
-    public void setZoneLabels(java.util.Map<String, String> labels) {
-        zoneLabels = labels == null
-                ? java.util.Collections.emptyMap()
-                : new java.util.HashMap<>(labels);
-        if (getItemCount() > 0) {
-            notifyItemRangeChanged(0, getItemCount());
+    public void setDisplayContext(List<GardenZone> zoneValues, List<GardenSeason> seasonValues) {
+        zones.clear();
+        seasons.clear();
+        if (zoneValues != null) for (GardenZone zone : zoneValues) {
+            if (zone != null) zones.put(zone.getZone_id(), zone);
         }
+        if (seasonValues != null) for (GardenSeason season : seasonValues) {
+            if (season != null) seasons.put(season.getSeason_id(), season);
+        }
+        if (getItemCount() > 0) notifyItemRangeChanged(0, getItemCount());
     }
-
-
 
     private static final DiffUtil.ItemCallback<WateringHistory>
             DIFF_CALLBACK =
@@ -76,10 +57,7 @@ public class WateringHistoryAdapter extends ListAdapter<
                         @NonNull WateringHistory newItem
                 ) {
 
-                    return Objects.equals(
-                            oldItem.getRecordId(),
-                            newItem.getRecordId()
-                    );
+                    return WateringHistoryPresentation.sameRecord(oldItem, newItem);
                 }
 
                 @Override
@@ -87,51 +65,7 @@ public class WateringHistoryAdapter extends ListAdapter<
                         @NonNull WateringHistory oldItem,
                         @NonNull WateringHistory newItem
                 ) {
-
-                    return Objects.equals(
-                            oldItem.getStartedAt(),
-                            newItem.getStartedAt()
-                    )
-                            && Objects.equals(
-                            oldItem.getFinishedAt(),
-                            newItem.getFinishedAt()
-                    )
-                            && oldItem.getDuration()
-                            == newItem.getDuration()
-
-                            && oldItem.getMoistureBefore()
-                            == newItem.getMoistureBefore()
-
-                            && oldItem.getMoistureAfter()
-                            == newItem.getMoistureAfter()
-
-                            && oldItem.getMoistureDelta()
-                            == newItem.getMoistureDelta()
-
-                            && oldItem.isCompleted()
-                            == newItem.isCompleted()
-
-                            && Objects.equals(
-                            oldItem.getStopReason(),
-                            newItem.getStopReason()
-                    )
-                            && Objects.equals(
-                            oldItem.getMode(),
-                            newItem.getMode()
-                    )
-
-                            && Objects.equals(
-                            oldItem.getFirmware(),
-                            newItem.getFirmware()
-                    )
-                            && Objects.equals(
-                            oldItem.getZoneId(),
-                            newItem.getZoneId()
-                    )
-                            && Objects.equals(
-                            oldItem.getSensorId(),
-                            newItem.getSensorId()
-                    );
+                    return WateringHistoryPresentation.sameContent(oldItem, newItem);
                 }
             };
 
@@ -163,7 +97,8 @@ public class WateringHistoryAdapter extends ListAdapter<
 
         holder.bind(
                 getItem(position),
-                zoneLabels
+                zones,
+                seasons
         );
     }
 
@@ -268,24 +203,18 @@ public class WateringHistoryAdapter extends ListAdapter<
          */
         public void bind(
                 WateringHistory history,
-                java.util.Map<String, String> zoneLabels
+                Map<String, GardenZone> zones,
+                Map<String, GardenSeason> seasons
         ) {
 
             Context context =
                     itemView.getContext();
 
-            txtHistoryZone.setText(
-                    formatZone(
-                            context,
-                            history.getZoneId(),
-                            zoneLabels
-                    )
-            );
-
-            bindDate(
-                    context,
-                    history.getStartedAt()
-            );
+            txtHistoryZone.setText(WateringHistoryPresentation.label(history, zones, seasons,
+                    context.getString(R.string.history_zone_legacy)));
+            ZoneId timeZone = ZoneId.systemDefault();
+            txtHistoryDate.setText(WateringHistoryPresentation.date(history, timeZone, Locale.getDefault()));
+            txtHistoryTime.setText(WateringHistoryPresentation.time(history, timeZone, Locale.getDefault()));
 
             txtHistoryMode.setText(
                     formatMode(
@@ -301,26 +230,15 @@ public class WateringHistoryAdapter extends ListAdapter<
                     )
             );
 
-            txtHistoryMoistureBefore.setText(
-                    context.getString(
-                            R.string.percentage_format,
-                            history.getMoistureBefore()
-                    )
-            );
-
-            txtHistoryMoistureAfter.setText(
-                    context.getString(
-                            R.string.percentage_format,
-                            history.getMoistureAfter()
-                    )
-            );
-
-            txtHistoryMoistureDelta.setText(
-                    context.getString(
-                            R.string.signed_percentage_format,
-                            history.getMoistureDelta()
-                    )
-            );
+            Long before = WateringHistoryPresentation.before(history);
+            Long after = WateringHistoryPresentation.after(history);
+            Long delta = WateringHistoryPresentation.delta(history);
+            txtHistoryMoistureBefore.setText(before == null ? "—"
+                    : context.getString(R.string.percentage_format, before));
+            txtHistoryMoistureAfter.setText(after == null ? "—"
+                    : context.getString(R.string.percentage_format, after));
+            txtHistoryMoistureDelta.setText(delta == null ? "—"
+                    : context.getString(R.string.signed_percentage_format, delta));
 
             txtHistoryStopReason.setText(
                     formatStopReason(
@@ -336,193 +254,50 @@ public class WateringHistoryAdapter extends ListAdapter<
 
             updateMoistureDeltaUi(
                     context,
-                    history.getMoistureDelta()
+                    delta == null ? 0L : delta
             );
         }
-
-        private String formatZone(
-                Context context,
-                String zoneId,
-                java.util.Map<String, String> zoneLabels
-        ) {
-            if (zoneId == null || zoneId.isBlank()) {
-                return context.getString(R.string.history_zone_legacy);
-            }
-            String label = zoneLabels.get(zoneId);
-            return label == null || label.isBlank() ? zoneId : label;
-        }
-
-
-        /**
-         * Firebase ISO tarihini kullanıcı dostu tarih ve saate çevirir.
-         */
-        private void bindDate(
-                Context context,
-                String startedAt
-        ) {
-
-            if (
-                    startedAt == null
-                            || startedAt.isBlank()
-            ) {
-
-                txtHistoryDate.setText(
-                        R.string.history_default_date
-                );
-
-                txtHistoryTime.setText(
-                        R.string.history_default_time
-                );
-
-                return;
-            }
-
-            try {
-
-                /*
-                 * Backend mikro saniye gönderebildiği için
-                 * ilk 19 karakteri alıyoruz:
-                 *
-                 * 2026-07-11T18:18:11
-                 */
-                String normalizedDate =
-                        startedAt.length() >= 19
-                                ? startedAt.substring(0, 19)
-                                : startedAt;
-
-                Date parsedDate =
-                        FIREBASE_DATE_FORMAT.parse(
-                                normalizedDate
-                        );
-
-                if (parsedDate == null) {
-                    throw new ParseException(
-                            "Date could not be parsed",
-                            0
-                    );
-                }
-
-                txtHistoryDate.setText(
-                        displayDateFormat().format(
-                                parsedDate
-                        )
-                );
-
-                txtHistoryTime.setText(
-                        displayTimeFormat().format(
-                                parsedDate
-                        )
-                );
-
-            } catch (
-                    ParseException
-                    | IndexOutOfBoundsException exception
-            ) {
-
-                txtHistoryDate.setText(
-                        R.string.history_default_date
-                );
-
-                txtHistoryTime.setText(
-                        R.string.history_default_time
-                );
-            }
-        }
-
 
         /**
          * Tamamlanma durumuna göre rozet ve kart rengini değiştirir.
          */
-        private void updateCompletionUi(
-                Context context,
-                WateringHistory history
-        ) {
-
-            if (history.isCompleted()) {
-
-                int statusColor =
-                        color(
-                                context,
-                                R.color.online
-                        );
-
-                txtHistoryStatus.setText(
-                        R.string.history_status_completed
-                );
-
-                txtHistoryStatus.setTextColor(
-                        statusColor
-                );
-
-                cardHistoryStatus.setCardBackgroundColor(
-                        color(
-                                context,
-                                R.color.onlineBackground
-                        )
-                );
-
-                cardHistoryStatus.setStrokeColor(
-                        statusColor
-                );
-
-                cardHistoryItem.setStrokeColor(
-                        color(
-                                context,
-                                R.color.border
-                        )
-                );
-
-                return;
+        private void updateCompletionUi(Context context, WateringHistory history) {
+            WateringHistoryPresentation.Outcome outcome = WateringHistoryPresentation.outcome(history);
+            int statusText, statusColor, backgroundColor;
+            switch (outcome) {
+                case COMPLETED:
+                    statusText = R.string.history_status_completed;
+                    statusColor = R.color.online;
+                    backgroundColor = R.color.onlineBackground;
+                    break;
+                case SIMULATED:
+                    statusText = R.string.history_status_simulated;
+                    statusColor = R.color.textSecondary;
+                    backgroundColor = R.color.surfaceSoft;
+                    break;
+                case NOT_STARTED:
+                    statusText = R.string.history_status_not_started;
+                    statusColor = R.color.warning;
+                    backgroundColor = R.color.warningBackground;
+                    break;
+                case WARNING:
+                    statusText = R.string.history_status_warning;
+                    statusColor = R.color.warning;
+                    backgroundColor = R.color.warningBackground;
+                    break;
+                default:
+                    statusText = R.string.history_status_interrupted;
+                    statusColor = R.color.offline;
+                    backgroundColor = R.color.offlineBackground;
             }
-
-            boolean warning =
-                    isWarningReason(
-                            history.getStopReason()
-                    );
-
-            int statusColor =
-                    warning
-                            ? color(
-                            context,
-                            R.color.warning
-                    )
-                            : color(
-                            context,
-                            R.color.offline
-                    );
-
-            int backgroundColor =
-                    warning
-                            ? color(
-                            context,
-                            R.color.warningBackground
-                    )
-                            : color(
-                            context,
-                            R.color.offlineBackground
-                    );
-
-            txtHistoryStatus.setText(
-                    warning
-                            ? R.string.history_status_warning
-                            : R.string.history_status_interrupted
-            );
-
-            txtHistoryStatus.setTextColor(
-                    statusColor
-            );
-
-            cardHistoryStatus.setCardBackgroundColor(
-                    backgroundColor
-            );
-
-            cardHistoryStatus.setStrokeColor(
-                    statusColor
-            );
-
-            cardHistoryItem.setStrokeColor(
-                    statusColor
-            );
+            txtHistoryStatus.setText(statusText);
+            txtHistoryStatus.setTextColor(color(context, statusColor));
+            cardHistoryStatus.setCardBackgroundColor(color(context, backgroundColor));
+            cardHistoryStatus.setStrokeColor(color(context, statusColor));
+            cardHistoryItem.setStrokeColor(color(context,
+                    outcome == WateringHistoryPresentation.Outcome.COMPLETED
+                    || outcome == WateringHistoryPresentation.Outcome.SIMULATED
+                            ? R.color.border : statusColor));
         }
 
 
@@ -656,6 +431,11 @@ public class WateringHistoryAdapter extends ListAdapter<
                 );
             }
 
+            if (safeSeconds >= 3600) {
+                return context.getString(R.string.duration_hours_minutes_format,
+                        safeSeconds / 3600, (safeSeconds % 3600) / 60);
+            }
+
             long minutes =
                     safeSeconds / 60;
 
@@ -673,98 +453,10 @@ public class WateringHistoryAdapter extends ListAdapter<
         /**
          * Backend durdurma nedenini kullanıcı dostu metne çevirir.
          */
-        private String formatStopReason(
-                Context context,
-                String stopReason
-        ) {
-
-            if (
-                    stopReason == null
-                            || stopReason.isBlank()
-            ) {
-
-                return context.getString(
-                        R.string.history_default_stop_reason
-                );
-            }
-
-            switch (
-                    stopReason.trim()
-                            .toUpperCase(Locale.ROOT)
-            ) {
-
-                case "COMPLETED":
-                case "DURATION_COMPLETED":
-                case "WATERING_COMPLETED":
-                    return context.getString(
-                            R.string.history_reason_completed
-                    );
-
-                case "MANUAL_STOP":
-                case "MANUAL":
-                case "USER_STOPPED":
-                    return context.getString(
-                            R.string.history_reason_manual_stop
-                    );
-
-                case "MOISTURE_REACHED":
-                case "TARGET_REACHED":
-                    return context.getString(
-                            R.string.history_reason_target_reached
-                    );
-
-                case "SYSTEM_DISABLED":
-                    return context.getString(
-                            R.string.history_reason_system_disabled
-                    );
-
-                case "DEVICE_OFFLINE":
-                    return context.getString(
-                            R.string.history_reason_device_offline
-                    );
-
-                case "SAFETY_TIMEOUT":
-                case "TIMEOUT":
-                    return context.getString(
-                            R.string.history_reason_timeout
-                    );
-
-                default:
-                    return stopReason
-                            .replace("_", " ");
-            }
+        private String formatStopReason(Context context, String stopReason) {
+            int resource = WateringHistoryPresentation.reasonResource(stopReason);
+            return resource == 0 ? stopReason.replace("_", " ") : context.getString(resource);
         }
-
-
-        /**
-         * Uyarı olarak gösterilmesi gereken nedenleri belirler.
-         */
-        private boolean isWarningReason(
-                String stopReason
-        ) {
-
-            if (stopReason == null) {
-                return false;
-            }
-
-            String normalizedReason =
-                    stopReason.trim()
-                            .toUpperCase(Locale.ROOT);
-
-            return normalizedReason.equals(
-                    "SAFETY_TIMEOUT"
-            )
-                    || normalizedReason.equals(
-                    "TIMEOUT"
-            )
-                    || normalizedReason.equals(
-                    "MOISTURE_REACHED"
-            )
-                    || normalizedReason.equals(
-                    "TARGET_REACHED"
-            );
-        }
-
 
         private int color(
                 Context context,

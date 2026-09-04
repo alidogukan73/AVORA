@@ -13,6 +13,7 @@ import com.alidogukan.avora.fertilization.FertilizerReminderScheduler;
 import com.alidogukan.avora.models.FertilizerProduct;
 import com.alidogukan.avora.models.GardenZone;
 import com.alidogukan.avora.notifications.NotificationSettingsStore;
+import com.alidogukan.avora.notifications.NotificationSignalScheduler;
 import com.google.android.gms.tasks.Task;
 import com.google.android.gms.tasks.Tasks;
 
@@ -43,7 +44,12 @@ public final class FertilizationSettingsViewModel extends AndroidViewModel {
         return notificationSettings.isCategoryEnabled(category);
     }
     public boolean applyNotificationBackup(Map<String, Object> values) {
-        return notificationSettings.applyBackup(values);
+        boolean applied = notificationSettings.applyBackup(values);
+        if (applied) {
+            FertilizerReminderScheduler.schedule(getApplication());
+            NotificationSignalScheduler.schedule(getApplication());
+        }
+        return applied;
     }
     public boolean applyPreferenceBackup(Map<String, Object> values) {
         return preferences.applyBackup(values);
@@ -62,10 +68,11 @@ public final class FertilizationSettingsViewModel extends AndroidViewModel {
         preferences.setPreferOrganicInputs(preferOrganic);
         notificationSettings.setCategoryEnabled("fertilization", reminders);
         notificationSettings.setCategoryEnabled("stock", stockWarnings);
+        FertilizerReminderScheduler.schedule(getApplication());
+        NotificationSignalScheduler.schedule(getApplication());
         return Tasks.whenAll(
                 repository.saveNotificationSettings(notificationSettings.snapshot()),
                 repository.savePreferences(preferences.snapshot())
-        ).addOnCompleteListener(unused ->
-                FertilizerReminderScheduler.schedule(getApplication()));
+        );
     }
 }

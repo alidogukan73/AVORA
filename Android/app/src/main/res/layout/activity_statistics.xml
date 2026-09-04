@@ -6,7 +6,7 @@
     android:id="@+id/statisticsRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:clipToPadding="false"
+    android:clipToPadding="true"
     android:fillViewport="true"
     android:overScrollMode="never"
     tools:ignore="TooManyViews">
@@ -70,6 +70,13 @@
                     android:text="@string/history_zone_all" />
             </com.google.android.material.chip.ChipGroup>
         </HorizontalScrollView>
+        <TextView
+            android:id="@+id/txtStatisticsDataState"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="@string/statistics_loading_records"
+            android:textAppearance="@style/TextAppearance.AVORA.Body" />
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -538,7 +545,8 @@
                         android:textAppearance="@style/TextAppearance.AVORA.Body" />
                     <TextView
                         android:id="@+id/txtLastStopReason"
-                        android:layout_width="wrap_content"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
                         android:layout_height="wrap_content"
                         android:gravity="end"
                         android:maxLines="2"
@@ -562,11 +570,13 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="@string/label_statistics_date"
+                        android:text="@string/statistics_last_watering_date"
                         android:textAppearance="@style/TextAppearance.AVORA.Body" />
                     <TextView
                         android:id="@+id/txtStatisticsDate"
-                        android:layout_width="wrap_content"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:gravity="end"
                         android:layout_height="wrap_content"
                         android:text="@string/symbol_minus"
                         android:textColor="@color/textPrimary"

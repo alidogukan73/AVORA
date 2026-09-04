@@ -21,7 +21,7 @@ import java.util.List;
 import java.util.Locale;
 
 /** Displays one durable AVORA notification and its read/saved state. */
-public class NotificationDetailActivity extends AppCompatActivity {
+public class NotificationDetailActivity extends EdgeToEdgeActivity {
 
     private static final String TYPE_IRRIGATION = "IRRIGATION";
     private static final String TYPE_FERTILIZATION = "FERTILIZATION";

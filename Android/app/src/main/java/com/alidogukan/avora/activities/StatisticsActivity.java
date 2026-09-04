@@ -1,10 +1,16 @@
 package com.alidogukan.avora.activities;
 
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.widget.TextView;
-import android.widget.Toast;
 
+
+import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.core.content.ContextCompat;
 import androidx.lifecycle.ViewModelProvider;
 
@@ -13,26 +19,35 @@ import com.alidogukan.avora.models.Statistics;
 import com.alidogukan.avora.models.WateringHistory;
 import com.alidogukan.avora.viewmodels.StatisticsViewModel;
 import com.alidogukan.avora.zones.ZoneChipRenderer;
-import com.alidogukan.avora.viewmodels.WateringHistoryViewModel;
+import com.alidogukan.avora.statistics.StatisticsCalculator;
 
 import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.chip.ChipGroup;
 
-import java.text.SimpleDateFormat;
-import java.util.Collections;
-import java.util.Date;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
 
 public class StatisticsActivity extends AppCompatActivity {
 
     private StatisticsViewModel viewModel;
-    private WateringHistoryViewModel historyViewModel;
-    private Statistics globalStatistics;
-    private List<WateringHistory> wateringHistory =
-            Collections.emptyList();
+    private List<WateringHistory> wateringHistory;
     private String selectedZoneId = "";
+    private static final String STATE_ZONE = "statistics.selected_zone";
+    private TextView txtStatisticsDataState;
+    private String readError;
+    private LocalDate renderedDay;
+    private final Handler dateHandler = new Handler(Looper.getMainLooper());
+    private final Runnable dateRefresh = new Runnable() {
+        @Override public void run() {
+            if (!LocalDate.now().equals(renderedDay)) renderSelectedStatistics();
+            dateHandler.postDelayed(this, 60_000L);
+        }
+    };
 
     // Sulama özeti
     private TextView txtTodayWaterings;
@@ -73,7 +88,15 @@ public class StatisticsActivity extends AppCompatActivity {
 
         super.onCreate(savedInstanceState);
 
+        EdgeToEdge.enable(this);
         setContentView(R.layout.activity_statistics);
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.statisticsRoot), (view, insets) -> {
+            Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars()
+                    | WindowInsetsCompat.Type.displayCutout());
+            view.setPadding(bars.left, bars.top, bars.right, bars.bottom);
+            return insets;
+        });
+        if (savedInstanceState != null) selectedZoneId = savedInstanceState.getString(STATE_ZONE, "");
 
         getOnBackPressedDispatcher().addCallback(
                 this,
@@ -90,6 +113,24 @@ public class StatisticsActivity extends AppCompatActivity {
         initializeViewModel();
         observeViewModel();
         initializeActions();
+        renderSelectedStatistics();
+    }
+
+    @Override protected void onSaveInstanceState(Bundle state) {
+        state.putString(STATE_ZONE, selectedZoneId);
+        super.onSaveInstanceState(state);
+    }
+
+    @Override protected void onResume() {
+        super.onResume();
+        renderSelectedStatistics();
+        dateHandler.removeCallbacks(dateRefresh);
+        dateHandler.postDelayed(dateRefresh, 60_000L);
+    }
+
+    @Override protected void onPause() {
+        dateHandler.removeCallbacks(dateRefresh);
+        super.onPause();
     }
 
 
@@ -104,6 +145,8 @@ public class StatisticsActivity extends AppCompatActivity {
         );
         chipGroupStatisticZones =
                 findViewById(R.id.chipGroupStatisticZones);
+
+        txtStatisticsDataState = findViewById(R.id.txtStatisticsDataState);
 
         // Sulama özeti
         txtTodayWaterings =
@@ -171,8 +214,7 @@ public class StatisticsActivity extends AppCompatActivity {
 
         viewModel = new ViewModelProvider(this)
                 .get(StatisticsViewModel.class);
-        historyViewModel = new ViewModelProvider(this)
-                .get(WateringHistoryViewModel.class);
+
     }
 
 
@@ -180,43 +222,14 @@ public class StatisticsActivity extends AppCompatActivity {
      * Statistics ve hata LiveData değerlerini gözlemler.
      */
     private void observeViewModel() {
-
-        viewModel.getStatistics().observe(
-                this,
-                statistics -> {
-                    globalStatistics = statistics;
-                    renderSelectedStatistics();
-                }
-        );
-
-        historyViewModel.getHistory().observe(
-                this,
-                history -> {
-                    wateringHistory = history != null
-                            ? history
-                            : Collections.emptyList();
-                    renderSelectedStatistics();
-                }
-        );
-
-        viewModel.getError().observe(
-                this,
-                message -> {
-
-                    if (
-                            message == null
-                                    || message.isBlank()
-                    ) {
-                        return;
-                    }
-
-                    Toast.makeText(
-                            this,
-                            message,
-                            Toast.LENGTH_LONG
-                    ).show();
-                }
-        );
+        viewModel.getHistory().observe(this, history -> {
+            wateringHistory = history;
+            renderSelectedStatistics();
+        });
+        viewModel.getError().observe(this, message -> {
+            readError = message;
+            renderSelectedStatistics();
+        });
     }
 
 
@@ -346,12 +359,7 @@ public class StatisticsActivity extends AppCompatActivity {
         int neutralColor =
                 color(R.color.textSecondary);
 
-        txtSuccessRate.setText(
-                getString(
-                        R.string.percentage_format,
-                        0
-                )
-        );
+        txtSuccessRate.setText("—");
         txtSuccessRate.setTextColor(
                 neutralColor
         );
@@ -418,6 +426,13 @@ public class StatisticsActivity extends AppCompatActivity {
      * Nem öncesi, sonrası ve değişimini gösterir.
      */
     private void renderMoistureChange(Statistics statistics) {
+        if (!statistics.hasMoistureReadings()) {
+            txtBeforeMoisture.setText("—");
+            txtAfterMoisture.setText("—");
+            txtMoistureChange.setText("—");
+            updateMoistureDeltaUi(0);
+            return;
+        }
 
         long beforeMoisture =
                 statistics.getBeforeMoisture();
@@ -540,13 +555,14 @@ public class StatisticsActivity extends AppCompatActivity {
                         || statisticsDate.isBlank()
         ) {
 
-            txtStatisticsDate.setText("-");
+            txtStatisticsDate.setText("—");
 
         } else {
 
-            txtStatisticsDate.setText(
-                    statisticsDate
-            );
+            long timestamp = StatisticsCalculator.timestamp(statisticsDate, ZoneId.systemDefault());
+            txtStatisticsDate.setText(timestamp <= 0 ? "—" : DateTimeFormatter
+                    .ofPattern("dd.MM.yyyy HH:mm", Locale.getDefault())
+                    .format(Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault())));
         }
     }
 
@@ -576,6 +592,21 @@ public class StatisticsActivity extends AppCompatActivity {
             case "moisture_reached":
             case "target_reached":
                 return getString(R.string.history_reason_target_reached);
+
+            case "manual_mode":
+                return getString(R.string.statistics_reason_manual_mode);
+
+            case "error":
+                return getString(R.string.statistics_reason_error);
+
+            case "valve_simulation":
+                return getString(R.string.statistics_reason_simulation);
+
+            case "shared_pump_busy":
+                return getString(R.string.statistics_reason_pump_busy);
+
+            case "zero_duration":
+                return getString(R.string.statistics_reason_zero_duration);
 
             case "system_disabled":
                 return getString(R.string.history_reason_system_disabled);
@@ -650,131 +681,38 @@ public class StatisticsActivity extends AppCompatActivity {
 
 
     private void initializeActions() {
-
-        btnBack.setOnClickListener(
-                view -> finish()
-        );
-
-        viewModel.getZones().observe(this, zones ->
-                ZoneChipRenderer.render(
-                        this,
-                        chipGroupStatisticZones,
-                        zones,
-                        selectedZoneId,
-                        R.string.history_zone_all,
-                        zoneId -> {
-                            selectedZoneId = zoneId;
-                            renderSelectedStatistics();
-                        }
-                )
-        );
+        btnBack.setOnClickListener(view -> finish());
+        viewModel.getZones().observe(this, zones -> {
+            selectedZoneId = StatisticsCalculator.resolveSelectedZone(selectedZoneId, zones);
+            ZoneChipRenderer.render(this, chipGroupStatisticZones, zones, selectedZoneId,
+                    R.string.history_zone_all, zoneId -> {
+                        selectedZoneId = zoneId;
+                        renderSelectedStatistics();
+                    });
+            renderSelectedStatistics();
+        });
     }
-
 
     private void renderSelectedStatistics() {
-
-        if (selectedZoneId.isEmpty()) {
-            renderStatistics(globalStatistics);
-            return;
+        if (txtTodayWaterings == null) return;
+        renderedDay = LocalDate.now();
+        Statistics statistics = StatisticsCalculator.calculate(wateringHistory, selectedZoneId,
+                System.currentTimeMillis(), ZoneId.systemDefault());
+        renderStatistics(statistics);
+        if (statistics.getStatisticsDate().isBlank()) txtLastWateringDuration.setText("—");
+        if (wateringHistory == null) {
+            txtTodayWaterings.setText("—");
+            txtTotalWaterings.setText("—");
+            txtCompletedWaterings.setText("—");
+            txtInterruptedWaterings.setText("—");
+            txtAverageDuration.setText("—");
+            txtTotalWateringDuration.setText("—");
         }
-
-        renderStatistics(
-                buildZoneStatistics(selectedZoneId)
-        );
+        boolean failed = readError != null && !readError.isBlank();
+        txtStatisticsDataState.setText(failed ? readError : getString(
+                wateringHistory == null ? R.string.statistics_loading_records
+                : statistics.getTotalWaterings() == 0 ? R.string.statistics_no_records
+                : R.string.statistics_record_scope));
+        txtStatisticsDataState.setTextColor(color(failed ? R.color.warning : R.color.textSecondary));
     }
-
-
-    private Statistics buildZoneStatistics(String zoneId) {
-
-        Statistics result = new Statistics();
-        long completed = 0L;
-        long totalDuration = 0L;
-        long todayCount = 0L;
-        long recordCount = 0L;
-        WateringHistory latest = null;
-
-        String today = new SimpleDateFormat(
-                "yyyy-MM-dd",
-                Locale.getDefault()
-        ).format(new Date());
-
-        for (WateringHistory item : wateringHistory) {
-
-            if (!zoneId.equals(item.getZoneId())) {
-                continue;
-            }
-
-            if (latest == null) {
-                latest = item;
-            }
-
-            recordCount++;
-            totalDuration += Math.max(
-                    0L,
-                    item.getDuration()
-            );
-
-            if (item.isCompleted()) {
-                completed++;
-            }
-
-            if (
-                    item.getStartedAt() != null
-                            && item.getStartedAt().startsWith(today)
-            ) {
-                todayCount++;
-            }
-        }
-
-        result.setTotalWaterings(recordCount);
-        result.setWateringsToday(todayCount);
-        result.setCompletedWaterings(completed);
-        result.setInterruptedWaterings(
-                recordCount - completed
-        );
-        result.setTotalWateringSeconds(totalDuration);
-        result.setAverageDuration(
-                recordCount == 0L
-                        ? 0L
-                        : totalDuration / recordCount
-        );
-        result.setSuccessRate(
-                recordCount == 0L
-                        ? 0L
-                        : Math.round(
-                                completed * 100.0 / recordCount
-                        )
-        );
-
-        if (latest != null) {
-            result.setLastWateringDuration(
-                    latest.getDuration()
-            );
-            result.setBeforeMoisture(
-                    latest.getMoistureBefore()
-            );
-            result.setAfterMoisture(
-                    latest.getMoistureAfter()
-            );
-            result.setMoistureDelta(
-                    latest.getMoistureDelta()
-            );
-            result.setLastStopReason(
-                    latest.getStopReason()
-            );
-
-            String finishedAt =
-                    latest.getFinishedAt();
-            result.setStatisticsDate(
-                    finishedAt == null
-                            || finishedAt.isBlank()
-                            ? latest.getStartedAt()
-                            : finishedAt
-            );
-        }
-
-        return result;
-    }
-
-
 }

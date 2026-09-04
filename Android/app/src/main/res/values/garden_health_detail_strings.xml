@@ -2,5 +2,13 @@
 <resources>
     <string name="garden_health_detail_screen_title">Bahçe Sağlık Detayı</string>
     <string name="garden_health_detail_screen_subtitle">Bölgelere göre açıklanabilir sağlık değerlendirmesi</string>
-    <string name="garden_health_detail_zones_hint">Bir bölgeye dokunarak ayrıntılarına ve ayarlarına gidin.</string>
+    <string name="garden_health_detail_zones_hint">Bir bölgeye dokunarak uyarının ilgili bölümünü açın.</string>
+    <string name="garden_health_issue_deduction">%1$s (−%2$d puan)</string>
+    <string name="garden_health_issue_dialog_title">%1$s · Hangi uyarıyı açmak istersiniz?</string>
+    <string name="garden_health_choose_issue">Uyarılardan birini seçin ›</string>
+    <string name="garden_health_open_journal">Bitki günlüğünü aç ›</string>
+    <string name="garden_health_open_assistant">Bitki Asistanı’nı aç ›</string>
+    <string name="garden_health_open_fertilization">Gübreleme kaydını aç ›</string>
+    <string name="garden_health_open_sensor">Bölgenin sensör ayarlarını aç ›</string>
+    <string name="garden_health_open_irrigation">Bölgenin sulama ayarlarını aç ›</string>
 </resources>

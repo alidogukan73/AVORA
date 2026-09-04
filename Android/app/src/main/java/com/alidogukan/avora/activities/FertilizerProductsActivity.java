@@ -30,7 +30,7 @@ import com.google.android.material.textfield.TextInputEditText;
 import java.text.NumberFormat;
 import java.util.List;
 
-public class FertilizerProductsActivity extends AppCompatActivity {
+public class FertilizerProductsActivity extends EdgeToEdgeActivity {
 
     private static final String[] FUNCTION_TAG_CODES = {
             "",

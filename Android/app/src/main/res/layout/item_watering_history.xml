@@ -54,7 +54,8 @@
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/cardHistoryStatus"
                 android:layout_width="wrap_content"
-                android:layout_height="32dp"
+                android:layout_height="wrap_content"
+                android:minHeight="32dp"
                 app:cardBackgroundColor="@color/onlineBackground"
                 app:cardCornerRadius="16dp"
                 app:cardElevation="0dp"
@@ -63,7 +64,10 @@
                 <TextView
                     android:id="@+id/txtHistoryStatus"
                     android:layout_width="wrap_content"
-                    android:layout_height="match_parent"
+                    android:layout_height="wrap_content"
+                    android:maxWidth="140dp"
+                    android:paddingTop="8dp"
+                    android:paddingBottom="8dp"
                     android:gravity="center"
                     android:paddingStart="11dp"
                     android:paddingEnd="11dp"
@@ -164,7 +168,7 @@
                     android:id="@+id/txtHistoryMoistureBefore"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/history_default_percentage"
+                    android:text="@string/history_unknown_value"
                     android:textColor="@color/textPrimary"
                     android:textSize="20sp"
                     android:textStyle="bold" />
@@ -225,7 +229,7 @@
                         android:id="@+id/txtHistoryMoistureDelta"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="@string/history_default_signed_percentage"
+                        android:text="@string/history_unknown_value"
                         android:textColor="@color/textSecondary"
                         android:textSize="17sp"
                         android:textStyle="bold" />
@@ -251,8 +255,9 @@
             android:gravity="center_vertical"
             android:orientation="horizontal">
             <TextView
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_weight="1"
                 android:text="@string/history_label_stop_reason"
                 android:textAppearance="@style/TextAppearance.AVORA.Body" />
             <TextView
@@ -262,7 +267,6 @@
                 android:layout_marginStart="12dp"
                 android:layout_weight="1"
                 android:gravity="end"
-                android:maxLines="2"
                 android:text="@string/history_default_stop_reason"
                 android:textColor="@color/textPrimary"
                 android:textSize="12sp"

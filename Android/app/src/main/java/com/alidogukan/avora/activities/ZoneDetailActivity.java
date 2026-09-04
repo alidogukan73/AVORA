@@ -23,9 +23,12 @@ import com.google.android.material.materialswitch.MaterialSwitch;
 import com.google.android.material.slider.Slider;
 import com.google.android.material.textfield.TextInputEditText;
 
-public class ZoneDetailActivity extends AppCompatActivity {
+public class ZoneDetailActivity extends EdgeToEdgeActivity {
 
     public static final String EXTRA_ZONE_ID = "zone_id";
+    public static final String EXTRA_INITIAL_SECTION = "zone_detail.initial_section";
+    public static final String SECTION_SENSOR = "sensor";
+    public static final String SECTION_IRRIGATION = "irrigation";
 
     private ZoneDetailViewModel viewModel;
 
@@ -78,6 +81,15 @@ public class ZoneDetailActivity extends AppCompatActivity {
 
         bindViews();
         bindActions(zoneId);
+        if (savedInstanceState == null) {
+            String section = getIntent().getStringExtra(EXTRA_INITIAL_SECTION);
+            View sectionView = SECTION_SENSOR.equals(section) ? sensorEnabled
+                    : SECTION_IRRIGATION.equals(section) ? irrigationEnabled : null;
+            if (sectionView != null) {
+                sectionView.post(() -> sectionView.requestRectangleOnScreen(
+                        new android.graphics.Rect(0, 0, sectionView.getWidth(), sectionView.getHeight()), true));
+            }
+        }
         viewModel = new ViewModelProvider(this).get(ZoneDetailViewModel.class);
         viewModel.initialize(zoneId);
 

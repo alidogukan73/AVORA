@@ -21,6 +21,8 @@ import androidx.core.content.ContextCompat;
 import androidx.lifecycle.ViewModelProvider;
 
 import com.alidogukan.avora.R;
+import com.alidogukan.avora.BuildConfig;
+import com.alidogukan.avora.security.AppCheckVerificationException;
 import com.alidogukan.avora.models.GardenSeason;
 import com.alidogukan.avora.models.GardenZone;
 import com.alidogukan.avora.models.WeatherForecast;
@@ -44,7 +46,7 @@ import java.util.Map;
 import org.json.JSONObject;
 
 /** AI Bitki Asistanı: fotoğraf, belirtiler, sensör ve hava bağlamıyla güvenli ön değerlendirme. */
-public class PlantAssistantActivity extends AppCompatActivity {
+public class PlantAssistantActivity extends EdgeToEdgeActivity {
     private static final String LOG_TAG = "AVORA-PlantAssistant";
     private PlantAssistantViewModel viewModel;
     private final Map<String, PlantSelection> plants = new HashMap<>();
@@ -254,6 +256,8 @@ public class PlantAssistantActivity extends AppCompatActivity {
                 ? getString(R.string.runtime_no_active_season_zones)
                 : null);
         zoneDropdown.setOnItemClickListener((parent, view, position, id) -> {
+            requestedZoneId = "";
+            requestedSeasonId = "";
             resultCard.setVisibility(View.GONE);
             renderLiveData(selectedZone());
         });
@@ -307,6 +311,7 @@ public class PlantAssistantActivity extends AppCompatActivity {
         GardenZone zone = selectedZone();
         viewModel.saveRecommendation(
                 zone == null ? "" : zone.getZone_id(),
+                selectedSeasonId(),
                 result.getUrgency(),
                 result.getTitle(),
                 result.getAdvice()
@@ -338,9 +343,26 @@ public class PlantAssistantActivity extends AppCompatActivity {
         String detail = error.getMessage();
         if (detail == null || detail.isBlank()) detail = error.getClass().getSimpleName();
         Log.e(LOG_TAG, "Plant vision analysis failed: " + detail, error);
-        title.setText(getString(R.string.runtime_visual_ai_unavailable, detail));
-        meta.setText("");
-        advice.setText(R.string.runtime_visual_ai_retry);
+        if (AppCheckVerificationException.isAppCheckFailure(error)) {
+            title.setText(R.string.runtime_visual_ai_app_check_title);
+            meta.setText(getString(R.string.runtime_visual_ai_app_check_meta,
+                    BuildConfig.VERSION_NAME + " / " + BuildConfig.BUILD_TYPE));
+            advice.setText("release".equals(BuildConfig.BUILD_TYPE)
+                    ? R.string.runtime_visual_ai_app_check_release
+                    : R.string.runtime_visual_ai_app_check_test);
+        } else if ("VISION_API_KEY_INVALID".equals(detail)) {
+            title.setText(R.string.runtime_visual_ai_key_invalid);
+            meta.setText("VISION_API_KEY_INVALID");
+            advice.setText(R.string.runtime_visual_ai_key_invalid_advice);
+        } else if (detail.startsWith("VISION_PROVIDER_ERROR:")) {
+            title.setText(R.string.runtime_visual_ai_provider_failed);
+            meta.setText(detail);
+            advice.setText(R.string.runtime_visual_ai_provider_advice);
+        } else {
+            title.setText(getString(R.string.runtime_visual_ai_unavailable, detail));
+            meta.setText("");
+            advice.setText(R.string.runtime_visual_ai_retry);
+        }
         resultCard.setVisibility(View.VISIBLE);
         applyPendingAnalysis();
     }
@@ -366,6 +388,7 @@ public class PlantAssistantActivity extends AppCompatActivity {
         String redFlags = viewModel.list(visual.optJSONArray("red_flags"));
         viewModel.saveRecommendation(
                 selectedZone() == null ? "" : selectedZone().getZone_id(),
+                selectedSeasonId(),
                 visual.optString("urgency", getString(R.string.runtime_urgency_low)),
                 visual.optString("title", getString(R.string.runtime_visual_preassessment)),
                 steps.isEmpty() ? findings : steps

@@ -2,6 +2,8 @@ package com.alidogukan.avora.notifications;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+
+import com.alidogukan.avora.settings.SettingsSyncPolicy;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Map;
@@ -47,16 +49,19 @@ public final class NotificationSettingsStore {
     }
 
     public int quietStartHour() {
-        return prefs.getInt("quiet_start", 22);
+        return SettingsSyncPolicy.validHour(prefs.getInt("quiet_start", 22), 22);
     }
 
     public int quietEndHour() {
-        return prefs.getInt("quiet_end", 7);
+        return SettingsSyncPolicy.validHour(prefs.getInt("quiet_end", 7), 7);
     }
 
     public void setQuietHours(int startHour, int endHour) {
-        prefs.edit().putInt("quiet_start", startHour).putInt("quiet_end", endHour)
-                .putLong("updated_at", System.currentTimeMillis()).apply();
+        prefs.edit()
+                .putInt("quiet_start", SettingsSyncPolicy.validHour(startHour, 22))
+                .putInt("quiet_end", SettingsSyncPolicy.validHour(endHour, 7))
+                .putLong("updated_at", System.currentTimeMillis())
+                .apply();
     }
 
     public Map<String, Object> snapshot() {
@@ -78,7 +83,10 @@ public final class NotificationSettingsStore {
     public boolean applyBackup(Map<String, Object> values) {
         if (values == null || values.isEmpty()) return false;
         long remoteUpdated = number(values.get("updated_at"));
-        if (remoteUpdated <= 0L || remoteUpdated < prefs.getLong("updated_at", 0L)) return false;
+        if (!SettingsSyncPolicy.isCloudValueNewer(
+                remoteUpdated, prefs.getLong("updated_at", 0L))) {
+            return false;
+        }
         SharedPreferences.Editor editor = prefs.edit();
         for (String category : CATEGORIES) {
             editor.putBoolean("category_" + category,
@@ -89,8 +97,10 @@ public final class NotificationSettingsStore {
                     bool(values.get("reminder_" + reminder), true));
         }
         editor.putBoolean("quiet_enabled", bool(values.get("quiet_enabled"), false));
-        editor.putInt("quiet_start", (int) numberOr(values.get("quiet_start"), 22L));
-        editor.putInt("quiet_end", (int) numberOr(values.get("quiet_end"), 7L));
+        editor.putInt("quiet_start", SettingsSyncPolicy.validHour(
+                numberOr(values.get("quiet_start"), 22L), 22));
+        editor.putInt("quiet_end", SettingsSyncPolicy.validHour(
+                numberOr(values.get("quiet_end"), 7L), 7));
         editor.putLong("updated_at", remoteUpdated).apply();
         return true;
     }

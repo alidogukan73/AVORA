@@ -20,7 +20,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
 
-public class WeatherForecastActivity extends AppCompatActivity {
+public class WeatherForecastActivity extends EdgeToEdgeActivity {
     private TextView location, deviceLocation, temp, condition, details, humidity, wind, rain, pressure, advice;
     private ImageView icon;
     private LinearLayout days, insights;

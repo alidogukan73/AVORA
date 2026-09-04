@@ -24,6 +24,7 @@
             android:paddingBottom="88dp">
 
             <include layout="@layout/view_ai_assistant_header" />
+            <include layout="@layout/view_ai_assistant_intro_card" />
             <include layout="@layout/view_ai_zone_summary" />
             <include layout="@layout/view_ai_daily_decision" />
             <include layout="@layout/view_ai_next_step" />

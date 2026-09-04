@@ -86,10 +86,10 @@ public class SensorCalibrationWizardActivity extends AppCompatActivity {
         applyWindowInsets();
         bindViews();
         configureToolbar();
+        viewModel = new ViewModelProvider(this).get(SensorCalibrationViewModel.class);
         restoreState(state);
         configureActions();
         configureBackHandling();
-        viewModel = new ViewModelProvider(this).get(SensorCalibrationViewModel.class);
         viewModel.getZones().observe(this, this::renderZones);
         renderWizardState();
     }
@@ -514,7 +514,7 @@ public class SensorCalibrationWizardActivity extends AppCompatActivity {
                 findViewById(R.id.calibrationWizardRoot),
                 (view, insets) -> {
                     Insets bars = insets.getInsets(
-                            WindowInsetsCompat.Type.systemBars());
+                            WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
                     view.setPadding(bars.left, bars.top, bars.right, bars.bottom);
                     return insets;
                 });

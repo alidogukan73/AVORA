@@ -47,7 +47,7 @@ import java.util.Locale;
 import java.util.Objects;
 
 public class FertilizationZoneDetailActivity
-        extends AppCompatActivity {
+        extends EdgeToEdgeActivity {
 
     public static final String EXTRA_ZONE_ID = "zone_id";
 

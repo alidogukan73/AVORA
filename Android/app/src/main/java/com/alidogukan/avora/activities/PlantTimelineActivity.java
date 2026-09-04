@@ -43,7 +43,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 
 /** Per-plant season timeline. It combines manual notes and archived analysis photos. */
-public class PlantTimelineActivity extends AppCompatActivity {
+public class PlantTimelineActivity extends EdgeToEdgeActivity {
     public static final String EXTRA_ZONE_ID = "zone_id";
     public static final String EXTRA_SEASON_ID = "season_id";
     public static final String EXTRA_INITIAL_TAB = "initial_tab";

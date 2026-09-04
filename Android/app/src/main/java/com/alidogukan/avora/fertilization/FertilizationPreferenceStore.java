@@ -3,6 +3,8 @@ package com.alidogukan.avora.fertilization;
 import android.content.Context;
 import android.content.SharedPreferences;
 
+import com.alidogukan.avora.settings.SettingsSyncPolicy;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -39,8 +41,8 @@ public final class FertilizationPreferenceStore {
         Object remoteTimeValue = values.get("updated_at");
         long remoteTime = remoteTimeValue instanceof Number
                 ? ((Number) remoteTimeValue).longValue() : 0L;
-        if (remoteTime <= 0L
-                || remoteTime < preferences.getLong("updated_at", 0L)) {
+        if (!SettingsSyncPolicy.isCloudValueNewer(
+                remoteTime, preferences.getLong("updated_at", 0L))) {
             return false;
         }
         Object enabledValue = values.get(PREFER_ORGANIC_INPUTS);

@@ -38,7 +38,7 @@ import java.util.List;
 import java.util.Locale;
 
 /** Detail view for one live plant-journal timeline record. */
-public class JournalRecordDetailActivity extends AppCompatActivity {
+public class JournalRecordDetailActivity extends EdgeToEdgeActivity {
     private PlantJournalViewModel viewModel;
     private String manualEventId = "", manualEventType = "", zoneId = "", seasonId = "", currentDetail = "";
     private String selectedPhotoPath = "", selectedAdvice = "", photoGroupId = "";

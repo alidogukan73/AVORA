@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="statistics_loading_records">Sulama kayıtları yükleniyor…</string>
+    <string name="statistics_no_records">Bu seçimde kayıtlı sulama yok.</string>
+    <string name="statistics_record_scope">Kayıtlı tüm sezonlar · Bugünkü sayım, sulamanın başlangıç tarihine göredir.</string>
+    <string name="statistics_last_watering_date">Son sulama tarihi</string>
+    <string name="statistics_reason_manual_mode">Manuel moda geçildi</string>
+    <string name="statistics_reason_error">Sulama sırasında hata oluştu</string>
+    <string name="statistics_reason_simulation">Vana simülasyonu; sulama yapılmadı</string>
+    <string name="statistics_reason_pump_busy">Pompa başka bir bölgede kullanılıyor</string>
+    <string name="statistics_reason_zero_duration">Sulama süresi sıfır</string>
+</resources>

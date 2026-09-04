@@ -55,10 +55,10 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="18dp"
-                app:cardBackgroundColor="@color/surfaceGreen"
+                app:cardBackgroundColor="@color/aiPlantSurface"
                 app:cardCornerRadius="12dp"
                 app:cardElevation="1dp"
-                app:strokeColor="@color/border"
+                app:strokeColor="@color/aiPlantBorder"
                 app:strokeWidth="1dp">
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -68,9 +68,9 @@
                     <ImageView
                         android:layout_width="62dp"
                         android:layout_height="100dp"
-                        android:contentDescription="@string/ai_tech_badge"
-                        android:scaleType="centerCrop"
-                        android:src="@drawable/ic_plant_assistant_badge" />
+                        android:contentDescription="@string/fertilization_zone_assistant_action"
+                        android:scaleType="fitCenter"
+                        android:src="@drawable/img_plant_assistant_robot" />
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
@@ -81,7 +81,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/fertilization_zone_assistant_action"
-                            android:textColor="@color/textPrimary"
+                            android:textColor="@color/aiPlantAccent"
                             android:textSize="14sp"
                             android:textStyle="bold" />
                         <TextView
@@ -137,6 +137,7 @@
                         android:layout_height="18dp"
                         android:layout_marginStart="5dp"
                         android:contentDescription="@string/info_description"
+                        app:tint="@color/aiPlantAccent"
                         android:src="@drawable/ic_info_outline_20" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>

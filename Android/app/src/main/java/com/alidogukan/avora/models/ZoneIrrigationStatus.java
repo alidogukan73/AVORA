@@ -10,7 +10,7 @@ public class ZoneIrrigationStatus {
     private int queue_position;
     private boolean selected_for_watering;
     private boolean watering_active;
-    private boolean sensor_stable;
+    private Boolean sensor_stable;
     private int moisture_deficit;
     private Boolean hardware_ready;
     private int completed_watering_cycles;
@@ -90,10 +90,14 @@ public class ZoneIrrigationStatus {
     }
 
     public boolean isSensor_stable() {
-        return sensor_stable;
+        return Boolean.TRUE.equals(sensor_stable);
     }
 
-    public void setSensor_stable(boolean sensorStable) {
+    public boolean hasSensor_stable() {
+        return sensor_stable != null;
+    }
+
+    public void setSensor_stable(Boolean sensorStable) {
         this.sensor_stable = sensorStable;
     }
 

@@ -117,7 +117,7 @@ public class IrrigationSettingsActivity extends AppCompatActivity {
         ViewCompat.setOnApplyWindowInsetsListener(
                 findViewById(R.id.settingsScreenRoot),
                 (view, insets) -> {
-                    Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+                    Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
                     view.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
                     return insets;
                 }

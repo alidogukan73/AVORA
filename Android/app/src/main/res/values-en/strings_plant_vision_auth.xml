@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="runtime_visual_ai_app_check_title">App verification failed for visual analysis</string>
+    <string name="runtime_visual_ai_app_check_meta">Version: %1$s · Firebase App Check</string>
+    <string name="runtime_visual_ai_app_check_release">App verification could not complete. Check internet access. Use the internal build on an emulator; on a physical phone, the app signature and Play Integrity verification need to be checked.</string>
+    <string name="runtime_visual_ai_app_check_test">Check internet access and the Firebase App Check device registration for this test installation. Do not uninstall the app or clear its data.</string>
+    <string name="runtime_visual_ai_key_invalid">The visual analysis service API key is invalid</string>
+    <string name="runtime_visual_ai_key_invalid_advice">Update the Gemini API key on the Raspberry Pi with a valid key. Do not enter the key in the app or in chat. This is not a Tailscale connection error.</string>
+    <string name="runtime_visual_ai_provider_failed">The visual analysis provider rejected the request</string>
+    <string name="runtime_visual_ai_provider_advice">The Raspberry Pi service was reached, but the AI provider returned an error. Check the server API key, model and quota settings.</string>
+</resources>

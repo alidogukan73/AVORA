@@ -28,8 +28,8 @@ android {
         applicationId = "com.alidogukan.avora"
         minSdk = 26
         targetSdk = 36
-        versionCode = 40
-        versionName = "3.0.7"
+        versionCode = 42
+        versionName = "3.4.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -53,10 +53,12 @@ android {
         getByName("debug") {
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
+            isDefault = false
         }
         release {
             signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
+            isDefault = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -68,6 +70,7 @@ android {
             isDebuggable = true
             versionNameSuffix = "-internal"
             matchingFallbacks += listOf("release")
+            isDefault = false
         }
     }
     compileOptions {

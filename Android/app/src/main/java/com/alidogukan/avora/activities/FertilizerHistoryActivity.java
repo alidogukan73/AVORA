@@ -41,7 +41,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
-public class FertilizerHistoryActivity extends AppCompatActivity {
+public class FertilizerHistoryActivity extends EdgeToEdgeActivity {
 
     private FertilizerHistoryViewModel viewModel;
     private final FertilizerHistoryAdapter adapter =

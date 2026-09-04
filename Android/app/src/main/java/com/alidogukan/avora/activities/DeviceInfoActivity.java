@@ -10,6 +10,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.AppCompatImageView;
@@ -42,6 +43,15 @@ import java.util.Locale;
 
 /** Read-only device identity, connection and installed hardware overview. */
 public class DeviceInfoActivity extends AppCompatActivity {
+    private static final String STATE_LOCAL_REQUEST_PENDING = "network_local_request_pending";
+    private static final String STATE_PENDING_REQUEST_ID = "network_pending_request_id";
+    private static final String STATE_PENDING_MODE = "network_pending_mode";
+    private static final String STATE_PENDING_IP = "network_pending_ip";
+    private static final String STATE_AWAITING_REFRESH = "network_awaiting_refresh";
+    private static final String STATE_COMPLETED_REQUEST_ID = "network_completed_request_id";
+    private static final String STATE_EXPECTED_MODE = "network_expected_mode";
+    private static final String STATE_EXPECTED_IP = "network_expected_ip";
+
     private TextView connectionStatus;
     private TextView connectionSummary;
     private TextView backendVersion;
@@ -83,6 +93,7 @@ public class DeviceInfoActivity extends AppCompatActivity {
     private String completedNetworkRequestId = "";
     private String expectedNetworkMode = "";
     private String expectedNetworkIp = "";
+    private String boundNetworkSignature = "";
 
     @Override
     protected void onCreate(@Nullable Bundle state) {
@@ -91,6 +102,7 @@ public class DeviceInfoActivity extends AppCompatActivity {
         setContentView(R.layout.activity_device_info);
         applyWindowInsets();
         bindViews();
+        restoreNetworkOperationState(state);
         configureToolbar();
         configureLinks();
         configureNetworkEditor();
@@ -282,13 +294,16 @@ public class DeviceInfoActivity extends AppCompatActivity {
         networkSupport.setTextColor(ContextCompat.getColor(this,
                 value.connected && supported ? R.color.textSecondary : R.color.warning));
 
-        if (!networkFieldsInitialized) {
+        boolean hasLocalPendingRequest = localNetworkRequestPending
+                && isMeaningful(pendingNetworkRequestId);
+        String currentSignature = networkSignature(network);
+        if (!networkFieldsInitialized
+                || (!hasLocalPendingRequest
+                    && !awaitingNetworkStatusRefresh
+                    && !currentSignature.equals(boundNetworkSignature))) {
             bindNetworkFields(network);
             networkFieldsInitialized = true;
         }
-
-        boolean hasLocalPendingRequest = localNetworkRequestPending
-                && isMeaningful(pendingNetworkRequestId);
         boolean recentRemoteProgress = result != null && result.isInProgress()
                 && result.getUpdatedAtEpoch() > 0L
                 && Math.abs(System.currentTimeMillis() / 1000L
@@ -350,6 +365,7 @@ public class DeviceInfoActivity extends AppCompatActivity {
         networkGateway.setText(network.getGateway());
         networkPrimaryDns.setText(network.getPrimaryDns());
         networkSecondaryDns.setText(network.getSecondaryDns());
+        boundNetworkSignature = networkSignature(network);
         bindingNetwork = false;
         renderNetworkMode();
     }
@@ -510,6 +526,46 @@ public class DeviceInfoActivity extends AppCompatActivity {
         }
     }
 
+    private void restoreNetworkOperationState(@Nullable Bundle state) {
+        if (state == null) return;
+        localNetworkRequestPending = state.getBoolean(STATE_LOCAL_REQUEST_PENDING, false);
+        pendingNetworkRequestId = safeStateValue(state.getString(STATE_PENDING_REQUEST_ID));
+        pendingNetworkMode = safeStateValue(state.getString(STATE_PENDING_MODE));
+        pendingNetworkIp = safeStateValue(state.getString(STATE_PENDING_IP));
+        awaitingNetworkStatusRefresh = state.getBoolean(STATE_AWAITING_REFRESH, false);
+        completedNetworkRequestId = safeStateValue(
+                state.getString(STATE_COMPLETED_REQUEST_ID));
+        expectedNetworkMode = safeStateValue(state.getString(STATE_EXPECTED_MODE));
+        expectedNetworkIp = safeStateValue(state.getString(STATE_EXPECTED_IP));
+    }
+
+    @Override
+    protected void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putBoolean(STATE_LOCAL_REQUEST_PENDING, localNetworkRequestPending);
+        outState.putString(STATE_PENDING_REQUEST_ID, pendingNetworkRequestId);
+        outState.putString(STATE_PENDING_MODE, pendingNetworkMode);
+        outState.putString(STATE_PENDING_IP, pendingNetworkIp);
+        outState.putBoolean(STATE_AWAITING_REFRESH, awaitingNetworkStatusRefresh);
+        outState.putString(STATE_COMPLETED_REQUEST_ID, completedNetworkRequestId);
+        outState.putString(STATE_EXPECTED_MODE, expectedNetworkMode);
+        outState.putString(STATE_EXPECTED_IP, expectedNetworkIp);
+    }
+
+    private String networkSignature(DeviceNetworkStatus value) {
+        return safeStateValue(value.getMode()) + "|"
+                + safeStateValue(value.getIpAddress()) + "|"
+                + safeStateValue(value.getSubnetMask()) + "|"
+                + value.getPrefixLength() + "|"
+                + safeStateValue(value.getGateway()) + "|"
+                + safeStateValue(value.getPrimaryDns()) + "|"
+                + safeStateValue(value.getSecondaryDns());
+    }
+
+    private static String safeStateValue(String value) {
+        return value == null ? "" : value.trim();
+    }
+
     private void clearNetworkErrors() {
         networkIpLayout.setError(null);
         networkSubnetLayout.setError(null);
@@ -573,7 +629,7 @@ public class DeviceInfoActivity extends AppCompatActivity {
     private void applyWindowInsets() {
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.deviceInfoRoot),
                 (view, insets) -> {
-                    Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+                    Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
                     view.setPadding(bars.left, bars.top, bars.right, bars.bottom);
                     return insets;
                 });

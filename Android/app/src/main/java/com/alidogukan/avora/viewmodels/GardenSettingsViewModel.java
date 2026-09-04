@@ -125,7 +125,12 @@ public final class GardenSettingsViewModel extends AndroidViewModel {
         notificationSettings.setQuietHours(startHour, endHour);
     }
     public boolean applyNotificationBackup(Map<String, Object> values) {
-        return notificationSettings.applyBackup(values);
+        boolean applied = notificationSettings.applyBackup(values);
+        if (applied) {
+            FertilizerReminderScheduler.schedule(getApplication());
+            NotificationSignalScheduler.schedule(getApplication());
+        }
+        return applied;
     }
     public void loadNotificationSettings(Consumer<Map<String, Object>> consumer) {
         repository.loadNotificationSettings(consumer);
@@ -134,17 +139,17 @@ public final class GardenSettingsViewModel extends AndroidViewModel {
         return repository.saveNotificationSettings(notificationSettings.snapshot());
     }
     public Task<Void> saveCategorySettings() {
-        return saveNotificationSettings().addOnSuccessListener(unused ->
-                NotificationSignalScheduler.schedule(getApplication()));
+        NotificationSignalScheduler.schedule(getApplication());
+        return saveNotificationSettings();
     }
     public Task<Void> saveReminderSettings() {
-        return saveNotificationSettings().addOnSuccessListener(unused -> {
-            FertilizerReminderScheduler.schedule(getApplication());
-            NotificationSignalScheduler.schedule(getApplication());
-        });
+        FertilizerReminderScheduler.schedule(getApplication());
+        NotificationSignalScheduler.schedule(getApplication());
+        return saveNotificationSettings();
     }
     public Task<Void> saveRainSettings(RainSettings values, boolean weatherEnabled) {
         notificationSettings.setCategoryEnabled("weather", weatherEnabled);
+        NotificationSignalScheduler.schedule(getApplication());
         return Tasks.whenAll(repository.saveRainSettings(values), saveNotificationSettings());
     }
 

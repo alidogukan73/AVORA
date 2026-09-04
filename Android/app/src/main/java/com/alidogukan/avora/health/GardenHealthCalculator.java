@@ -4,12 +4,21 @@ import com.alidogukan.avora.models.FertilizationProfile;
 import com.alidogukan.avora.models.GardenZone;
 import com.alidogukan.avora.models.ZoneIrrigationStatus;
 import com.alidogukan.avora.plantassistant.PlantAssistantHealthSignal;
+import com.alidogukan.avora.season.SeasonScope;
 
+import java.util.ArrayList;
 import java.util.List;
+
+import static com.alidogukan.avora.health.GardenHealthIssue.Target.*;
 
 /** Conservative and explainable; this score never controls hardware. */
 public final class GardenHealthCalculator {
     private GardenHealthCalculator() { }
+
+    /** The health screen follows the same active-crop boundary as the home screen. */
+    public static List<GardenZone> activeHealthZones(List<GardenZone> zones) {
+        return SeasonScope.activeSeasonZones(zones);
+    }
 
     public static GardenHealthSummary calculate(List<GardenZone> zones, long now) {
         return calculate(zones, now, null);
@@ -24,15 +33,17 @@ public final class GardenHealthCalculator {
             return new GardenHealthSummary(0, "Bahçe verisi bekleniyor",
                     "Bölgeler bağlandığında sağlık özeti hazırlanır.");
         }
+        List<GardenZone> healthZones = activeHealthZones(zones);
         int total = 0;
         int count = 0;
         String priority = "";
-        for (GardenZone zone : zones) {
-            if (zone == null || !zone.isEnabled()) continue;
+        int priorityScore = Integer.MAX_VALUE;
+        for (GardenZone zone : healthZones) {
             GardenHealthZoneResult result = evaluateZone(zone, now, assistantSignal);
             total += result.getScore();
             count++;
-            if (priority.isEmpty() && result.getScore() < 100) {
+            if (result.getScore() < priorityScore && result.getScore() < 100) {
+                priorityScore = result.getScore();
                 priority = safeName(zone) + " · " + result.getReason();
             }
         }
@@ -60,55 +71,48 @@ public final class GardenHealthCalculator {
             PlantAssistantHealthSignal assistantSignal
     ) {
         if (zone == null) return new GardenHealthZoneResult(0, "Bölge verisi yok");
-        if (!zone.isSensor_enabled()) return new GardenHealthZoneResult(55, "Sensör devre dışı");
-        if (!zone.hasSensorData()) return new GardenHealthZoneResult(55, "Sensör verisi bekleniyor");
+        List<GardenHealthIssue> issues = new ArrayList<>();
+        if (!zone.isSensor_enabled()) {
+            issues.add(new GardenHealthIssue("Sensör devre dışı", 45, SENSOR_SETTINGS));
+        } else if (!zone.hasSensorData()) {
+            issues.add(new GardenHealthIssue("Sensör verisi bekleniyor", 45, SENSOR_SETTINGS));
+        }
 
-        int score = 100;
-        StringBuilder reason = new StringBuilder();
-        long age = Math.max(0L, now - zone.getUpdated_at_epoch());
-        if (age > 15 * 60L) {
-            score -= 30;
-            add(reason, "Sensör verisi güncel değil");
-        }
-        if (zone.getMoisture() < zone.getMoisture_limit()) {
-            score -= Math.min(35, 10 + zone.getMoisture_limit() - zone.getMoisture());
-            add(reason, "Nem düşük: %" + zone.getMoisture()
-                    + " / sınır %" + zone.getMoisture_limit());
-        }
-        ZoneIrrigationStatus irrigation = zone.getIrrigation_status();
-        if (irrigation != null && !irrigation.isSensor_stable()) {
-            score -= 20;
-            add(reason, "Sensör ölçümü kararsız");
+        if (zone.isSensor_enabled() && zone.hasSensorData()) {
+            long age = Math.max(0L, now - zone.getUpdated_at_epoch());
+            if (age > 15 * 60L) {
+                issues.add(new GardenHealthIssue("Sensör verisi güncel değil", 30, SENSOR_SETTINGS));
+            }
+            if (zone.getMoisture() < zone.getMoisture_limit()) {
+                issues.add(new GardenHealthIssue(
+                        "Nem düşük: %" + zone.getMoisture() + " / sınır %" + zone.getMoisture_limit(),
+                        Math.min(35, 10 + zone.getMoisture_limit() - zone.getMoisture()), IRRIGATION_SETTINGS));
+            }
+            ZoneIrrigationStatus irrigation = zone.getIrrigation_status();
+            if (irrigation != null && irrigation.hasSensor_stable()
+                    && !irrigation.isSensor_stable()) {
+                issues.add(new GardenHealthIssue("Sensör ölçümü kararsız", 20, SENSOR_SETTINGS));
+            }
         }
         FertilizationProfile profile = zone.getFertilization();
         if (profile != null && profile.isEnabled()
                 && profile.getNext_application_at_epoch() > 0
                 && profile.getNext_application_at_epoch() <= now) {
-            score -= 10;
-            add(reason, "Gübreleme kaydı bekleniyor");
+            issues.add(new GardenHealthIssue("Gübreleme kaydı bekleniyor", 10, FERTILIZATION));
         }
-        if (assistantSignal != null && assistantSignal.isRecent(now)
-                && zone.getZone_id() != null
-                && zone.getZone_id().equals(assistantSignal.getZoneId())) {
+        if (assistantSignal != null && assistantSignal.appliesTo(zone, now)) {
             String urgency = assistantSignal.getUrgency();
             if ("Yüksek".equalsIgnoreCase(urgency)) {
-                score -= 25;
-                add(reason, "Bitki Asistanı: yüksek aciliyet");
+                issues.add(new GardenHealthIssue("Bitki Asistanı: yüksek aciliyet",
+                        25, PLANT_ASSISTANT, assistantSignal.getSeasonId()));
             } else if ("Orta".equalsIgnoreCase(urgency)) {
-                score -= 12;
-                add(reason, "Bitki Asistanı: orta aciliyet");
-            } else if (!urgency.isEmpty()) {
-                score -= 3;
-                add(reason, "Bitki Asistanı gözlem önerisi var");
+                issues.add(new GardenHealthIssue("Bitki Asistanı: orta aciliyet",
+                        12, PLANT_ASSISTANT, assistantSignal.getSeasonId()));
             }
+            // A routine, low-urgency observation is not an unresolved health problem.
+            // Keep its recommendation/history, but only medium/high findings reduce the score.
         }
-        if (reason.length() == 0) reason.append("Nem, sensör ve gübreleme planı uygun görünüyor");
-        return new GardenHealthZoneResult(score, reason.toString());
-    }
-
-    private static void add(StringBuilder target, String text) {
-        if (target.length() > 0) target.append(" · ");
-        target.append(text);
+        return GardenHealthZoneResult.fromIssues(issues);
     }
 
     private static String safeName(GardenZone zone) {

@@ -48,12 +48,12 @@ class PlantVisionService:
         }
         response = requests.post(
             self.API_URL,
-            params={"key": key},
+            headers={"x-goog-api-key": key},
             json=payload,
             timeout=45,
         )
         if not response.ok:
-            raise RuntimeError(f"VISION_PROVIDER_ERROR:{response.status_code}")
+            self._raise_provider_error(response)
         try:
             text = response.json()["candidates"][0]["content"]["parts"][0]["text"]
             result = json.loads(text)
@@ -80,18 +80,38 @@ class PlantVisionService:
         }
         response = requests.post(
             self.API_URL,
-            params={"key": key},
+            headers={"x-goog-api-key": key},
             json=payload,
             timeout=45,
         )
         if not response.ok:
-            raise RuntimeError(f"VISION_PROVIDER_ERROR:{response.status_code}")
+            self._raise_provider_error(response)
         try:
             text = response.json()["candidates"][0]["content"]["parts"][0]["text"]
             result = json.loads(text)
         except Exception as error:
             raise RuntimeError("VISION_INVALID_RESPONSE") from error
         return self._normalize_organic(result)
+
+    @staticmethod
+    def _raise_provider_error(response: requests.Response) -> None:
+        """Expose a safe reason code, never the provider body or an API key."""
+        try:
+            body = response.json()
+        except (ValueError, TypeError):
+            body = {}
+        error = body.get("error", {}) if isinstance(body, dict) else {}
+        if not isinstance(error, dict):
+            error = {}
+        details = error.get("details", [])
+        reasons = {
+            str(detail.get("reason", ""))
+            for detail in (details if isinstance(details, list) else [])
+            if isinstance(detail, dict)
+        }
+        if reasons.intersection({"API_KEY_INVALID", "API_KEY_EXPIRED"}):
+            raise RuntimeError("VISION_API_KEY_INVALID")
+        raise RuntimeError(f"VISION_PROVIDER_ERROR:{response.status_code}")
 
     def _read_key(self) -> str:
         try:

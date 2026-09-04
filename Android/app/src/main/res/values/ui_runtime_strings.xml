@@ -48,6 +48,7 @@
     <string name="runtime_sort_moisture">💧  Nem: düşükten yükseğe</string>
     <string name="runtime_sort_recent">🕐  Son güncellenen</string>
     <string name="runtime_sort_plant_name">🌱  Bitki adına göre</string>
+    <string name="runtime_sort_area">🌿  Bölgeye göre (1 → 8)</string>
     <string name="runtime_plant_sort_title">Bitkileri sırala</string>
     <string name="runtime_garden_zone">Bahçe bölgesi</string>
     <string name="runtime_sensor_stale">Sensör verisi güncel değil</string>

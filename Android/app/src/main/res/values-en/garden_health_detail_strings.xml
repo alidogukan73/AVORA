@@ -2,5 +2,13 @@
 <resources>
     <string name="garden_health_detail_screen_title">Garden Health Details</string>
     <string name="garden_health_detail_screen_subtitle">Explainable health assessment by zone</string>
-    <string name="garden_health_detail_zones_hint">Tap a zone to open its details and settings.</string>
+    <string name="garden_health_detail_zones_hint">Tap an area to open the section related to its warning.</string>
+    <string name="garden_health_issue_deduction">%1$s (−%2$d points)</string>
+    <string name="garden_health_issue_dialog_title">%1$s · Which warning would you like to open?</string>
+    <string name="garden_health_choose_issue">Choose a warning ›</string>
+    <string name="garden_health_open_journal">Open plant journal ›</string>
+    <string name="garden_health_open_assistant">Open Plant Assistant ›</string>
+    <string name="garden_health_open_fertilization">Open fertilization record ›</string>
+    <string name="garden_health_open_sensor">Open area sensor settings ›</string>
+    <string name="garden_health_open_irrigation">Open area irrigation settings ›</string>
 </resources>

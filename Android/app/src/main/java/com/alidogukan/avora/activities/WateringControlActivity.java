@@ -29,7 +29,7 @@ import com.google.android.material.card.MaterialCardView;
 import java.util.Collections;
 import java.util.List;
 
-public class WateringControlActivity extends AppCompatActivity {
+public class WateringControlActivity extends EdgeToEdgeActivity {
     private static final String VALVE_MODE_PHYSICAL = "PHYSICAL";
     private static final String VALVE_MODE_SIMULATION = "SIMULATION";
 

@@ -59,7 +59,7 @@ import java.util.Date;
 import java.util.Locale;
 import java.util.ArrayList;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends EdgeToEdgeActivity {
 
     private MainViewModel viewModel;
     private boolean notificationPermissionChecked;
@@ -283,6 +283,11 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         updateNotificationBadge();
+        // Assistant findings are saved locally, so no Firebase event is required to refresh.
+        if (viewModel != null && txtHomeHealthScore != null) {
+            renderHomeHealthSummary(viewModel.getGardenZones().getValue());
+            renderHomePlantAssistantRecommendation();
+        }
     }
 
     private void updateNotificationBadge() {
@@ -602,7 +607,7 @@ public class MainActivity extends AppCompatActivity {
 
         renderHomeWateringSummary(activeZones);
         renderHomeFertilizationSummary(activeZones);
-        renderHomeHealthSummary(activeZones);
+        renderHomeHealthSummary(zones);
         renderHomePlantAssistantRecommendation();
         renderHomeAlerts();
     }

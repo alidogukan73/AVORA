@@ -42,11 +42,13 @@ public class IrrigationTimingSettings {
     public void setSmartTimingEnabled(boolean value) { smartTimingEnabled = value; }
     public String getGardenEnvironment() { return gardenEnvironment; }
     public void setGardenEnvironment(String value) {
-        gardenEnvironment = safeCode(value, DEFAULT_GARDEN_ENVIRONMENT);
+        gardenEnvironment = safeCode(value, DEFAULT_GARDEN_ENVIRONMENT,
+                "OPEN_FIELD", "GREENHOUSE", "INDOOR");
     }
     public String getTimingStrategy() { return timingStrategy; }
     public void setTimingStrategy(String value) {
-        timingStrategy = safeCode(value, DEFAULT_TIMING_STRATEGY);
+        timingStrategy = safeCode(value, DEFAULT_TIMING_STRATEGY,
+                "SMART", "MORNING_ONLY", "CUSTOM", "IMMEDIATE");
     }
     public boolean isEveningIrrigationAllowed() { return eveningIrrigationAllowed; }
     public void setEveningIrrigationAllowed(boolean value) { eveningIrrigationAllowed = value; }
@@ -71,7 +73,12 @@ public class IrrigationTimingSettings {
     public long getUpdatedAtEpoch() { return updatedAtEpoch; }
     public void setUpdatedAtEpoch(long value) { updatedAtEpoch = Math.max(0, value); }
 
-    private static String safeCode(String value, String fallback) {
-        return value == null || value.isBlank() ? fallback : value.trim().toUpperCase(Locale.ROOT);
+    private static String safeCode(String value, String fallback, String... allowed) {
+        if (value == null || value.isBlank()) return fallback;
+        String normalized = value.trim().toUpperCase(Locale.ROOT);
+        for (String option : allowed) {
+            if (option.equals(normalized)) return option;
+        }
+        return fallback;
     }
 }

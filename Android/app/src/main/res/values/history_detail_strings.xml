@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="history_complete_subtitle">Tüm sulama kayıtları ve nem değişimleri</string>
+    <string name="history_selection_summary_title">Seçili kayıtların özeti</string>
+    <string name="history_all_record_scope">Tüm kayıtlı geçmiş · Eski ve bölgesiz kayıtlar dahildir.</string>
+    <string name="history_zone_record_scope">Bu bölgenin kayıtlı tüm sezonları</string>
+    <string name="history_read_error_cached">%1$s Son alınan kayıtlar gösteriliyor.</string>
+    <string name="history_retry">Tekrar dene</string>
+    <string name="history_stat_count_unknown">—\nSulama</string>
+    <string name="history_stat_duration_unknown">—\nToplam süre</string>
+    <string name="history_stat_success_unknown">—\nBaşarı</string>
+    <string name="history_stat_delta_unknown">—\nOrt. değişim</string>
+    <string name="history_status_simulated">SİMÜLASYON</string>
+    <string name="history_status_not_started">BAŞLATILMADI</string>
+    <string name="history_unknown_value" translatable="false">—</string>
+    <string name="history_reason_manual_mode">Manuel moda geçildi</string>
+    <string name="history_reason_error">Sulama sırasında hata oluştu</string>
+    <string name="history_reason_simulation">Vana simülasyonu; sulama yapılmadı</string>
+    <string name="history_reason_pump_busy">Pompa başka bir bölgede kullanılıyor</string>
+    <string name="history_reason_zero_duration">Sulama süresi sıfır</string>
+</resources>

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="history_complete_subtitle">All irrigation records and moisture changes</string>
+    <string name="history_selection_summary_title">Selected records summary</string>
+    <string name="history_all_record_scope">All recorded history · Includes legacy and unassigned records.</string>
+    <string name="history_zone_record_scope">All recorded seasons for this zone</string>
+    <string name="history_read_error_cached">%1$s Showing the last received records.</string>
+    <string name="history_retry">Retry</string>
+    <string name="history_stat_count_unknown">—\nIrrigations</string>
+    <string name="history_stat_duration_unknown">—\nTotal duration</string>
+    <string name="history_stat_success_unknown">—\nSuccess</string>
+    <string name="history_stat_delta_unknown">—\nAvg. change</string>
+    <string name="history_status_simulated">SIMULATED</string>
+    <string name="history_status_not_started">NOT STARTED</string>
+    <string name="history_reason_manual_mode">Switched to manual mode</string>
+    <string name="history_reason_error">An error occurred during irrigation</string>
+    <string name="history_reason_simulation">Valve simulation; no irrigation performed</string>
+    <string name="history_reason_pump_busy">Pump in use by another zone</string>
+    <string name="history_reason_zero_duration">Irrigation duration is zero</string>
+</resources>

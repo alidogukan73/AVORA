@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Local to the fertilizer recommendations; keep small text readable on soft cards. -->
+    <color name="fertilizerAdviceBody">#4F5B53</color>
+    <color name="fertilizerAdviceSupporting">#687169</color>
+</resources>

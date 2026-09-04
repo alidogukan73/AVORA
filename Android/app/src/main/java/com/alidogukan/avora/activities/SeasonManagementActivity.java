@@ -40,7 +40,7 @@ import java.util.List;
 import java.util.Locale;
 
 /** Explicit, non-destructive lifecycle management for every garden zone season. */
-public final class SeasonManagementActivity extends AppCompatActivity {
+public final class SeasonManagementActivity extends EdgeToEdgeActivity {
     private SeasonManagementViewModel viewModel;
     private LinearLayout inactiveZoneContainer;
     private TextView inactiveZonesTitle;

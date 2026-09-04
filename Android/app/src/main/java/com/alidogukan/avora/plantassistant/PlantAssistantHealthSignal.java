@@ -1,24 +1,41 @@
 package com.alidogukan.avora.plantassistant;
 
+import com.alidogukan.avora.models.GardenZone;
+
 /** A recent, advisory-only Plant Doctor finding for one garden zone. */
 public final class PlantAssistantHealthSignal {
     private final String zoneId;
+    private final String seasonId;
     private final String urgency;
     private final String title;
     private final long createdAtEpoch;
 
     public PlantAssistantHealthSignal(String zoneId, String urgency, String title, long createdAtEpoch) {
+        this(zoneId, "", urgency, title, createdAtEpoch);
+    }
+
+    public PlantAssistantHealthSignal(String zoneId, String seasonId, String urgency,
+                                      String title, long createdAtEpoch) {
         this.zoneId = zoneId == null ? "" : zoneId;
+        this.seasonId = seasonId == null ? "" : seasonId;
         this.urgency = urgency == null ? "" : urgency;
         this.title = title == null ? "" : title;
         this.createdAtEpoch = createdAtEpoch;
     }
 
     public String getZoneId() { return zoneId; }
+    public String getSeasonId() { return seasonId; }
     public String getUrgency() { return urgency; }
     public String getTitle() { return title; }
 
     public long getCreatedAtEpoch() { return createdAtEpoch; }
+
+    public boolean appliesTo(GardenZone zone, long nowEpoch) {
+        if (zone == null || !isRecent(nowEpoch) || !zoneId.equals(zone.getZone_id())) return false;
+        // Old saved recommendations did not carry a season ID; keep them readable.
+        return seasonId.isEmpty() || (zone.getSeason() != null && zone.getSeason().isActive()
+                && zone.getSeason().isSeasonActive(seasonId));
+    }
 
     public boolean isRecent(long nowEpoch) {
         return createdAtEpoch > 0 && nowEpoch >= createdAtEpoch

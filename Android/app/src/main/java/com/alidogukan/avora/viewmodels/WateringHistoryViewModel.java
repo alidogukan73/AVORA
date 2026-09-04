@@ -19,28 +19,36 @@ import com.alidogukan.avora.models.GardenZone;
 import java.util.Collections;
 import java.util.List;
 
-/** Lifecycle-aware view of the latest watering records. */
+/** Lifecycle-aware view of the complete recorded watering history. */
 public class WateringHistoryViewModel extends AndroidViewModel {
-    private static final int HISTORY_LIMIT = 50;
     private final MediatorLiveData<List<WateringHistory>> history =
             new MediatorLiveData<>();
     private final MutableLiveData<Boolean> loading = new MutableLiveData<>(true);
     private final MutableLiveData<String> error = new MutableLiveData<>();
     private final LiveData<List<GardenZone>> zones;
     private final LiveData<List<GardenSeason>> seasons;
+    private final FirebaseRepository repository;
+    private LiveData<List<WateringHistory>> source;
 
     public WateringHistoryViewModel(@NonNull Application application) {
         super(application);
-        history.setValue(Collections.emptyList());
-        FirebaseRepository repository = new FirebaseRepository();
+        repository = new FirebaseRepository();
         zones = repository.observeGardenZones();
         seasons = new SeasonRepository().observeAllSeasons();
-        LiveData<List<WateringHistory>> source =
-                repository.observeRecentWateringHistory(HISTORY_LIMIT, databaseError -> {
-                    loading.setValue(false);
+        loadHistory();
+    }
+
+    public void retry() { loadHistory(); }
+
+    private void loadHistory() {
+        if (source != null) history.removeSource(source);
+        loading.setValue(true);
+        error.setValue(null);
+        source = repository.observeWateringHistory(databaseError -> {
                     error.setValue(AvoraLanguageManager.localizedContext(
                             getApplication()).getString(
                             R.string.watering_history_read_error));
+                    loading.setValue(false);
                 });
         history.addSource(source, values -> {
             history.setValue(values == null ? Collections.emptyList() : values);

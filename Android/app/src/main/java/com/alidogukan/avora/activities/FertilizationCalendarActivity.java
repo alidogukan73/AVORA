@@ -23,6 +23,7 @@ import com.alidogukan.avora.models.WeatherForecast;
 import com.alidogukan.avora.fertilization.FertilizerAdvice;
 import com.alidogukan.avora.fertilization.FertilizerMixResult;
 import com.alidogukan.avora.ui.PrimaryBottomNavigation;
+import com.alidogukan.avora.ui.AssistantIntroCard;
 import com.alidogukan.avora.viewmodels.FertilizationCalendarViewModel;
 import com.alidogukan.avora.season.SeasonDisplayIdentity;
 import com.google.android.material.button.MaterialButton;
@@ -35,7 +36,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
-public class FertilizationCalendarActivity extends AppCompatActivity {
+public class FertilizationCalendarActivity extends EdgeToEdgeActivity {
 
     private FertilizationCalendarViewModel viewModel;
 
@@ -52,6 +53,7 @@ public class FertilizationCalendarActivity extends AppCompatActivity {
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_fertilization_calendar);
+        AssistantIntroCard.bind(this, AssistantIntroCard.Kind.FERTILIZER);
         PrimaryBottomNavigation.bind(this, PrimaryBottomNavigation.ASSISTANT);
 
         MaterialButton btnBack = findViewById(R.id.btnBack);

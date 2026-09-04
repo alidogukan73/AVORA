@@ -29,7 +29,7 @@ import java.util.List;
 import java.util.Locale;
 
 /** Manual season record entry point for a single plant journal. */
-public final class NewJournalRecordActivity extends AppCompatActivity {
+public final class NewJournalRecordActivity extends EdgeToEdgeActivity {
     public static final String EXTRA_ZONE_ID = "zone_id";
     public static final String EXTRA_SEASON_ID = "season_id";
     public static final String EXTRA_INITIAL_TYPE = "initial_record_type";

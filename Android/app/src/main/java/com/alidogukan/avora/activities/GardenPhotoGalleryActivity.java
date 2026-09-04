@@ -30,7 +30,7 @@ import java.util.Locale;
 import java.util.Set;
 
 /** Full-screen local gallery with multi-select deletion. */
-public class GardenPhotoGalleryActivity extends AppCompatActivity {
+public class GardenPhotoGalleryActivity extends EdgeToEdgeActivity {
     public static final String EXTRA_PICK_MODE = "pick_mode";
     public static final String EXTRA_SELECTED_PHOTO_PATH = "selected_photo_path";
     public static final String EXTRA_ZONE_ID = "zone_id";

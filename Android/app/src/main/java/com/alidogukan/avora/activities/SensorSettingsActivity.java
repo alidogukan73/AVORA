@@ -131,7 +131,7 @@ public class SensorSettingsActivity extends AppCompatActivity {
                 findViewById(R.id.sensorSettingsRoot),
                 (view, insets) -> {
                     Insets bars = insets.getInsets(
-                            WindowInsetsCompat.Type.systemBars()
+                            WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout()
                     );
                     view.setPadding(
                             bars.left,

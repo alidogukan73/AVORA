@@ -59,7 +59,7 @@ public class GardenInfoActivity extends AppCompatActivity {
 
         GardenProfile local = viewModel.loadLocalProfile();
         applyProfile(local);
-        observeCloudProfile(local.getUpdated_at_epoch());
+        observeCloudProfile();
         observeLocation();
     }
 
@@ -111,10 +111,14 @@ public class GardenInfoActivity extends AppCompatActivity {
         findViewById(R.id.btnSaveGardenInfo).setOnClickListener(view -> save(false));
     }
 
-    private void observeCloudProfile(long localUpdatedAt) {
+    private void observeCloudProfile() {
         viewModel.getCloudProfile().observe(this, cloud -> {
             if (cloud == null || !cloud.hasData() || dirty) return;
-            if (cloud.getUpdated_at_epoch() < localUpdatedAt) return;
+            long localUpdatedAt = viewModel.loadLocalProfile().getUpdated_at_epoch();
+            if (!com.alidogukan.avora.settings.SettingsSyncPolicy.isCloudValueNewer(
+                    cloud.getUpdated_at_epoch(), localUpdatedAt)) {
+                return;
+            }
             viewModel.acceptCloudProfile(cloud);
             applyProfile(cloud);
             status.setText(R.string.garden_info_cloud_loaded);
@@ -210,7 +214,7 @@ public class GardenInfoActivity extends AppCompatActivity {
     private void applyWindowInsets() {
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.gardenInfoRoot),
                 (view, insets) -> {
-                    Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+                    Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
                     view.setPadding(bars.left, bars.top, bars.right, bars.bottom);
                     return insets;
                 });

@@ -61,6 +61,15 @@ public final class SeasonDisplayIdentity {
         return crop + " · " + area;
     }
 
+    /** Physical area first, followed by the crop, for the plant journal list. */
+    public static String areaCropName(GardenSeason season, GardenZone currentZone) {
+        String crop = safe(name(season, currentZone));
+        String area = safe(areaName(season, currentZone));
+        if (crop.isBlank()) return area;
+        if (area.isBlank()) return crop;
+        return area + " · " + crop;
+    }
+
     /** Crop and physical area with the crop icon, suitable for selectors. */
     public static String cropAreaLabel(GardenSeason season, GardenZone currentZone) {
         String icon = safe(emoji(season, currentZone));

@@ -25,11 +25,11 @@ public class DisplayUnitSettings {
 
     public DisplayUnitSettings(String temperature, String area, String length,
                                String volume, String weight) {
-        this.temperature = temperature;
-        this.area = area;
-        this.length = length;
-        this.volume = volume;
-        this.weight = weight;
+        setTemperature(temperature);
+        setArea(area);
+        setLength(length);
+        setVolume(volume);
+        setWeight(weight);
     }
 
     public String getTemperature() { return temperature; }
@@ -39,15 +39,29 @@ public class DisplayUnitSettings {
     public String getWeight() { return weight; }
     public long getUpdated_at_epoch() { return updated_at_epoch; }
 
-    public void setTemperature(String temperature) { this.temperature = temperature; }
-    public void setArea(String area) { this.area = area; }
-    public void setLength(String length) { this.length = length; }
-    public void setVolume(String volume) { this.volume = volume; }
-    public void setWeight(String weight) { this.weight = weight; }
+    public void setTemperature(String value) {
+        temperature = normalize(value, CELSIUS, FAHRENHEIT);
+    }
+    public void setArea(String value) {
+        area = normalize(value, SQUARE_METER, DECARE);
+    }
+    public void setLength(String value) {
+        length = normalize(value, CENTIMETER, METER);
+    }
+    public void setVolume(String value) {
+        volume = normalize(value, LITER, CUBIC_METER);
+    }
+    public void setWeight(String value) {
+        weight = normalize(value, GRAM, KILOGRAM);
+    }
     public void setUpdated_at_epoch(long updatedAtEpoch) { this.updated_at_epoch = updatedAtEpoch; }
 
     public boolean isComplete() {
         return temperature != null && area != null && length != null
                 && volume != null && weight != null;
+    }
+
+    private static String normalize(String value, String defaultValue, String alternative) {
+        return alternative.equals(value) ? alternative : defaultValue;
     }
 }

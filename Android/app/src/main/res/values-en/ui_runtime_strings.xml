@@ -48,6 +48,7 @@
     <string name="runtime_sort_moisture">💧  Moisture: low to high</string>
     <string name="runtime_sort_recent">🕐  Most recently updated</string>
     <string name="runtime_sort_plant_name">🌱  By plant name</string>
+    <string name="runtime_sort_area">🌿  By area (1 → 8)</string>
     <string name="runtime_plant_sort_title">Sort plants</string>
     <string name="runtime_garden_zone">Garden zone</string>
     <string name="runtime_sensor_stale">Sensor data is outdated</string>

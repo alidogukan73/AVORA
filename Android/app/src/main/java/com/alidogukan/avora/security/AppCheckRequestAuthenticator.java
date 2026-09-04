@@ -15,13 +15,23 @@ public final class AppCheckRequestAuthenticator {
     private AppCheckRequestAuthenticator() { }
 
     public static void authorize(HttpURLConnection connection) throws Exception {
-        AppCheckToken result = Tasks.await(
-                FirebaseAppCheck.getInstance().getAppCheckToken(false),
-                TOKEN_TIMEOUT_SECONDS,
-                TimeUnit.SECONDS);
+        AppCheckToken result;
+        try {
+            result = Tasks.await(
+                    FirebaseAppCheck.getInstance().getAppCheckToken(false),
+                    TOKEN_TIMEOUT_SECONDS,
+                    TimeUnit.SECONDS);
+        } catch (InterruptedException error) {
+            Thread.currentThread().interrupt();
+            throw error;
+        } catch (Exception error) {
+            // Identify the failed stage without bypassing verification or sending the request.
+            throw new AppCheckVerificationException(error);
+        }
         String appCheckToken = result == null ? "" : safe(result.getToken());
         if (appCheckToken.isEmpty()) {
-            throw new IllegalStateException("APP_CHECK_TOKEN_UNAVAILABLE");
+            throw new AppCheckVerificationException(
+                    new IllegalStateException("APP_CHECK_TOKEN_UNAVAILABLE"));
         }
         connection.setRequestProperty(APP_CHECK_HEADER, appCheckToken);
     }

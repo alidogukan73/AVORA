@@ -14,8 +14,9 @@ public final class RainSettings {
     public RainSettings(boolean rainDelayEnabled, double rainProbability,
                         double rainMm, long updatedAtEpoch) {
         this.rainDelayEnabled = rainDelayEnabled;
-        this.rainProbability = clamp(rainProbability, 50d, 100d);
-        this.rainMm = clamp(rainMm, 0.5d, 10d);
+        this.rainProbability = clamp(rainProbability, 50d, 100d,
+                DEFAULT_RAIN_PROBABILITY);
+        this.rainMm = clamp(rainMm, 0.5d, 10d, DEFAULT_RAIN_MM);
         this.updatedAtEpoch = Math.max(0L, updatedAtEpoch);
     }
 
@@ -29,7 +30,8 @@ public final class RainSettings {
     public double getRainMm() { return rainMm; }
     public long getUpdatedAtEpoch() { return updatedAtEpoch; }
 
-    private static double clamp(double value, double min, double max) {
+    private static double clamp(double value, double min, double max, double fallback) {
+        if (!Double.isFinite(value)) return fallback;
         return Math.max(min, Math.min(max, value));
     }
 }

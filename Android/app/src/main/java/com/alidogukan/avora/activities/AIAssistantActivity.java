@@ -22,6 +22,7 @@ import com.alidogukan.avora.models.AdaptiveRecommendation;
 import com.alidogukan.avora.models.AIExplanation;
 import com.alidogukan.avora.ui.DecisionFlowFactory;
 import com.alidogukan.avora.ui.PrimaryBottomNavigation;
+import com.alidogukan.avora.ui.AssistantIntroCard;
 import com.alidogukan.avora.ui.irrigationassistant.IrrigationAssistantFormatter;
 import com.alidogukan.avora.ui.irrigationassistant.PredictionValidationRenderer;
 import com.alidogukan.avora.ui.irrigationassistant.SelectedZoneSummaryRenderer;
@@ -47,7 +48,7 @@ import java.util.Locale;
 import static com.alidogukan.avora.ui.irrigationassistant.IrrigationAssistantCodes.*;
 
 @SuppressWarnings("SpellCheckingInspection")
-public class AIAssistantActivity extends AppCompatActivity {
+public class AIAssistantActivity extends EdgeToEdgeActivity {
 
     private static final String TAG = "AIAssistantActivity";
 
@@ -206,6 +207,7 @@ public class AIAssistantActivity extends AppCompatActivity {
      * XML ekranındaki tüm öğeleri Java tarafına bağlar.
      */
     private void initializeViews() {
+        AssistantIntroCard.bind(this, AssistantIntroCard.Kind.WATER);
 
         cardAIDecision =
                 findViewById(R.id.cardAIDecision);
@@ -1546,6 +1548,8 @@ public class AIAssistantActivity extends AppCompatActivity {
         txtUnifiedConfidenceStatus.setTextColor(
                 online
         );
+        AssistantIntroCard.copyWaterConfidence(this, txtUnifiedConfidenceStatus,
+                cardUnifiedConfidenceStatusBadge);
     }
 
     private void applyUnifiedConfidenceMediumStyle() {
@@ -1575,6 +1579,8 @@ public class AIAssistantActivity extends AppCompatActivity {
         txtUnifiedConfidenceStatus.setTextColor(
                 warning
         );
+        AssistantIntroCard.copyWaterConfidence(this, txtUnifiedConfidenceStatus,
+                cardUnifiedConfidenceStatusBadge);
     }
 
     private void applyUnifiedConfidenceLowStyle() {
@@ -1604,6 +1610,8 @@ public class AIAssistantActivity extends AppCompatActivity {
         txtUnifiedConfidenceStatus.setTextColor(
                 offline
         );
+        AssistantIntroCard.copyWaterConfidence(this, txtUnifiedConfidenceStatus,
+                cardUnifiedConfidenceStatusBadge);
     }
 
     private void applyUnifiedConfidenceWaitingStyle() {
@@ -1633,6 +1641,8 @@ public class AIAssistantActivity extends AppCompatActivity {
         txtUnifiedConfidenceStatus.setTextColor(
                 primary
         );
+        AssistantIntroCard.copyWaterConfidence(this, txtUnifiedConfidenceStatus,
+                cardUnifiedConfidenceStatusBadge);
     }
 
 

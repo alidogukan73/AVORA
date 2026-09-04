@@ -14,8 +14,8 @@ public class WateringHistory {
 
     private long duration;
 
-    private long moistureBefore;
-    private long moistureAfter;
+    private Long moistureBefore;
+    private Long moistureAfter;
     private long moistureDelta;
 
     private long moistureLimit;
@@ -92,7 +92,7 @@ public class WateringHistory {
 
     @PropertyName("moisture_before")
     public long getMoistureBefore() {
-        return moistureBefore;
+        return moistureBefore == null ? 0L : moistureBefore;
     }
 
     @PropertyName("moisture_before")
@@ -102,12 +102,20 @@ public class WateringHistory {
 
     @PropertyName("moisture_after")
     public long getMoistureAfter() {
-        return moistureAfter;
+        return moistureAfter == null ? 0L : moistureAfter;
     }
 
     @PropertyName("moisture_after")
     public void setMoistureAfter(long moistureAfter) {
         this.moistureAfter = moistureAfter;
+    }
+
+    public boolean hasMoistureBefore() { return moistureBefore != null; }
+
+    public boolean hasMoistureAfter() { return moistureAfter != null; }
+
+    public boolean hasMoistureReadings() {
+        return moistureBefore != null && moistureAfter != null;
     }
 
     @PropertyName("moisture_delta")

@@ -4,9 +4,9 @@ import com.google.firebase.database.PropertyName;
 
 public class Statistics {
 
-    private long afterMoisture;
+    private Long afterMoisture;
     private long averageDuration;
-    private long beforeMoisture;
+    private Long beforeMoisture;
     private long completedWaterings;
     private long interruptedWaterings;
     private String lastStopReason;
@@ -30,12 +30,16 @@ public class Statistics {
 
     @PropertyName("after_moisture")
     public long getAfterMoisture() {
-        return afterMoisture;
+        return afterMoisture == null ? 0L : afterMoisture;
     }
 
     @PropertyName("after_moisture")
     public void setAfterMoisture(long afterMoisture) {
         this.afterMoisture = afterMoisture;
+    }
+
+    public boolean hasMoistureReadings() {
+        return beforeMoisture != null && afterMoisture != null;
     }
 
     @PropertyName("average_duration")
@@ -50,7 +54,7 @@ public class Statistics {
 
     @PropertyName("before_moisture")
     public long getBeforeMoisture() {
-        return beforeMoisture;
+        return beforeMoisture == null ? 0L : beforeMoisture;
     }
 
     @PropertyName("before_moisture")

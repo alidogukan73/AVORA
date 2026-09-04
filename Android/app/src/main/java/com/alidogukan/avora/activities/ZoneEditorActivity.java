@@ -19,6 +19,7 @@ import com.alidogukan.avora.models.CropCatalogItem;
 import com.alidogukan.avora.models.GardenZone;
 import com.alidogukan.avora.viewmodels.ZoneManagementViewModel;
 import com.alidogukan.avora.zones.PhysicalZoneIdentity;
+import com.alidogukan.avora.zones.ZoneHardwareSelection;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.button.MaterialButtonToggleGroup;
 import com.google.android.material.card.MaterialCardView;
@@ -31,7 +32,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /** Full-screen, live-preview editor shared by create and edit flows. */
-public final class ZoneEditorActivity extends AppCompatActivity {
+public final class ZoneEditorActivity extends EdgeToEdgeActivity {
     public static final String EXTRA_ZONE_ID = "zone_editor.zone_id";
 
     private ZoneManagementViewModel viewModel;
@@ -40,6 +41,7 @@ public final class ZoneEditorActivity extends AppCompatActivity {
     private List<CropCatalogItem> crops = new ArrayList<>();
     private List<HardwareOption> sensorOptions = new ArrayList<>();
     private List<HardwareOption> valveOptions = new ArrayList<>();
+    private final ZoneHardwareSelection hardwareSelection = new ZoneHardwareSelection();
 
     private TextInputEditText areaName;
     private TextView editorTitle;
@@ -63,8 +65,6 @@ public final class ZoneEditorActivity extends AppCompatActivity {
 
     private int slot = -1;
     private int selectedCropIndex;
-    private int selectedSensorIndex;
-    private int selectedValveIndex;
     private String selectedLocation = "";
     private String selectedIcon = "🌿";
     private String selectedColor = "#2E7D32";
@@ -72,6 +72,7 @@ public final class ZoneEditorActivity extends AppCompatActivity {
     private boolean editMode;
     private boolean existingValuesBound;
     private boolean zonesReady;
+    private boolean saving;
     private boolean thresholdChangedByUser;
 
     @Override
@@ -328,6 +329,15 @@ public final class ZoneEditorActivity extends AppCompatActivity {
 
     private void renderHardwareChoices() {
         if (slot <= 0) return;
+        GardenZone existing = editMode ? findZone(requestedZoneId) : null;
+        String preferredSensor = existing == null ? viewModel.sensorId(slot) : existing.getSensor_id();
+        String preferredValve = existing == null ? viewModel.valveId(slot) : existing.getValve_id();
+        if (!editMode) {
+            if (assignedToActiveZone(preferredSensor, true)) preferredSensor = "";
+            if (assignedToActiveZone(preferredValve, false)) preferredValve = "";
+        }
+        // Bind defaults once per channel, never on every live telemetry update.
+        hardwareSelection.bindZone(viewModel.zoneId(slot), preferredSensor, preferredValve);
         sensorOptions = hardwareOptions(true);
         valveOptions = hardwareOptions(false);
         sensorDropdown.setAdapter(new ArrayAdapter<>(this,
@@ -335,34 +345,46 @@ public final class ZoneEditorActivity extends AppCompatActivity {
         valveDropdown.setAdapter(new ArrayAdapter<>(this,
                 android.R.layout.simple_dropdown_item_1line, valveOptions));
 
-        GardenZone existing = editMode ? findZone(requestedZoneId) : null;
-        String preferredSensor = existing == null ? viewModel.sensorId(slot) : existing.getSensor_id();
-        String preferredValve = existing == null ? viewModel.valveId(slot) : existing.getValve_id();
-        selectedSensorIndex = optionPosition(sensorOptions, preferredSensor);
-        selectedValveIndex = optionPosition(valveOptions, preferredValve);
-        sensorDropdown.setText(sensorOptions.get(selectedSensorIndex).toString(), false);
-        valveDropdown.setText(valveOptions.get(selectedValveIndex).toString(), false);
+        sensorDropdown.setText(
+                sensorOptions.get(optionPosition(sensorOptions, selectedSensorId())).toString(), false);
+        valveDropdown.setText(
+                valveOptions.get(optionPosition(valveOptions, selectedValveId())).toString(), false);
+        renderHardwareErrors();
         sensorDropdown.setOnItemClickListener((parent, view, position, id) -> {
-            selectedSensorIndex = position;
+            hardwareSelection.selectSensor(sensorOptions.get(position).id);
+            renderHardwareErrors();
             renderPreview();
         });
         valveDropdown.setOnItemClickListener((parent, view, position, id) -> {
-            selectedValveIndex = position;
+            hardwareSelection.selectValve(valveOptions.get(position).id);
+            renderHardwareErrors();
             renderPreview();
         });
+    }
+
+    private void renderHardwareErrors() {
+        sensorDropdown.setError(assignedToActiveZone(selectedSensorId(), true)
+                ? getString(R.string.zone_management_error_sensor_used) : null);
+        valveDropdown.setError(assignedToActiveZone(selectedValveId(), false)
+                ? getString(R.string.zone_management_error_valve_used) : null);
     }
 
     private List<HardwareOption> hardwareOptions(boolean sensor) {
         List<HardwareOption> result = new ArrayList<>();
         result.add(new HardwareOption("", getString(R.string.zone_management_unassigned)));
+        String selected = sensor ? selectedSensorId() : selectedValveId();
         for (int index = 1; index <= ZoneManagementViewModel.MAX_ZONES; index++) {
             String id = sensor ? viewModel.sensorId(index) : viewModel.valveId(index);
-            if (!assignedToActiveZone(id, sensor)) result.add(new HardwareOption(id, id));
+            // Keep a conflicting draft visible; validation reports it instead of changing it.
+            if (id.equalsIgnoreCase(selected) || !assignedToActiveZone(id, sensor)) {
+                result.add(new HardwareOption(id, id));
+            }
         }
         return result;
     }
 
     private boolean assignedToActiveZone(String id, boolean sensor) {
+        if (safe(id).isEmpty()) return false;
         for (GardenZone zone : zones) {
             if (zone == null || viewModel.isInactive(zone)) continue;
             if (editMode && requestedZoneId.equals(safe(zone.getZone_id()))) continue;
@@ -414,6 +436,7 @@ public final class ZoneEditorActivity extends AppCompatActivity {
     }
 
     private void save() {
+        if (saving) return;
         if (!zonesReady || slot <= 0 || selectedCrop() == null) {
             Toast.makeText(this, R.string.zone_editor_not_ready, Toast.LENGTH_LONG).show();
             return;
@@ -433,6 +456,10 @@ public final class ZoneEditorActivity extends AppCompatActivity {
         }
         String sensorId = selectedSensorId();
         String valveId = selectedValveId();
+        if (assignedToActiveZone(sensorId, true) || assignedToActiveZone(valveId, false)) {
+            renderHardwareErrors();
+            return;
+        }
         if (automaticIrrigation.isChecked() && (sensorId.isEmpty() || valveId.isEmpty())) {
             Toast.makeText(this, R.string.zone_editor_hardware_required,
                     Toast.LENGTH_LONG).show();
@@ -449,7 +476,8 @@ public final class ZoneEditorActivity extends AppCompatActivity {
         candidate.setLow_moisture_alert_enabled(lowMoistureAlert.isChecked());
         candidate.setWatering_complete_alert_enabled(wateringCompleteAlert.isChecked());
 
-        saveButton.setEnabled(false);
+        saving = true;
+        updateReadyState();
         viewModel.saveZone(candidate, !editMode)
                 .addOnSuccessListener(unused -> {
                     Toast.makeText(this,
@@ -460,13 +488,14 @@ public final class ZoneEditorActivity extends AppCompatActivity {
                     finish();
                 })
                 .addOnFailureListener(error -> {
-                    saveButton.setEnabled(true);
+                    saving = false;
+                    updateReadyState();
                     Toast.makeText(this, friendlyError(error), Toast.LENGTH_LONG).show();
                 });
     }
 
     private void updateReadyState() {
-        saveButton.setEnabled(zonesReady && slot > 0 && !crops.isEmpty());
+        saveButton.setEnabled(!saving && zonesReady && slot > 0 && !crops.isEmpty());
     }
 
     private CropCatalogItem selectedCrop() {
@@ -475,13 +504,11 @@ public final class ZoneEditorActivity extends AppCompatActivity {
     }
 
     private String selectedSensorId() {
-        return selectedSensorIndex >= 0 && selectedSensorIndex < sensorOptions.size()
-                ? sensorOptions.get(selectedSensorIndex).id : "";
+        return hardwareSelection.getSensorId();
     }
 
     private String selectedValveId() {
-        return selectedValveIndex >= 0 && selectedValveIndex < valveOptions.size()
-                ? valveOptions.get(selectedValveIndex).id : "";
+        return hardwareSelection.getValveId();
     }
 
     private int optionPosition(List<HardwareOption> options, String id) {
@@ -507,6 +534,9 @@ public final class ZoneEditorActivity extends AppCompatActivity {
         }
         if (ZoneManagementViewModel.ERROR_VALVE_IN_USE.equals(code)) {
             return getString(R.string.zone_management_error_valve_used);
+        }
+        if (ZoneManagementViewModel.ERROR_ZONE_IN_USE.equals(code)) {
+            return getString(R.string.zone_management_error_zone_used);
         }
         return getString(R.string.zone_editor_save_failed, code);
     }

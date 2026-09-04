@@ -25,7 +25,7 @@ import java.text.NumberFormat;
 import java.util.List;
 
 /** Manages reusable products without mutating any already archived season snapshot. */
-public final class CropCatalogActivity extends AppCompatActivity {
+public final class CropCatalogActivity extends EdgeToEdgeActivity {
     private CropCatalogViewModel viewModel;
     private LinearLayout systemContainer;
     private LinearLayout userContainer;

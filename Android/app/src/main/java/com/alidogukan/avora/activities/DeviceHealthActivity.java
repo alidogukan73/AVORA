@@ -116,6 +116,7 @@ public class DeviceHealthActivity extends AppCompatActivity {
                     Insets systemBars =
                             insets.getInsets(
                                     WindowInsetsCompat.Type.systemBars()
+                                            | WindowInsetsCompat.Type.displayCutout()
                             );
 
                     view.setPadding(

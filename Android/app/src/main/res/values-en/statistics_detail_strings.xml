@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="statistics_loading_records">Loading irrigation records…</string>
+    <string name="statistics_no_records">No recorded irrigations for this selection.</string>
+    <string name="statistics_record_scope">All recorded seasons · Today is counted by irrigation start date.</string>
+    <string name="statistics_last_watering_date">Last irrigation date</string>
+    <string name="statistics_reason_manual_mode">Switched to manual mode</string>
+    <string name="statistics_reason_error">An error occurred during irrigation</string>
+    <string name="statistics_reason_simulation">Valve simulation; no irrigation performed</string>
+    <string name="statistics_reason_pump_busy">Pump in use by another zone</string>
+    <string name="statistics_reason_zero_duration">Irrigation duration is zero</string>
+</resources>

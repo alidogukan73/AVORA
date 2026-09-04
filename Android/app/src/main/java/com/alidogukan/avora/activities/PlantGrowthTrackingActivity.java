@@ -25,7 +25,7 @@ import java.util.Date;
 import java.util.List;
 
 /** Shows comparable plant growth assessments for one garden zone. */
-public final class PlantGrowthTrackingActivity extends AppCompatActivity {
+public final class PlantGrowthTrackingActivity extends EdgeToEdgeActivity {
     public static final String EXTRA_SEASON_ID = "season_id";
     public static final String EXTRA_ZONE_ID = "zone_id";
     public static final String EXTRA_ZONE_LABEL = "zone_label";

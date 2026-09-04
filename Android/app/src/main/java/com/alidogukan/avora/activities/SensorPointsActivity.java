@@ -25,7 +25,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Comparator;
 
-public class SensorPointsActivity extends AppCompatActivity {
+public class SensorPointsActivity extends EdgeToEdgeActivity {
 
     private static final long STATUS_REFRESH_MILLIS =
             5_000L;

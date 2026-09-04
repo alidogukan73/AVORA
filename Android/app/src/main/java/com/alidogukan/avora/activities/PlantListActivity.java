@@ -19,10 +19,10 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.lifecycle.ViewModelProvider;
 
 import com.alidogukan.avora.R;
+import com.alidogukan.avora.journal.PlantListOrdering;
+import com.alidogukan.avora.journal.PlantListOrdering.Entry;
 import com.alidogukan.avora.models.GardenSeason;
 import com.alidogukan.avora.models.GardenZone;
-import com.alidogukan.avora.models.FertilizationProfile;
-import com.alidogukan.avora.models.ZoneIrrigationStatus;
 import com.alidogukan.avora.season.SeasonDisplayIdentity;
 import com.alidogukan.avora.ui.PrimaryBottomNavigation;
 import com.alidogukan.avora.viewmodels.PlantListViewModel;
@@ -31,19 +31,12 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
 /** Plant-focused entry point for each zone's journal and season history. */
 public class PlantListActivity extends AppCompatActivity {
-    private static final long CURRENT_SENSOR_SECONDS = 90L;
-    private static final int SORT_SMART = 0;
-    private static final int SORT_ATTENTION = 1;
-    private static final int SORT_MOISTURE = 2;
-    private static final int SORT_UPDATED = 3;
-    private static final int SORT_NAME = 4;
     private PlantListViewModel viewModel;
     private final List<GardenZone> latestZones = new ArrayList<>();
     private final List<GardenSeason> latestSeasons = new ArrayList<>();
@@ -81,7 +74,8 @@ public class PlantListActivity extends AppCompatActivity {
         healthy = findViewById(R.id.txtPlantHealthy);
         attention = findViewById(R.id.txtPlantAttention);
         waiting = findViewById(R.id.txtPlantWaiting);
-        sortMode = viewModel.getSortMode(SORT_SMART);
+        sortMode = PlantListOrdering.normalizeSortMode(
+                viewModel.getSortMode(PlantListOrdering.SORT_SMART));
         findViewById(R.id.btnPlantSort).setOnClickListener(view -> showSortMenu());
         viewModel.getZones().observe(this, this::updateZones);
         viewModel.getSeasons().observe(this, values -> {
@@ -94,7 +88,8 @@ public class PlantListActivity extends AppCompatActivity {
     /** Keeps all journal content below the status bar / camera cutout on every phone. */
     private void applyWindowInsets() {
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.plantListRoot), (view, insets) -> {
-            Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars()
+                    | WindowInsetsCompat.Type.displayCutout());
             view.setPadding(bars.left, bars.top, bars.right, bars.bottom);
             return insets;
         });
@@ -108,17 +103,9 @@ public class PlantListActivity extends AppCompatActivity {
     }
 
     private void render() {
-        List<GardenZone> visibleZones = new ArrayList<>(latestZones);
-        sortZones(visibleZones);
-        List<PlantEntry> visiblePlants = new ArrayList<>();
-        for (GardenZone zone : visibleZones) {
-            List<GardenSeason> active = SeasonDisplayIdentity.activeSeasons(
-                    zone, latestSeasons);
-            if (active.isEmpty()) visiblePlants.add(new PlantEntry(zone, null));
-            else for (GardenSeason season : active) {
-                visiblePlants.add(new PlantEntry(zone, season));
-            }
-        }
+        List<Entry> visiblePlants = PlantListOrdering.entries(
+                latestZones, latestSeasons, sortMode, System.currentTimeMillis() / 1000L,
+                getResources().getConfiguration().getLocales().get(0));
         list.removeAllViews();
         boolean hasZones = !visiblePlants.isEmpty();
         empty.setVisibility(hasZones ? View.GONE : View.VISIBLE);
@@ -129,7 +116,7 @@ public class PlantListActivity extends AppCompatActivity {
         int healthyCount = 0;
         int attentionCount = 0;
         int waitingCount = 0;
-        for (PlantEntry plant : visiblePlants) {
+        for (Entry plant : visiblePlants) {
             GardenZone zone = plant.zone;
             if (!hasCurrentSensorData(zone)) waitingCount++;
             else if (zone.getMoisture() < zone.getMoisture_limit()) attentionCount++;
@@ -152,7 +139,8 @@ public class PlantListActivity extends AppCompatActivity {
                 getString(R.string.runtime_sort_needs_attention),
                 getString(R.string.runtime_sort_moisture),
                 getString(R.string.runtime_sort_recent),
-                getString(R.string.runtime_sort_plant_name)
+                getString(R.string.runtime_sort_plant_name),
+                getString(R.string.runtime_sort_area)
         };
         new MaterialAlertDialogBuilder(this)
                 .setTitle(R.string.runtime_plant_sort_title)
@@ -165,68 +153,7 @@ public class PlantListActivity extends AppCompatActivity {
                 .show();
     }
 
-    private void sortZones(List<GardenZone> zones) {
-        Comparator<GardenZone> comparator;
-        switch (sortMode) {
-            case SORT_ATTENTION:
-                comparator = Comparator.<GardenZone>comparingInt(this::attentionRank)
-                        .thenComparingInt(zone -> hasCurrentSensorData(zone) ? zone.getMoisture() : Integer.MAX_VALUE)
-                        .thenComparing(this::safeName, String.CASE_INSENSITIVE_ORDER);
-                break;
-            case SORT_MOISTURE:
-                comparator = Comparator.<GardenZone>comparingInt(zone -> hasCurrentSensorData(zone) ? zone.getMoisture() : Integer.MAX_VALUE)
-                        .thenComparing(this::safeName, String.CASE_INSENSITIVE_ORDER);
-                break;
-            case SORT_UPDATED:
-                comparator = Comparator.<GardenZone>comparingLong(GardenZone::getUpdated_at_epoch).reversed()
-                        .thenComparing(this::safeName, String.CASE_INSENSITIVE_ORDER);
-                break;
-            case SORT_NAME:
-                comparator = Comparator.comparing((GardenZone zone) -> safeName(zone), String.CASE_INSENSITIVE_ORDER);
-                break;
-            case SORT_SMART:
-            default:
-                comparator = Comparator.<GardenZone>comparingInt(this::smartPriority)
-                        .thenComparingInt(zone -> hasCurrentSensorData(zone) ? zone.getMoisture() : Integer.MAX_VALUE)
-                        .thenComparing(this::safeName, String.CASE_INSENSITIVE_ORDER);
-                break;
-        }
-        zones.sort(comparator);
-    }
-
-    /** AVORA order: critical, attention, due action, healthy, no current data. */
-    private int smartPriority(GardenZone zone) {
-        if (!hasCurrentSensorData(zone)) return 4;
-        if (isCritical(zone)) return 0;
-        if (zone.getMoisture() < zone.getMoisture_limit()) return 1;
-        if (hasDueAction(zone)) return 2;
-        return 3;
-    }
-
-    private int attentionRank(GardenZone zone) {
-        int smart = smartPriority(zone);
-        return smart == 0 ? 0 : smart == 1 ? 1 : smart == 2 ? 2 : smart == 4 ? 4 : 3;
-    }
-
-    private boolean isCritical(GardenZone zone) {
-        int criticalLimit = Math.max(5, zone.getMoisture_limit() - 20);
-        ZoneIrrigationStatus irrigation = zone.getIrrigation_status();
-        return zone.getMoisture() <= criticalLimit
-                || (irrigation != null && !irrigation.isSensor_stable() && irrigation.getMoisture_deficit() > 15);
-    }
-
-    private boolean hasDueAction(GardenZone zone) {
-        FertilizationProfile profile = zone.getFertilization();
-        if (profile != null && profile.isEnabled() && profile.isReminder_enabled()
-                && profile.getNext_application_at_epoch() > 0L
-                && profile.getNext_application_at_epoch() <= System.currentTimeMillis() / 1000L) {
-            return true;
-        }
-        ZoneIrrigationStatus irrigation = zone.getIrrigation_status();
-        return irrigation != null && (irrigation.isWatering_active() || irrigation.isSelected_for_watering());
-    }
-
-    private void addZoneCard(PlantEntry plant) {
+    private void addZoneCard(Entry plant) {
         GardenZone zone = plant.zone;
         GardenSeason season = plant.season;
         MaterialCardView card = new MaterialCardView(this);
@@ -253,9 +180,9 @@ public class PlantListActivity extends AppCompatActivity {
         LinearLayout details = new LinearLayout(this);
         details.setOrientation(LinearLayout.VERTICAL);
         details.setPadding(dp(10), 0, 0, 0);
-        String cropAndArea = SeasonDisplayIdentity.cropAreaName(season, zone);
-        TextView title = text(cropAndArea.isBlank()
-                ? safeName(zone) : cropAndArea, 16, R.color.textPrimary);
+        String areaAndCrop = SeasonDisplayIdentity.areaCropName(season, zone);
+        TextView title = text(areaAndCrop.isBlank()
+                ? safeName(zone) : areaAndCrop, 16, R.color.textPrimary);
         title.setTypeface(null, android.graphics.Typeface.BOLD);
         TextView status = text("●  " + status(zone), 12, statusColor(zone));
         TextView meta = text(getString(R.string.runtime_plant_moisture_meta, zone.getMoisture(), lastRecord(zone)), 11, R.color.textSecondary);
@@ -319,9 +246,7 @@ public class PlantListActivity extends AppCompatActivity {
 
     /** Mirrors the dashboard connection threshold; old cached moisture must not look live. */
     private boolean hasCurrentSensorData(GardenZone zone) {
-        if (zone == null || zone.getUpdated_at_epoch() <= 0L) return false;
-        long age = Math.max(0L, System.currentTimeMillis() / 1000L - zone.getUpdated_at_epoch());
-        return age <= CURRENT_SENSOR_SECONDS;
+        return PlantListOrdering.hasCurrentSensorData(zone, System.currentTimeMillis() / 1000L);
     }
 
     private String lastRecord(GardenZone zone) {
@@ -348,16 +273,6 @@ public class PlantListActivity extends AppCompatActivity {
 
     private int dp(int value) {
         return Math.round(value * getResources().getDisplayMetrics().density);
-    }
-
-    private static final class PlantEntry {
-        final GardenZone zone;
-        final GardenSeason season;
-
-        PlantEntry(GardenZone zone, GardenSeason season) {
-            this.zone = zone;
-            this.season = season;
-        }
     }
 
     @Override

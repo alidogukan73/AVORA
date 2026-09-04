@@ -158,13 +158,8 @@ public class FirebaseRepository {
             List<GardenZone> zones = new ArrayList<>();
 
             for(DataSnapshot child : snapshot.getChildren()) {
-               if (!isConfiguredZoneSnapshot(child)) continue;
-               GardenZone zone = (GardenZone)child.getValue(GardenZone.class);
+               GardenZone zone = configuredZoneFromSnapshot(child);
                if (zone != null) {
-                  if (zone.getZone_id() == null || zone.getZone_id().isBlank()) {
-                     zone.setZone_id(child.getKey());
-                  }
-
                   zones.add(zone);
                }
             }
@@ -178,6 +173,35 @@ public class FirebaseRepository {
          }
       });
       return liveData;
+   }
+
+   /** Runtime-only children can reappear after deletion; they are not a configured zone. */
+   static GardenZone configuredZoneFromSnapshot(DataSnapshot snapshot) {
+      if (!isConfiguredZoneSnapshot(snapshot)) return null;
+      GardenZone zone = snapshot.getValue(GardenZone.class);
+      if (zone != null && (zone.getZone_id() == null || zone.getZone_id().isBlank())) {
+         zone.setZone_id(snapshot.getKey());
+      }
+      return zone;
+   }
+
+   /** Uses exactly the same configured-zone boundary as the inventory observers. */
+   static GardenZone validateGardenZoneSave(
+         DataSnapshot zonesSnapshot, GardenZone candidate, boolean requireAvailableSlot) {
+      ZoneCapacityPolicy.validateCandidate(candidate, null);
+      List<GardenZone> zones = new ArrayList<>();
+      for (DataSnapshot child : zonesSnapshot.getChildren()) {
+         GardenZone existing = configuredZoneFromSnapshot(child);
+         if (existing != null) zones.add(existing);
+      }
+      GardenZone storedZone = configuredZoneFromSnapshot(
+            zonesSnapshot.child(candidate.getZone_id()));
+      if (requireAvailableSlot && storedZone != null
+            && !ZoneCapacityPolicy.isInactive(storedZone)) {
+         throw new IllegalStateException(ZoneCapacityPolicy.ERROR_ZONE_IN_USE);
+      }
+      ZoneCapacityPolicy.validateCandidate(candidate, zones);
+      return storedZone;
    }
 
    private static boolean isConfiguredZoneSnapshot(DataSnapshot snapshot) {
@@ -261,12 +285,8 @@ public class FirebaseRepository {
             List<GardenZone> zones = new ArrayList<>();
             Set<String> firmwareVersions = new LinkedHashSet<>();
             for (DataSnapshot child : snapshot.child("zones").getChildren()) {
-               if (!isConfiguredZoneSnapshot(child)) continue;
-               GardenZone zone = child.getValue(GardenZone.class);
+               GardenZone zone = configuredZoneFromSnapshot(child);
                if (zone == null) continue;
-               if (zone.getZone_id() == null || zone.getZone_id().isBlank()) {
-                  zone.setZone_id(child.getKey());
-               }
                zones.add(zone);
                String firmware = child.child("firmware").getValue(String.class);
                if (zone.isEnabled() && firmware != null && !firmware.isBlank()) {
@@ -544,6 +564,62 @@ public class FirebaseRepository {
       return deviceRef.updateChildren(values);
    }
 
+   /**
+    * Atomically saves global and timing preferences after synchronizing every active zone.
+    * A failed write can no longer leave only half of the irrigation settings updated.
+    */
+   public Task<Void> saveIrrigationSettingsAndSyncZones(
+         long moistureLimit,
+         long pumpDuration,
+         long cooldownSeconds,
+         long restartDelta,
+         boolean enabled,
+         boolean autoMode,
+         IrrigationTimingSettings settings) {
+      return this.zonesRef.get().continueWithTask(task -> {
+         if (!task.isSuccessful() || task.getResult() == null) {
+            Exception error = task.getException();
+            return Tasks.forException(error == null
+                  ? new IllegalStateException("Bölgeler okunamadı.") : error);
+         }
+
+         Map<String, Object> updates = new HashMap<>();
+         updates.put("commands/moisture_limit", moistureLimit);
+         updates.put("commands/pump_duration", pumpDuration);
+         updates.put("commands/cooldown_seconds", cooldownSeconds);
+         updates.put("commands/restart_delta", restartDelta);
+         updates.put("commands/enabled", enabled);
+         updates.put("commands/auto_mode", autoMode);
+
+         for (DataSnapshot zoneSnapshot : task.getResult().getChildren()) {
+            String zoneId = zoneSnapshot.getKey();
+            if (zoneId == null || zoneId.isBlank()) continue;
+            String path = "zones/" + zoneId + "/";
+            updates.put(path + "moisture_limit", moistureLimit);
+            updates.put(path + "pump_duration", pumpDuration);
+            updates.put(path + "cooldown_seconds", cooldownSeconds);
+            updates.put(path + "restart_delta", restartDelta);
+         }
+
+         String timingPath = "weather/irrigation_settings/";
+         updates.put(timingPath + "smart_timing_enabled", settings.isSmartTimingEnabled());
+         updates.put(timingPath + "garden_environment", settings.getGardenEnvironment());
+         updates.put(timingPath + "irrigation_timing_strategy", settings.getTimingStrategy());
+         updates.put(timingPath + "evening_irrigation_allowed",
+               settings.isEveningIrrigationAllowed());
+         updates.put(timingPath + "max_irrigation_defer_minutes",
+               settings.getMaxIrrigationDeferMinutes());
+         updates.put(timingPath + "critical_moisture_deficit",
+               settings.getCriticalMoistureDeficit());
+         updates.put(timingPath + "timing_recheck_enabled",
+               settings.isTimingRecheckEnabled());
+         updates.put(timingPath + "preferred_start_hour", settings.getPreferredStartHour());
+         updates.put(timingPath + "preferred_end_hour", settings.getPreferredEndHour());
+         updates.put(timingPath + "updated_at_epoch", System.currentTimeMillis() / 1000L);
+         return this.deviceRef.updateChildren(updates);
+      });
+   }
+
    public LiveData<IrrigationTimingSettings> observeIrrigationTimingSettings() {
       DatabaseReference settingsRef = deviceRef.child("weather").child("irrigation_settings");
       FirebaseLiveData<IrrigationTimingSettings> liveData = new FirebaseLiveData<>(settingsRef);
@@ -648,25 +724,9 @@ public class FirebaseRepository {
                   ? new IllegalStateException("ZONE_READ_FAILED") : error);
          }
          DataSnapshot zonesSnapshot = task.getResult();
-         List<GardenZone> zones = new ArrayList<>();
-         for (DataSnapshot child : zonesSnapshot.getChildren()) {
-            GardenZone existing = child.getValue(GardenZone.class);
-            if (existing == null) continue;
-            if (existing.getZone_id() == null || existing.getZone_id().isBlank()) {
-               existing.setZone_id(child.getKey());
-            }
-            zones.add(existing);
-         }
-
+         GardenZone storedZone = validateGardenZoneSave(
+               zonesSnapshot, zone, requireAvailableSlot);
          String zoneId = zone.getZone_id();
-         GardenZone storedZone = zonesSnapshot.child(zoneId).getValue(GardenZone.class);
-         if (requireAvailableSlot
-               && storedZone != null
-               && !ZoneCapacityPolicy.isInactive(storedZone)) {
-            return Tasks.forException(
-                  new IllegalStateException(ZoneCapacityPolicy.ERROR_ZONE_IN_USE));
-         }
-         ZoneCapacityPolicy.validateCandidate(zone, zones);
 
          boolean initializeWithoutSeason = storedZone == null
                || ZoneCapacityPolicy.isInactive(storedZone);
@@ -1060,6 +1120,11 @@ public class FirebaseRepository {
    }
 
    public LiveData<List<WateringHistory>> observeWateringHistory() {
+      return observeWateringHistory(null);
+   }
+
+   /** Complete history for totals, never the recent-history screen's 50-record window. */
+   public LiveData<List<WateringHistory>> observeWateringHistory(Consumer<DatabaseError> errorHandler) {
       final FirebaseLiveData<List<WateringHistory>> liveData =
             new FirebaseLiveData<>(historyRef);
       liveData.setEventListener(new ValueEventListener() {
@@ -1074,12 +1139,17 @@ public class FirebaseRepository {
                }
             }
 
-            values.sort((left, right) -> right.getFinishedAt().compareTo(left.getFinishedAt()));
+            values.sort((left, right) -> {
+               String leftTime = left.getFinishedAt() == null ? "" : left.getFinishedAt();
+               String rightTime = right.getFinishedAt() == null ? "" : right.getFinishedAt();
+               return rightTime.compareTo(leftTime);
+            });
             liveData.setValue(values);
          }
 
          public void onCancelled(@NonNull DatabaseError error) {
             Log.e("FirebaseRepository", "Watering history read failed", error.toException());
+            if (errorHandler != null) errorHandler.accept(error);
          }
       });
       return liveData;

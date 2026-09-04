@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="runtime_visual_ai_app_check_title">Görsel analiz için uygulama doğrulanamadı</string>
+    <string name="runtime_visual_ai_app_check_meta">Sürüm: %1$s · Firebase App Check</string>
+    <string name="runtime_visual_ai_app_check_release">Uygulama doğrulaması tamamlanamadı. İnternet erişimini kontrol edin. Emülatörde internal sürümü kullanılmalı; telefondaki hata için uygulama imzası ve Play Integrity doğrulaması incelenmelidir.</string>
+    <string name="runtime_visual_ai_app_check_test">Bu test kurulumunun Firebase App Check cihaz kaydı ve internet erişimi kontrol edilmelidir. Uygulamayı kaldırmayın veya verilerini temizlemeyin.</string>
+    <string name="runtime_visual_ai_key_invalid">Görsel analiz servisinin API anahtarı geçersiz</string>
+    <string name="runtime_visual_ai_key_invalid_advice">Raspberry Pi üzerindeki Gemini API anahtarı geçerli bir anahtarla güncellenmelidir. Anahtarı uygulamaya veya sohbete yazmayın. Bu bir Tailscale bağlantı hatası değildir.</string>
+    <string name="runtime_visual_ai_provider_failed">Görsel analiz sağlayıcısı isteği reddetti</string>
+    <string name="runtime_visual_ai_provider_advice">Raspberry Pi servisine ulaşıldı ancak yapay zekâ sağlayıcısı hata döndürdü. Sunucudaki API anahtarı, model ve kota ayarları kontrol edilmelidir.</string>
+</resources>
