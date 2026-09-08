@@ -1,0 +1,330 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background">
+
+    <FrameLayout
+        android:id="@+id/seedlingEditorToolbar"
+        android:layout_width="0dp"
+        android:layout_height="64dp"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="12dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnBack"
+            style="@style/Widget.Material3.Button.IconButton"
+            android:layout_width="48dp"
+            android:layout_height="56dp"
+            android:layout_gravity="start|center_vertical"
+            android:contentDescription="@string/back_to_main"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:padding="0dp"
+            app:backgroundTint="@android:color/transparent"
+            app:cornerRadius="24dp"
+            app:icon="@drawable/ic_arrow_back_24"
+            app:iconGravity="textStart"
+            app:iconPadding="0dp"
+            app:iconSize="22dp"
+            app:iconTint="@color/textPrimary"
+            app:rippleColor="@color/backButtonRipple" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:layout_gravity="center"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            android:text="@string/seedling_new_title"
+            android:textColor="@color/textPrimary"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+    </FrameLayout>
+
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/seedlingEditorScroll"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:clipToPadding="false"
+        android:fillViewport="true"
+        android:overScrollMode="never"
+        android:paddingStart="12dp"
+        android:paddingTop="10dp"
+        android:paddingEnd="12dp"
+        android:paddingBottom="12dp"
+        app:layout_constraintBottom_toTopOf="@id/btnCreateSeedlingBatch"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/seedlingEditorToolbar">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <com.google.android.material.card.MaterialCardView
+                style="@style/Widget.AVORA.Seedling.Card.Form"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <LinearLayout
+                        android:id="@+id/rowSeedlingPlant"
+                        android:layout_width="match_parent"
+                        android:layout_height="68dp"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:foreground="?attr/selectableItemBackground"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="12dp">
+                        <ImageView android:layout_width="26dp" android:layout_height="26dp"
+                            android:contentDescription="@null"
+                            app:srcCompat="@drawable/ic_seedling_plant_type_24"
+                            app:tint="@color/primary" />
+                        <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                            android:layout_marginStart="14dp" android:layout_weight="1"
+                            android:text="@string/seedling_plant_type"
+                            android:textAppearance="@style/TextAppearance.AVORA.Seedling.RowLabel" />
+                        <TextView android:id="@+id/txtSeedlingPlantValue"
+                            android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:gravity="end" android:maxLines="1"
+                            android:text="@string/seedling_form_plant_hint"
+                            android:textColor="@color/textPrimary" android:textSize="14sp" />
+                        <ImageView android:layout_width="20dp" android:layout_height="20dp"
+                            android:layout_marginStart="7dp" android:contentDescription="@null"
+                            app:srcCompat="@drawable/ic_expand_more_20"
+                            app:tint="@color/textPrimary" />
+                    </LinearLayout>
+                    <View android:layout_width="match_parent" android:layout_height="1dp"
+                        android:layout_marginStart="14dp" android:layout_marginEnd="14dp"
+                        android:background="@color/divider" />
+
+                    <LinearLayout
+                        android:id="@+id/rowSeedlingVariety"
+                        android:layout_width="match_parent"
+                        android:layout_height="68dp"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:foreground="?attr/selectableItemBackground"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="12dp">
+                        <ImageView android:layout_width="26dp" android:layout_height="26dp"
+                            android:contentDescription="@null"
+                            app:srcCompat="@drawable/ic_seedling_variety_24"
+                            app:tint="@color/primary" />
+                        <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                            android:layout_marginStart="14dp" android:layout_weight="1"
+                            android:text="@string/seedling_variety"
+                            android:textAppearance="@style/TextAppearance.AVORA.Seedling.RowLabel" />
+                        <TextView android:id="@+id/txtSeedlingVarietyValue"
+                            android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:gravity="end" android:maxLines="1"
+                            android:text="@string/seedling_form_variety_hint"
+                            android:textColor="@color/textPrimary" android:textSize="14sp" />
+                        <ImageView android:layout_width="20dp" android:layout_height="20dp"
+                            android:layout_marginStart="7dp" android:contentDescription="@null"
+                            app:srcCompat="@drawable/ic_expand_more_20"
+                            app:tint="@color/textPrimary" />
+                    </LinearLayout>
+                    <View android:layout_width="match_parent" android:layout_height="1dp"
+                        android:layout_marginStart="14dp" android:layout_marginEnd="14dp"
+                        android:background="@color/divider" />
+
+                    <LinearLayout
+                        android:id="@+id/rowSeedlingSowingDate"
+                        android:layout_width="match_parent"
+                        android:layout_height="68dp"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:foreground="?attr/selectableItemBackground"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="18dp">
+                        <ImageView android:layout_width="26dp" android:layout_height="26dp"
+                            android:contentDescription="@null"
+                            app:srcCompat="@drawable/ic_seedling_calendar_24"
+                            app:tint="@color/primary" />
+                        <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                            android:layout_marginStart="14dp" android:layout_weight="1"
+                            android:text="@string/seedling_sowing_date"
+                            android:textAppearance="@style/TextAppearance.AVORA.Seedling.RowLabel" />
+                        <TextView android:id="@+id/txtSeedlingSowingDateValue"
+                            android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:gravity="end" android:maxLines="1"
+                            android:textColor="@color/textPrimary" android:textSize="14sp" />
+                    </LinearLayout>
+                    <View android:layout_width="match_parent" android:layout_height="1dp"
+                        android:layout_marginStart="14dp" android:layout_marginEnd="14dp"
+                        android:background="@color/divider" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="68dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="10dp">
+                        <ImageView android:layout_width="26dp" android:layout_height="26dp"
+                            android:contentDescription="@null"
+                            app:srcCompat="@drawable/ic_seedling_seed_count_24"
+                            app:tint="@color/primary" />
+                        <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                            android:layout_marginStart="14dp" android:layout_weight="1"
+                            android:text="@string/seedling_seed_count"
+                            android:textAppearance="@style/TextAppearance.AVORA.Seedling.RowLabel" />
+                        <EditText android:id="@+id/inputSeedlingSeedCount"
+                            android:layout_width="104dp" android:layout_height="match_parent"
+                            android:background="@android:color/transparent"
+                            android:gravity="end|center_vertical"
+                            android:importantForAutofill="no" android:inputType="number"
+                            android:maxLines="1" android:paddingStart="8dp" android:paddingEnd="8dp"
+                            android:selectAllOnFocus="true"
+                            android:textColor="@color/textPrimary" android:textSize="14sp" />
+                    </LinearLayout>
+                    <View android:layout_width="match_parent" android:layout_height="1dp"
+                        android:layout_marginStart="14dp" android:layout_marginEnd="14dp"
+                        android:background="@color/divider" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="68dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="10dp">
+                        <ImageView android:layout_width="26dp" android:layout_height="26dp"
+                            android:contentDescription="@null"
+                            app:srcCompat="@drawable/ic_seedling_tray_24"
+                            app:tint="@color/primary" />
+                        <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                            android:layout_marginStart="14dp" android:layout_weight="1"
+                            android:text="@string/seedling_tray_cells"
+                            android:textAppearance="@style/TextAppearance.AVORA.Seedling.RowLabel" />
+                        <EditText android:id="@+id/inputSeedlingTrayCells"
+                            android:layout_width="104dp" android:layout_height="match_parent"
+                            android:background="@android:color/transparent"
+                            android:gravity="end|center_vertical"
+                            android:importantForAutofill="no" android:inputType="number"
+                            android:maxLines="1" android:paddingStart="8dp" android:paddingEnd="8dp"
+                            android:selectAllOnFocus="true"
+                            android:textColor="@color/textPrimary" android:textSize="14sp" />
+                    </LinearLayout>
+                    <View android:layout_width="match_parent" android:layout_height="1dp"
+                        android:layout_marginStart="14dp" android:layout_marginEnd="14dp"
+                        android:background="@color/divider" />
+
+                    <LinearLayout
+                        android:id="@+id/rowSeedlingArea"
+                        android:layout_width="match_parent"
+                        android:layout_height="68dp"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:foreground="?attr/selectableItemBackground"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="12dp">
+                        <ImageView android:layout_width="26dp" android:layout_height="26dp"
+                            android:contentDescription="@null"
+                            app:srcCompat="@drawable/ic_seedling_location_24"
+                            app:tint="@color/primary" />
+                        <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                            android:layout_marginStart="14dp" android:layout_weight="1"
+                            android:text="@string/seedling_area"
+                            android:textAppearance="@style/TextAppearance.AVORA.Seedling.RowLabel" />
+                        <TextView android:id="@+id/txtSeedlingAreaValue"
+                            android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:gravity="end" android:maxLines="1"
+                            android:text="@string/seedling_form_area_hint"
+                            android:textColor="@color/textPrimary" android:textSize="14sp" />
+                        <ImageView android:layout_width="20dp" android:layout_height="20dp"
+                            android:layout_marginStart="7dp" android:contentDescription="@null"
+                            app:srcCompat="@drawable/ic_expand_more_20"
+                            app:tint="@color/textPrimary" />
+                    </LinearLayout>
+                    <View android:layout_width="match_parent" android:layout_height="1dp"
+                        android:layout_marginStart="14dp" android:layout_marginEnd="14dp"
+                        android:background="@color/divider" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="68dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="18dp">
+                        <ImageView android:layout_width="26dp" android:layout_height="26dp"
+                            android:contentDescription="@null"
+                            app:srcCompat="@drawable/ic_seedling_calendar_24"
+                            app:tint="@color/primary" />
+                        <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                            android:layout_marginStart="14dp" android:layout_weight="1"
+                            android:text="@string/seedling_estimated_emergence"
+                            android:textAppearance="@style/TextAppearance.AVORA.Seedling.RowLabel" />
+                        <TextView android:id="@+id/txtSeedlingEmergenceDateValue"
+                            android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:gravity="end" android:maxLines="1"
+                            android:textColor="@color/textPrimary" android:textSize="14sp" />
+                    </LinearLayout>
+                    <View android:layout_width="match_parent" android:layout_height="1dp"
+                        android:layout_marginStart="14dp" android:layout_marginEnd="14dp"
+                        android:background="@color/divider" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="68dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="18dp">
+                        <ImageView android:layout_width="26dp" android:layout_height="26dp"
+                            android:contentDescription="@null"
+                            app:srcCompat="@drawable/ic_seedling_calendar_24"
+                            app:tint="@color/primary" />
+                        <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                            android:layout_marginStart="14dp" android:layout_weight="1"
+                            android:text="@string/seedling_estimated_transplant"
+                            android:textAppearance="@style/TextAppearance.AVORA.Seedling.RowLabel" />
+                        <TextView android:id="@+id/txtSeedlingTransplantDateValue"
+                            android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:gravity="end" android:maxLines="1"
+                            android:textColor="@color/textPrimary" android:textSize="14sp" />
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnCreateSeedlingBatch"
+        style="@style/Widget.AVORA.Button.Primary"
+        android:layout_width="0dp"
+        android:layout_height="56dp"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="12dp"
+        android:layout_marginBottom="16dp"
+        android:text="@string/seedling_create"
+        android:textSize="16sp"
+        app:cornerRadius="10dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

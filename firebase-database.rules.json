@@ -162,6 +162,118 @@
             }
           }
         },
+        "seedling": {
+          "nodes": {
+            "$nodeId": {
+              ".validate": "newData.val() == data.val()"
+            }
+          },
+          "batches": {
+            "$batchId": {
+              ".validate": "!newData.exists() || newData.hasChildren(['batch_id', 'plant_type', 'emoji', 'variety', 'area', 'node_id', 'status', 'stage', 'sowing_date_epoch', 'estimated_emergence_epoch', 'estimated_transplant_epoch', 'seed_count', 'tray_cell_count', 'healthy_count', 'created_at_epoch', 'updated_at_epoch'])",
+              "batch_id": {
+                ".validate": "newData.isString() && newData.val() == $batchId && newData.val().length > 0 && newData.val().length <= 120"
+              },
+              "plant_type": {
+                ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 80"
+              },
+              "emoji": {
+                ".validate": "newData.isString() && newData.val().length <= 16"
+              },
+              "variety": {
+                ".validate": "newData.isString() && newData.val().length <= 80"
+              },
+              "area": {
+                ".validate": "newData.isString() && newData.val().length <= 120"
+              },
+              "node_id": {
+                ".validate": "newData.isString() && newData.val().matches(/^seedling-[0-9]{3}$/)"
+              },
+              "status": {
+                ".validate": "newData.isString() && (newData.val() == 'ACTIVE' || newData.val() == 'TRANSFERRED' || newData.val() == 'ARCHIVED')"
+              },
+              "stage": {
+                ".validate": "newData.isString() && (newData.val() == 'SOWN' || newData.val() == 'GERMINATING' || newData.val() == 'COTYLEDON' || newData.val() == 'TRUE_LEAVES' || newData.val() == 'HARDENING' || newData.val() == 'READY')"
+              },
+              "sowing_date_epoch": {
+                ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= 4102444800 && newData.val() % 1 == 0"
+              },
+              "estimated_emergence_epoch": {
+                ".validate": "newData.isNumber() && newData.val() >= newData.parent().child('sowing_date_epoch').val() && newData.val() <= 4102444800 && newData.val() % 1 == 0"
+              },
+              "estimated_transplant_epoch": {
+                ".validate": "newData.isNumber() && newData.val() >= newData.parent().child('estimated_emergence_epoch').val() && newData.val() <= 4102444800 && newData.val() % 1 == 0"
+              },
+              "germination_date_epoch": {
+                ".validate": "newData.isNumber() && newData.val() >= newData.parent().child('sowing_date_epoch').val() && newData.val() <= 4102444800 && newData.val() % 1 == 0"
+              },
+              "first_leaf_date_epoch": {
+                ".validate": "newData.isNumber() && newData.val() >= newData.parent().child('sowing_date_epoch').val() && (!newData.parent().child('germination_date_epoch').exists() || newData.val() >= newData.parent().child('germination_date_epoch').val()) && newData.val() <= 4102444800 && newData.val() % 1 == 0"
+              },
+              "hardening_date_epoch": {
+                ".validate": "newData.isNumber() && newData.val() >= newData.parent().child('sowing_date_epoch').val() && (!newData.parent().child('first_leaf_date_epoch').exists() || newData.val() >= newData.parent().child('first_leaf_date_epoch').val()) && newData.val() <= 4102444800 && newData.val() % 1 == 0"
+              },
+              "ready_date_epoch": {
+                ".validate": "newData.isNumber() && newData.val() >= newData.parent().child('sowing_date_epoch').val() && (!newData.parent().child('hardening_date_epoch').exists() || newData.val() >= newData.parent().child('hardening_date_epoch').val()) && newData.val() <= 4102444800 && newData.val() % 1 == 0"
+              },
+              "seed_count": {
+                ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= 10000 && newData.val() % 1 == 0"
+              },
+              "tray_cell_count": {
+                ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= 10000 && newData.val() % 1 == 0"
+              },
+              "healthy_count": {
+                ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= newData.parent().child('seed_count').val() && newData.val() % 1 == 0"
+              },
+              "created_at_epoch": {
+                ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= 4102444800 && newData.val() % 1 == 0"
+              },
+              "updated_at_epoch": {
+                ".validate": "newData.isNumber() && newData.val() >= newData.parent().child('created_at_epoch').val() && newData.val() <= 4102444800 && newData.val() % 1 == 0"
+              },
+              "$other": {
+                ".validate": false
+              }
+            }
+          },
+          "daily_logs": {
+            "$batchId": {
+              "$logId": {
+                ".validate": "!newData.exists() || (newData.hasChildren(['log_id', 'batch_id', 'height_cm', 'leaf_count', 'healthy_count', 'watered', 'note', 'created_at_epoch']) && newData.child('batch_id').val() == $batchId && root.child('devices').child($deviceId).child('seedling').child('batches').child($batchId).exists())",
+                "log_id": {
+                  ".validate": "newData.isString() && newData.val() == $logId && newData.val().length > 0 && newData.val().length <= 120"
+                },
+                "batch_id": {
+                  ".validate": "newData.isString() && newData.val() == $batchId"
+                },
+                "height_cm": {
+                  ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 500"
+                },
+                "leaf_count": {
+                  ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000 && newData.val() % 1 == 0"
+                },
+                "healthy_count": {
+                  ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= root.child('devices').child($deviceId).child('seedling').child('batches').child($batchId).child('seed_count').val() && newData.val() % 1 == 0"
+                },
+                "watered": {
+                  ".validate": "newData.isBoolean()"
+                },
+                "note": {
+                  ".validate": "newData.isString() && newData.val().length <= 1000"
+                },
+                "created_at_epoch": {
+                  ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= 4102444800 && newData.val() % 1 == 0"
+                },
+                "$other": {
+                  ".validate": false
+                }
+              }
+            }
+          },
+          "$other": {
+            ".validate": false
+          }
+        },
         "garden_journal": {
           "photo_metadata": {
             "$photoId": {

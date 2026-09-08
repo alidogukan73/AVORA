@@ -455,7 +455,7 @@ class FirebaseService:
 
         self._device_ref().child(
             "health",
-        ).set(
+        ).update(
             {
                 "cpu_temperature":
                     health.cpu_temperature,
@@ -519,6 +519,31 @@ class FirebaseService:
                     datetime.now().isoformat(),
             },
         )
+
+    def update_ads1115_status(
+        self,
+        *,
+        node_online: bool,
+        primary_available: bool,
+        secondary_available: bool,
+        firmware: str,
+        rssi: int,
+        uptime_seconds: int,
+        received_at_epoch: int,
+    ) -> None:
+        """Publish independent ESP32 ADS1115 module health."""
+
+        self._device_ref().child("health").update({
+            "esp32_node_online": bool(node_online),
+            "ads1115_primary_available": bool(primary_available),
+            "ads1115_secondary_available": bool(secondary_available),
+            "ads1115_primary_address": "0x48",
+            "ads1115_secondary_address": "0x49",
+            "ads1115_status_firmware": str(firmware or "")[:32],
+            "ads1115_status_rssi": int(rssi),
+            "ads1115_status_uptime_seconds": int(uptime_seconds),
+            "ads1115_status_updated_at_epoch": int(received_at_epoch),
+        })
 
     def increment_restart_count(self) -> None:
         """
@@ -2403,6 +2428,32 @@ class FirebaseService:
         return db.reference(
             f"devices/{AppConfig.DEVICE_ID}",
         )
+
+    def update_seedling_snapshot(
+        self,
+        node_id: str,
+        telemetry: dict,
+        recommendation: dict,
+    ) -> None:
+        """Publish a validated seedling snapshot for the Android client."""
+        safe_node_id = str(node_id).strip().lower()
+        if not safe_node_id or any(
+            character not in "abcdefghijklmnopqrstuvwxyz0123456789-_"
+            for character in safe_node_id
+        ):
+            raise ValueError("Invalid seedling node id.")
+
+        now_epoch = int(time.time())
+        latest = dict(telemetry)
+        latest["received_at_epoch"] = now_epoch
+        latest["online"] = True
+
+        advice = dict(recommendation)
+        advice["updated_at_epoch"] = now_epoch
+
+        self._device_ref().child("seedling/nodes").child(
+            safe_node_id
+        ).update({"latest": latest, "recommendation": advice})
 
     def get_weather_location(self) -> dict:
         """Return the user-selected garden location, if one is configured."""

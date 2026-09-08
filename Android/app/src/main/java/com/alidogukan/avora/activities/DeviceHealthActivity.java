@@ -19,8 +19,10 @@ import com.alidogukan.avora.R;
 import com.alidogukan.avora.models.Health;
 import com.alidogukan.avora.models.Status;
 import com.alidogukan.avora.models.GardenZone;
+import com.alidogukan.avora.models.SeedlingTelemetry;
 import com.alidogukan.avora.viewmodels.DeviceHealthViewModel;
 import com.alidogukan.avora.viewmodels.MainViewModel;
+import com.alidogukan.avora.viewmodels.SeedlingViewModel;
 import com.alidogukan.avora.ui.PrimaryBottomNavigation;
 
 import com.google.android.material.button.MaterialButton;
@@ -48,6 +50,8 @@ public class DeviceHealthActivity extends AppCompatActivity {
     private MaterialCardView cardThrottlingBadge;
     private MaterialCardView cardEsp32SensorHealth;
     private MaterialCardView cardEsp32SensorBadge;
+    private MaterialCardView cardNodeMcuHealth;
+    private MaterialCardView cardNodeMcuBadge;
 
     private TextView txtHealthSummaryIcon;
     private TextView txtOverallHealth;
@@ -57,6 +61,10 @@ public class DeviceHealthActivity extends AppCompatActivity {
     private TextView txtEsp32SensorStatus;
     private TextView txtEsp32SensorDetail;
     private TextView txtEsp32SensorLastSeen;
+    private TextView txtNodeMcuBadge;
+    private TextView txtNodeMcuStatus;
+    private TextView txtNodeMcuDetail;
+    private TextView txtNodeMcuLastSeen;
     private TextView txtCpuTemperature;
     private TextView txtCpuUsage;
     private ProgressBar progressCpu;
@@ -86,6 +94,8 @@ public class DeviceHealthActivity extends AppCompatActivity {
     private TextView txtDiagnosticsSummary;
     private LinearLayout layoutDiagnostics;
     private Status latestStatus;
+    private Health latestHealth;
+    private SeedlingTelemetry latestSeedlingTelemetry;
     private List<GardenZone> latestZones =
             Collections.emptyList();
 
@@ -175,6 +185,10 @@ public class DeviceHealthActivity extends AppCompatActivity {
                 findViewById(R.id.cardEsp32SensorHealth);
         cardEsp32SensorBadge =
                 findViewById(R.id.cardEsp32SensorBadge);
+        cardNodeMcuHealth =
+                findViewById(R.id.cardNodeMcuHealth);
+        cardNodeMcuBadge =
+                findViewById(R.id.cardNodeMcuBadge);
 
         txtHealthSummaryIcon =
                 findViewById(R.id.txtHealthSummaryIcon);
@@ -195,6 +209,14 @@ public class DeviceHealthActivity extends AppCompatActivity {
                 findViewById(R.id.txtEsp32SensorDetail);
         txtEsp32SensorLastSeen =
                 findViewById(R.id.txtEsp32SensorLastSeen);
+        txtNodeMcuBadge =
+                findViewById(R.id.txtNodeMcuBadge);
+        txtNodeMcuStatus =
+                findViewById(R.id.txtNodeMcuStatus);
+        txtNodeMcuDetail =
+                findViewById(R.id.txtNodeMcuDetail);
+        txtNodeMcuLastSeen =
+                findViewById(R.id.txtNodeMcuLastSeen);
         txtCpuTemperature =
                 findViewById(R.id.txtCpuTemperature);
 
@@ -301,6 +323,19 @@ public class DeviceHealthActivity extends AppCompatActivity {
                     renderDiagnostics();
                 }
         );
+
+        SeedlingViewModel seedlingViewModel =
+                new ViewModelProvider(this)
+                        .get(SeedlingViewModel.class);
+        seedlingViewModel.getNode("seedling-001").observe(
+                this,
+                nodeState -> {
+                    latestSeedlingTelemetry = nodeState == null
+                            ? null
+                            : nodeState.getLatest();
+                    renderNodeMcuHealth();
+                }
+        );
     }
 
     private void initializeActions() {
@@ -346,6 +381,8 @@ public class DeviceHealthActivity extends AppCompatActivity {
             return;
         }
 
+        latestHealth = health;
+
         renderCpu(health);
         renderMemory(health);
         renderDisk(health);
@@ -367,7 +404,7 @@ public class DeviceHealthActivity extends AppCompatActivity {
 
         layoutDiagnostics.removeAllViews();
         int normalCount = 0;
-        final int totalChecks = 5;
+        final int totalChecks = 7;
         long nowEpoch = System.currentTimeMillis() / 1000L;
 
         boolean piOnline =
@@ -449,6 +486,69 @@ public class DeviceHealthActivity extends AppCompatActivity {
         );
         if (errorClear) normalCount++;
 
+        boolean adsStatusFresh = latestHealth != null
+                && latestHealth.getAds1115StatusUpdatedAtEpoch() > 0L
+                && (latestHealth.getAds1115StatusUpdatedAtEpoch() > nowEpoch
+                || nowEpoch - latestHealth.getAds1115StatusUpdatedAtEpoch() <= 90L);
+        boolean esp32Online = adsStatusFresh
+                && latestHealth.isEsp32NodeOnline();
+        boolean primaryAds = esp32Online
+                && latestHealth.isAds1115PrimaryAvailable();
+        boolean secondaryAds = esp32Online
+                && latestHealth.isAds1115SecondaryAvailable();
+        boolean esp32AdsHealthy = primaryAds && secondaryAds;
+        String esp32Diagnostic;
+        if (!adsStatusFresh) {
+            esp32Diagnostic = getString(
+                    R.string.diagnostics_esp32_status_stale
+            );
+        } else if (!esp32Online) {
+            esp32Diagnostic = getString(
+                    R.string.diagnostics_esp32_offline
+            );
+        } else if (esp32AdsHealthy) {
+            esp32Diagnostic = getString(
+                    R.string.diagnostics_esp32_ads_ok
+            );
+        } else if (primaryAds || secondaryAds) {
+            esp32Diagnostic = getString(
+                    R.string.diagnostics_esp32_ads_partial,
+                    primaryAds ? "0x49" : "0x48"
+            );
+        } else {
+            esp32Diagnostic = getString(
+                    R.string.diagnostics_esp32_ads_none
+            );
+        }
+        addDiagnosticRow(esp32AdsHealthy, esp32Diagnostic);
+        if (esp32AdsHealthy) normalCount++;
+
+        boolean nodeMcuFresh = latestSeedlingTelemetry != null
+                && latestSeedlingTelemetry.isFresh(nowEpoch, 90L);
+        boolean nodeMcuHealthy = nodeMcuFresh
+                && latestSeedlingTelemetry.isSoil_moisture_available();
+        String nodeMcuDiagnostic;
+        if (latestSeedlingTelemetry == null
+                || latestSeedlingTelemetry.getReceived_at_epoch() <= 0L) {
+            nodeMcuDiagnostic = getString(
+                    R.string.diagnostics_nodemcu_no_data
+            );
+        } else if (!nodeMcuFresh) {
+            nodeMcuDiagnostic = getString(
+                    R.string.diagnostics_nodemcu_stale
+            );
+        } else if (!latestSeedlingTelemetry.isSoil_moisture_available()) {
+            nodeMcuDiagnostic = getString(
+                    R.string.diagnostics_nodemcu_ads_missing
+            );
+        } else {
+            nodeMcuDiagnostic = getString(
+                    R.string.diagnostics_nodemcu_ok
+            );
+        }
+        addDiagnosticRow(nodeMcuHealthy, nodeMcuDiagnostic);
+        if (nodeMcuHealthy) normalCount++;
+
         txtDiagnosticsSummary.setText(
                 getString(
                         R.string.diagnostics_summary,
@@ -518,6 +618,10 @@ public class DeviceHealthActivity extends AppCompatActivity {
                         newest.getRssi() != 0
                                 ? getString(R.string.runtime_wifi_suffix, newest.getRssi()) : "");
 
+        if (renderAds1115ModuleFault(nowEpoch)) {
+            return;
+        }
+
         if (connected == 0) {
             setEsp32SensorCard(
                     getString(R.string.runtime_no_connection_badge),
@@ -548,6 +652,57 @@ public class DeviceHealthActivity extends AppCompatActivity {
         }
     }
 
+    private boolean renderAds1115ModuleFault(long nowEpoch) {
+        if (latestHealth == null) {
+            return false;
+        }
+        long updatedAt = latestHealth.getAds1115StatusUpdatedAtEpoch();
+        if (updatedAt <= 0L || nowEpoch - updatedAt > 90L) {
+            return false;
+        }
+
+        String lastSeen = getString(
+                R.string.health_ads_status_last_seen,
+                formatSensorAge(Math.max(0L, nowEpoch - updatedAt))
+        );
+        if (!latestHealth.isEsp32NodeOnline()) {
+            setEsp32SensorCard(
+                    getString(R.string.runtime_no_connection_badge),
+                    getString(R.string.health_ads_count, 0),
+                    getString(R.string.health_ads_node_offline),
+                    lastSeen,
+                    R.color.offline,
+                    R.color.offlineBackground
+            );
+            return true;
+        }
+
+        boolean primary = latestHealth.isAds1115PrimaryAvailable();
+        boolean secondary = latestHealth.isAds1115SecondaryAvailable();
+        if (primary && secondary) {
+            return false;
+        }
+
+        int working = (primary ? 1 : 0) + (secondary ? 1 : 0);
+        int detailResource;
+        if (!primary && secondary) {
+            detailResource = R.string.health_ads_primary_fault;
+        } else if (primary) {
+            detailResource = R.string.health_ads_secondary_fault;
+        } else {
+            detailResource = R.string.health_ads_both_fault;
+        }
+        setEsp32SensorCard(
+                getString(R.string.health_ads_fault_badge),
+                getString(R.string.health_ads_count, working),
+                getString(detailResource),
+                lastSeen,
+                working > 0 ? R.color.warning : R.color.offline,
+                working > 0 ? R.color.warningBackground : R.color.offlineBackground
+        );
+        return true;
+    }
+
     private void setEsp32SensorCard(
             String badge,
             String status,
@@ -566,6 +721,94 @@ public class DeviceHealthActivity extends AppCompatActivity {
         cardEsp32SensorBadge.setCardBackgroundColor(color(backgroundResource));
         cardEsp32SensorBadge.setStrokeColor(statusColor);
         cardEsp32SensorHealth.setStrokeColor(
+                colorResource == R.color.online
+                        ? color(R.color.border)
+                        : statusColor
+        );
+    }
+
+    private void renderNodeMcuHealth() {
+        long nowEpoch = System.currentTimeMillis() / 1000L;
+        SeedlingTelemetry telemetry = latestSeedlingTelemetry;
+
+        if (telemetry == null || telemetry.getReceived_at_epoch() <= 0L) {
+            setNodeMcuCard(
+                    getString(R.string.runtime_no_connection_badge),
+                    getString(R.string.health_nodemcu_waiting),
+                    getString(R.string.health_nodemcu_no_data),
+                    getString(R.string.health_nodemcu_never_seen),
+                    R.color.offline,
+                    R.color.offlineBackground
+            );
+            return;
+        }
+
+        long ageSeconds = Math.max(
+                0L,
+                nowEpoch - telemetry.getReceived_at_epoch()
+        );
+        String firmware = telemetry.getFirmware().isBlank()
+                ? getString(R.string.health_nodemcu_unknown_firmware)
+                : telemetry.getFirmware();
+        String lastSeen = getString(
+                R.string.health_nodemcu_last_seen,
+                formatSensorAge(ageSeconds),
+                telemetry.getRssi(),
+                firmware
+        );
+
+        if (!telemetry.isFresh(nowEpoch, 90L)) {
+            setNodeMcuCard(
+                    getString(R.string.runtime_no_connection_badge),
+                    getString(R.string.health_nodemcu_stale),
+                    getString(R.string.health_nodemcu_stale_detail),
+                    lastSeen,
+                    R.color.offline,
+                    R.color.offlineBackground
+            );
+            return;
+        }
+
+        if (!telemetry.isSoil_moisture_available()) {
+            setNodeMcuCard(
+                    getString(R.string.health_nodemcu_ads_missing_badge),
+                    getString(R.string.health_nodemcu_running),
+                    getString(R.string.health_nodemcu_without_ads),
+                    lastSeen,
+                    R.color.warning,
+                    R.color.warningBackground
+            );
+            return;
+        }
+
+        setNodeMcuCard(
+                getString(R.string.runtime_connected_badge),
+                getString(R.string.health_nodemcu_healthy),
+                getString(R.string.health_nodemcu_all_sensors),
+                lastSeen,
+                R.color.online,
+                R.color.onlineBackground
+        );
+    }
+
+    private void setNodeMcuCard(
+            String badge,
+            String status,
+            String detail,
+            String lastSeen,
+            int colorResource,
+            int backgroundResource
+    ) {
+        int statusColor = color(colorResource);
+        txtNodeMcuBadge.setText(badge);
+        txtNodeMcuBadge.setTextColor(statusColor);
+        txtNodeMcuStatus.setText(status);
+        txtNodeMcuStatus.setTextColor(statusColor);
+        txtNodeMcuDetail.setText(detail);
+        txtNodeMcuLastSeen.setText(lastSeen);
+        cardNodeMcuBadge.setCardBackgroundColor(color(backgroundResource));
+        cardNodeMcuBadge.setStrokeColor(statusColor);
+        cardNodeMcuHealth.setStrokeColor(
                 colorResource == R.color.online
                         ? color(R.color.border)
                         : statusColor

@@ -112,6 +112,18 @@
             android:name=".activities.PlantAssistantActivity"
             android:exported="false" />
         <activity
+            android:name=".activities.SeedlingAssistantActivity"
+            android:exported="false" />
+        <activity
+            android:name=".activities.SeedlingBatchEditorActivity"
+            android:exported="false" />
+        <activity
+            android:name=".activities.SeedlingBatchDetailActivity"
+            android:exported="false" />
+        <activity
+            android:name=".activities.SeedlingDailyLogActivity"
+            android:exported="false" />
+        <activity
             android:name=".activities.SeasonManagementActivity"
             android:exported="false" />
         <activity

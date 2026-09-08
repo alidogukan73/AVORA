@@ -135,6 +135,9 @@
     <color name="aiPlantSurface">#F8F3FC</color>
     <color name="aiPlantAccent">#6F42C1</color>
     <color name="aiPlantBorder">#D9C8ED</color>
+    <color name="aiSeedlingSurface">#F1FAF1</color>
+    <color name="aiSeedlingAccent">#218838</color>
+    <color name="aiSeedlingBorder">#B9DFBE</color>
     <color name="aiWaterSurface">#EDF8F5</color>
     <color name="aiWaterAccent">#00796B</color>
     <color name="aiWaterBorder">#B9DED7</color>

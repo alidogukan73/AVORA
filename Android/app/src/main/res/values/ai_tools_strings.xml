@@ -5,11 +5,14 @@
     <string name="ai_tools_quick_subtitle">Bah&#231;eniz i&#231;in bir ara&#231; se&#231;in.</string>
     <string name="ai_tools_plant_assistant">AI Bitki Asistan&#305;</string>
     <string name="ai_tools_plant_description">Foto&#287;raf ve belirtileri analiz eder</string>
+    <string name="ai_tools_seedling_assistant">AI Fide Asistan&#305;</string>
+    <string name="ai_tools_seedling_description">Fide partilerini ve geli&#351;imi takip eder</string>
     <string name="ai_tools_watering_assistant">AI Sulama Asistan&#305;</string>
     <string name="ai_tools_watering_description">Sulama kararlar&#305;n&#305; ve tahminleri g&#246;sterir</string>
     <string name="ai_tools_fertilization_assistant">AI G&#252;bre Asistan&#305;</string>
     <string name="ai_tools_fertilization_description">Besleme &#246;nerilerini ve plan&#305; y&#246;netir</string>
     <string name="ai_tools_open_plant">AI Bitki Asistan&#305;n&#305; a&#231;</string>
+    <string name="ai_tools_open_seedling">AI Fide Asistan&#305;n&#305; a&#231;</string>
     <string name="ai_tools_open_watering">AI Sulama Asistan&#305;n&#305; a&#231;</string>
     <string name="ai_tools_open_fertilization">AI G&#252;bre Asistan&#305;n&#305; a&#231;</string>
     <string name="ai_tools_view_action">G&#246;r&#252;nt&#252;le  &#8250;</string>

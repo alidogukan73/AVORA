@@ -14,6 +14,7 @@ import com.alidogukan.avora.R;
 import com.alidogukan.avora.activities.AIAssistantActivity;
 import com.alidogukan.avora.activities.FertilizationCalendarActivity;
 import com.alidogukan.avora.activities.PlantAssistantActivity;
+import com.alidogukan.avora.activities.SeedlingAssistantActivity;
 
 /** AI tools launcher displayed directly above the shared primary navigation. */
 public final class AiToolsBottomSheet {
@@ -58,9 +59,11 @@ public final class AiToolsBottomSheet {
         });
 
         bind(activity, content, popup, R.id.cardAiToolsPlant, PlantAssistantActivity.class);
-        bind(activity, content, popup, R.id.cardAiToolsWatering, AIAssistantActivity.class);
+        bind(activity, content, popup, R.id.cardAiToolsSeedling,
+                SeedlingAssistantActivity.class);
         bind(activity, content, popup, R.id.cardAiToolsFertilization,
                 FertilizationCalendarActivity.class);
+        bind(activity, content, popup, R.id.cardAiToolsWatering, AIAssistantActivity.class);
 
         int[] anchorLocation = new int[2];
         anchor.getLocationOnScreen(anchorLocation);

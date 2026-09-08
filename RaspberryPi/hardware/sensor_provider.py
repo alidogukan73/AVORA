@@ -47,6 +47,7 @@ class SoilMoistureSensorProvider:
         mqtt_topic: str = (
             "avora/sensors/soil-001"
         ),
+        mqtt_ads_status_topic: str = "avora/status/esp32/ads1115",
         mqtt_sensor_id: str = "soil-001",
         mqtt_stale_after_seconds: float = 30.0,
         mqtt_startup_timeout_seconds: float = 20.0,
@@ -99,6 +100,7 @@ class SoilMoistureSensorProvider:
                     broker=mqtt_broker,
                     port=mqtt_port,
                     topic=mqtt_topic,
+                    ads_status_topic=mqtt_ads_status_topic,
                     sensor_id=mqtt_sensor_id,
                     stale_after_seconds=(
                         mqtt_stale_after_seconds
@@ -132,7 +134,18 @@ class SoilMoistureSensorProvider:
         ):
             return False
 
-        if self._mqtt_sensor.get_latest_reading() is not None:
+        latest_readings_getter = getattr(
+            self._mqtt_sensor,
+            "get_latest_readings",
+            None,
+        )
+        if callable(latest_readings_getter):
+            has_any_reading = bool(latest_readings_getter())
+        else:
+            has_any_reading = (
+                self._mqtt_sensor.get_latest_reading() is not None
+            )
+        if has_any_reading:
             return False
 
         return (
@@ -232,6 +245,17 @@ class SoilMoistureSensorProvider:
             .items()
         }
 
+    def get_ads1115_status(self):
+        """Return the latest ESP32 ADS1115 module status, when available."""
+
+        self._ensure_initialized()
+        if (
+            self._mode != "mqtt"
+            or self._mqtt_sensor is None
+        ):
+            return None
+        return self._mqtt_sensor.get_latest_ads1115_status()
+
     def _initialize_wired_sensor(self) -> None:
         """
         Initialize the Raspberry Pi ADS1115 sensor.
@@ -305,6 +329,21 @@ class SoilMoistureSensorProvider:
         reading = (
             self._mqtt_sensor.get_fresh_reading()
         )
+
+        if reading is None:
+            fresh_readings_getter = getattr(
+                self._mqtt_sensor,
+                "get_fresh_readings",
+                None,
+            )
+            fresh_readings = (
+                fresh_readings_getter()
+                if callable(fresh_readings_getter)
+                else {}
+            )
+            if fresh_readings:
+                fallback_sensor_id = sorted(fresh_readings)[0]
+                reading = fresh_readings[fallback_sensor_id]
 
         if reading is None:
             latest = (

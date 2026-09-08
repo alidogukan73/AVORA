@@ -23,6 +23,13 @@ Hedef donanım yapısı:
 İkinci ADS1115 henüz bağlı değilken ilk dört sensör çalışmaya devam etmeli;
 kalan dört kanal bağlantı bekliyor olarak ele alınmalıdır.
 
+Firmware her iki ADS1115 adresini bağımsız denetler. `0x48` veya `0x49`
+modüllerinden biri sökülür ya da yanıt vermezse yalnız o modüle bağlı dört kanal
+durur; diğer ADS1115 veri göndermeye devam eder. Modül durumları kalıcı olarak
+`avora/status/esp32/ads1115` MQTT konusuna yayımlanır ve bağlantı 30 saniyede
+bir yeniden denenir. Değiştirilen modül güç güvenli biçimde yeniden takıldığında
+uygulama ayarı gerekmeden otomatik devreye alınır.
+
 ## MQTT sunucusunu otomatik bulma
 
 ESP32, Raspberry Pi'nin `_mqtt._tcp` mDNS ilanını tarar ve yalnızca

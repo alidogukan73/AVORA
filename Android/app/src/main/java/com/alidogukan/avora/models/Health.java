@@ -22,11 +22,19 @@ public class Health {
     private boolean frequencyCappedHistory;
     private boolean throttledHistory;
     private boolean softTemperatureLimitHistory;
+    private boolean esp32NodeOnline;
+    private boolean ads1115PrimaryAvailable;
+    private boolean ads1115SecondaryAvailable;
+    private long ads1115StatusUpdatedAtEpoch;
+    private long ads1115StatusRssi;
+    private long ads1115StatusUptimeSeconds;
+    private String ads1115StatusFirmware;
 
     public Health() {
         ipAddress = "";
         updatedAt = "";
         firmware = "";
+        ads1115StatusFirmware = "";
     }
     @PropertyName("throttled_raw")
     public long getThrottledRaw() {
@@ -221,6 +229,76 @@ public class Health {
     @PropertyName("wifi_signal")
     public void setWifiSignal(long wifiSignal) {
         this.wifiSignal = wifiSignal;
+    }
+
+    @PropertyName("esp32_node_online")
+    public boolean isEsp32NodeOnline() {
+        return esp32NodeOnline;
+    }
+
+    @PropertyName("esp32_node_online")
+    public void setEsp32NodeOnline(boolean esp32NodeOnline) {
+        this.esp32NodeOnline = esp32NodeOnline;
+    }
+
+    @PropertyName("ads1115_primary_available")
+    public boolean isAds1115PrimaryAvailable() {
+        return ads1115PrimaryAvailable;
+    }
+
+    @PropertyName("ads1115_primary_available")
+    public void setAds1115PrimaryAvailable(boolean available) {
+        ads1115PrimaryAvailable = available;
+    }
+
+    @PropertyName("ads1115_secondary_available")
+    public boolean isAds1115SecondaryAvailable() {
+        return ads1115SecondaryAvailable;
+    }
+
+    @PropertyName("ads1115_secondary_available")
+    public void setAds1115SecondaryAvailable(boolean available) {
+        ads1115SecondaryAvailable = available;
+    }
+
+    @PropertyName("ads1115_status_updated_at_epoch")
+    public long getAds1115StatusUpdatedAtEpoch() {
+        return ads1115StatusUpdatedAtEpoch;
+    }
+
+    @PropertyName("ads1115_status_updated_at_epoch")
+    public void setAds1115StatusUpdatedAtEpoch(long epoch) {
+        ads1115StatusUpdatedAtEpoch = epoch;
+    }
+
+    @PropertyName("ads1115_status_rssi")
+    public long getAds1115StatusRssi() {
+        return ads1115StatusRssi;
+    }
+
+    @PropertyName("ads1115_status_rssi")
+    public void setAds1115StatusRssi(long rssi) {
+        ads1115StatusRssi = rssi;
+    }
+
+    @PropertyName("ads1115_status_uptime_seconds")
+    public long getAds1115StatusUptimeSeconds() {
+        return ads1115StatusUptimeSeconds;
+    }
+
+    @PropertyName("ads1115_status_uptime_seconds")
+    public void setAds1115StatusUptimeSeconds(long uptimeSeconds) {
+        ads1115StatusUptimeSeconds = uptimeSeconds;
+    }
+
+    @PropertyName("ads1115_status_firmware")
+    public String getAds1115StatusFirmware() {
+        return ads1115StatusFirmware;
+    }
+
+    @PropertyName("ads1115_status_firmware")
+    public void setAds1115StatusFirmware(String firmware) {
+        ads1115StatusFirmware = firmware == null ? "" : firmware;
     }
 
     private String firmware;

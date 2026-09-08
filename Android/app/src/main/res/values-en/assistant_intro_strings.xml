@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="assistant_intro_water_description">We assess moisture, weather and irrigation history together.</string>
+    <string name="assistant_intro_seedling_description">We assess seedling batches, sensors and growth data together.</string>
     <string name="assistant_intro_fertilizer_description">Nutrition guidance based on growth stage, products and application history.</string>
     <string name="assistant_intro_mode_label">Operating mode</string>
     <string name="assistant_intro_advisory_badge">ADVISORY</string>
     <string name="assistant_intro_water_info">The reliability badge mirrors the current irrigation analysis shown on this screen. Waiting or Learning is shown when data is insufficient. This card does not start irrigation or change settings.</string>
+    <string name="assistant_intro_seedling_info">The reliability badge reflects NodeMCU reading freshness and sensor availability. It shows High when all readings are current, Medium when ADS1115 data is missing, and Waiting when readings are not current. This card never operates hardware automatically.</string>
     <string name="assistant_intro_fertilizer_info">The Fertilizer Assistant provides recommendations and reminders. This card does not start automatic fertilization. Check product suitability, labels and dosage, then approve applications yourself.</string>
 </resources>

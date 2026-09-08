@@ -5,11 +5,14 @@
     <string name="ai_tools_quick_subtitle">Choose a tool for your garden.</string>
     <string name="ai_tools_plant_assistant">AI Plant Assistant</string>
     <string name="ai_tools_plant_description">Analyzes photos and visible symptoms</string>
+    <string name="ai_tools_seedling_assistant">AI Seedling Assistant</string>
+    <string name="ai_tools_seedling_description">Tracks seedling batches and development</string>
     <string name="ai_tools_watering_assistant">AI Irrigation Assistant</string>
     <string name="ai_tools_watering_description">Shows irrigation decisions and forecasts</string>
     <string name="ai_tools_fertilization_assistant">AI Fertilizer Assistant</string>
     <string name="ai_tools_fertilization_description">Manages nutrition recommendations and plans</string>
     <string name="ai_tools_open_plant">Open AI Plant Assistant</string>
+    <string name="ai_tools_open_seedling">Open AI Seedling Assistant</string>
     <string name="ai_tools_open_watering">Open AI Irrigation Assistant</string>
     <string name="ai_tools_open_fertilization">Open AI Fertilizer Assistant</string>
     <string name="ai_tools_view_action">View  &#8250;</string>

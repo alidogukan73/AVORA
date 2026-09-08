@@ -12,7 +12,7 @@ class AppConfig:
 
     DEVICE_ID = "avora-001"
 
-    VERSION = "2.10.0"
+    VERSION = "2.11.0"
 
     LOOP_DELAY_SECONDS = 2.0
 
@@ -80,11 +80,30 @@ class SensorConfig:
         "avora/sensors/+"
     )
 
+    MQTT_ADS_STATUS_TOPIC = "avora/status/esp32/ads1115"
+
     MQTT_SENSOR_ID = "soil-001"
 
     MQTT_STALE_AFTER_SECONDS = 30.0
 
     MQTT_STARTUP_TIMEOUT_SECONDS = 20.0
+
+
+class SeedlingConfig:
+    """Advisory-only seedling sensor network configuration."""
+
+    MQTT_BROKER = "127.0.0.1"
+
+    MQTT_PORT = 1883
+
+    MQTT_TOPIC = "avora/seedling/+/telemetry"
+
+    MQTT_CLIENT_ID = "avora-pi-seedling-assistant"
+
+    TELEMETRY_STALE_AFTER_SECONDS = 45
+
+    # This module publishes advice only. It must never operate an actuator.
+    ADVISORY_ONLY = True
 
 
 class RelayConfig:

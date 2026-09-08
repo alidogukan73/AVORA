@@ -28,8 +28,8 @@ android {
         applicationId = "com.alidogukan.avora"
         minSdk = 26
         targetSdk = 36
-        versionCode = 42
-        versionName = "3.4.2"
+        versionCode = 44
+        versionName = "3.5.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

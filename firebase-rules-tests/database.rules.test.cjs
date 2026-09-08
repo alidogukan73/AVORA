@@ -78,6 +78,28 @@ function validGrowthPhoto(id, overrides = {}) {
   };
 }
 
+function validSeedlingBatch(id, overrides = {}) {
+  return {
+    batch_id: id,
+    plant_type: "Domates",
+    emoji: "🍅",
+    variety: "H2274",
+    area: "Fide rafı 1",
+    node_id: "seedling-001",
+    status: "ACTIVE",
+    stage: "SOWN",
+    sowing_date_epoch: 1788271200,
+    estimated_emergence_epoch: 1788876000,
+    estimated_transplant_epoch: 1791907200,
+    seed_count: 100,
+    tray_cell_count: 100,
+    healthy_count: 100,
+    created_at_epoch: 1788271200,
+    updated_at_epoch: 1788271200,
+    ...overrides,
+  };
+}
+
 before(async () => {
   testEnvironment = await initializeTestEnvironment({
     projectId: PROJECT_ID,
@@ -314,4 +336,70 @@ test("backend delivery state remains read-only to the Android owner", async () =
   const unchangedDevice = snapshot.val();
   unchangedDevice.settings = { language: "tr" };
   await assertSucceeds(set(ref(owner, `devices/${DEVICE_ID}`), unchangedDevice));
+});
+
+test("owner can manage bounded seedling batches and daily observations", async () => {
+  const owner = authenticatedDatabase(OWNER_UID);
+  const id = "batch-seedling-001";
+  const batchPath = `devices/${DEVICE_ID}/seedling/batches/${id}`;
+  await assertSucceeds(set(ref(owner, batchPath), validSeedlingBatch(id)));
+  await assertSucceeds(update(ref(owner, batchPath), {
+    stage: "GERMINATING",
+    germination_date_epoch: 1788357600,
+    updated_at_epoch: 1788357600,
+  }));
+
+  await assertFails(update(ref(owner, batchPath), {
+    first_leaf_date_epoch: 1788000000,
+  }));
+
+  const logPath = `devices/${DEVICE_ID}/seedling/daily_logs/${id}/log-001`;
+  await assertSucceeds(set(ref(owner, logPath), {
+    log_id: "log-001",
+    batch_id: id,
+    height_cm: 3.5,
+    leaf_count: 2,
+    healthy_count: 96,
+    watered: true,
+    note: "Gelişim dengeli.",
+    created_at_epoch: 1788357600,
+  }));
+
+  const unknown = validSeedlingBatch("batch-secret");
+  unknown.api_key = "must-not-be-accepted";
+  await assertFails(set(ref(owner,
+    `devices/${DEVICE_ID}/seedling/batches/${unknown.batch_id}`), unknown));
+  await assertFails(set(ref(owner,
+    `devices/${DEVICE_ID}/seedling/batches/batch-invalid`),
+    validSeedlingBatch("batch-invalid", { healthy_count: 101 })));
+});
+
+test("sensor and AI seedling snapshots are read-only to Android", async () => {
+  const owner = authenticatedDatabase(OWNER_UID);
+  const nodePath = `devices/${DEVICE_ID}/seedling/nodes/seedling-001`;
+  await assertFails(set(ref(owner, nodePath), {
+    latest: { soil_moisture_pct: 50 },
+    recommendation: { title: "forged" },
+  }));
+
+  await testEnvironment.withSecurityRulesDisabled(async (context) => {
+    await set(ref(context.database(), nodePath), {
+      latest: {
+        node_id: "seedling-001",
+        soil_moisture_pct: 58,
+        received_at_epoch: 1788271200,
+        online: true,
+      },
+      recommendation: {
+        score: 100,
+        severity: "GOOD",
+        advisory_only: true,
+      },
+    });
+  });
+  const snapshot = await assertSucceeds(get(ref(owner, nodePath)));
+  await assertFails(update(ref(owner, `${nodePath}/recommendation`), { score: 0 }));
+  if (snapshot.val().recommendation.score !== 100) {
+    throw new Error("Backend recommendation was not readable.");
+  }
 });

@@ -239,6 +239,86 @@
                     android:textAppearance="@style/TextAppearance.AVORA.Label" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardNodeMcuHealth"
+            style="@style/Widget.AVORA.Card.Main"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="18dp">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/health_nodemcu_sensor_network"
+                            android:textAppearance="@style/TextAppearance.AVORA.CardTitle" />
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="3dp"
+                            android:text="@string/health_nodemcu_sensor_connection"
+                            android:textAppearance="@style/TextAppearance.AVORA.Body" />
+                    </LinearLayout>
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/cardNodeMcuBadge"
+                        android:layout_width="wrap_content"
+                        android:layout_height="34dp"
+                        app:cardBackgroundColor="@color/surfaceSoft"
+                        app:cardCornerRadius="17dp"
+                        app:cardElevation="0dp"
+                        app:strokeColor="@color/border"
+                        app:strokeWidth="1dp">
+                        <TextView
+                            android:id="@+id/txtNodeMcuBadge"
+                            android:layout_width="wrap_content"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:paddingStart="12dp"
+                            android:paddingEnd="12dp"
+                            android:text="@string/health_badge_checking"
+                            android:textColor="@color/textSecondary"
+                            android:textSize="11sp"
+                            android:textStyle="bold" />
+                    </com.google.android.material.card.MaterialCardView>
+                </LinearLayout>
+                <TextView
+                    android:id="@+id/txtNodeMcuStatus"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="@string/health_nodemcu_waiting"
+                    android:textColor="@color/textPrimary"
+                    android:textSize="19sp"
+                    android:textStyle="bold" />
+                <TextView
+                    android:id="@+id/txtNodeMcuDetail"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="5dp"
+                    android:text="@string/health_nodemcu_no_data"
+                    android:textAppearance="@style/TextAppearance.AVORA.Body" />
+                <TextView
+                    android:id="@+id/txtNodeMcuLastSeen"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/health_nodemcu_never_seen"
+                    android:textAppearance="@style/TextAppearance.AVORA.Label" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
         <!-- CPU -->
         <com.google.android.material.card.MaterialCardView
             style="@style/Widget.AVORA.Card.Main"

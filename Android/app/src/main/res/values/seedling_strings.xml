@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="seedling_title">AI Fide Asistanı</string>
+    <string name="seedling_subtitle">Fide partilerini yönetin, gelişimi izleyin ve sezona hazırlayın</string>
+    <string name="seedling_new_batch">Yeni Fide Partisi</string>
+    <string name="seedling_sensor_waiting">Fide sensör düğümü bekleniyor</string>
+    <string name="seedling_sensor_ready">Fide sensör düğümü bağlı</string>
+    <string name="seedling_sensor_stale">Fide sensör verisi güncel değil</string>
+    <string name="seedling_active_batches">Aktif parti</string>
+    <string name="seedling_today_tasks">Bugünkü işler</string>
+    <string name="seedling_ready_batches">Dikime hazır</string>
+    <string name="seedling_batches_heading">Fide Partileri</string>
+    <string name="seedling_view_all_batches">Tüm partileri gör</string>
+    <string name="seedling_show_fewer_batches">Daha az göster</string>
+    <string name="seedling_no_tasks">Bugün için planlanmış iş yok.</string>
+    <string name="seedling_task_sensor_check">%1$s sensör verisini kontrol edin</string>
+    <string name="seedling_task_sowing_check">%1$s çimlenme kontrolü</string>
+    <string name="seedling_task_germination_check">%1$s nem kontrolü</string>
+    <string name="seedling_task_leaf_check">%1$s yaprak gelişimi kontrolü</string>
+    <string name="seedling_task_hardening">%1$s şaşırtma hazırlığı</string>
+    <string name="seedling_task_ready">%1$s dikime hazır</string>
+    <string name="seedling_open_task">Görevi aç: %1$s</string>
+    <string name="seedling_no_batches">Henüz fide partisi yok. İlk ekiminizi kaydederek başlayın.</string>
+    <plurals name="seedling_batch_meta">
+        <item quantity="one">%1$d. gün · %2$d / %3$d sağlıklı fide</item>
+        <item quantity="other">%1$d. gün · %2$d / %3$d sağlıklı fide</item>
+    </plurals>
+    <string name="seedling_open_detail">Parti detayını aç</string>
+    <string name="seedling_new_title">Yeni Fide Partisi</string>
+    <string name="seedling_new_subtitle">Ekim ve viyol bilgilerini kaydedin</string>
+    <string name="seedling_plant_type">Bitki türü</string>
+    <string name="seedling_variety">Çeşit</string>
+    <string name="seedling_sowing_date">Ekim tarihi</string>
+    <string name="seedling_estimated_emergence">Tahmini çıkış</string>
+    <string name="seedling_estimated_transplant">Tahmini şaşırtma</string>
+    <string name="seedling_area">Bulunduğu alan</string>
+    <string name="seedling_seed_count">Tohum sayısı</string>
+    <string name="seedling_tray_cells">Viyol göz sayısı</string>
+    <string name="seedling_create">Partiyi Oluştur</string>
+    <string name="seedling_create_success">Fide partisi oluşturuldu.</string>
+    <string name="seedling_create_failed">Fide partisi oluşturulamadı.</string>
+    <string name="seedling_required_fields">Bitki türü, tohum ve viyol göz sayısını kontrol edin.</string>
+    <string name="seedling_detail_title">Fide Detayı</string>
+    <string name="seedling_more_options">Diğer seçenekler</string>
+    <string name="seedling_batch_detail_meta">%1$d. gün  ·  %2$d fide</string>
+    <string name="seedling_stage_heading">Gelişim aşaması</string>
+    <string name="seedling_stage_progress">Aşama %1$d / 6</string>
+    <string name="seedling_advance_stage">Sonraki aşamaya geçir</string>
+    <string name="seedling_advance_stage_title">Sonraki aşamaya geçirilsin mi?</string>
+    <string name="seedling_advance_stage_message">%1$s partisi bir sonraki gelişim aşamasına alınacak.</string>
+    <string name="seedling_advance_stage_confirm">Aşamayı ilerlet</string>
+    <string name="seedling_previous_stage">Önceki aşamaya dön</string>
+    <string name="seedling_previous_stage_title">Önceki aşamaya dönülsün mü?</string>
+    <string name="seedling_previous_stage_message">%1$s partisi bir önceki gelişim aşamasına alınacak.</string>
+    <string name="seedling_stage_advanced">Fide aşaması güncellendi.</string>
+    <string name="seedling_stage_reverted">Önceki aşamaya dönüldü.</string>
+    <string name="seedling_stage_update_failed">Fide aşaması güncellenemedi. Bağlantıyı kontrol edip tekrar deneyin.</string>
+    <string name="seedling_undo">Geri al</string>
+    <string name="seedling_stage_complete">Bu parti dikime hazır.</string>
+    <string name="seedling_telemetry_heading">Canlı ortam ölçümleri</string>
+    <string name="seedling_air_temperature">🌡 Hava sıcaklığı\n%1$.1f °C</string>
+    <string name="seedling_air_humidity">💧 Hava nemi\n%%%1$.0f</string>
+    <string name="seedling_soil_moisture">🌱 Toprak nemi\n%%%1$.0f</string>
+    <string name="seedling_light">☀ Işık\n%1$.0f lux</string>
+    <string name="seedling_root_temperature">Kök sıcaklığı: %1$.1f °C</string>
+    <string name="seedling_metric_temperature">Sıcaklık</string>
+    <string name="seedling_metric_humidity">Nem</string>
+    <string name="seedling_metric_soil_moisture">Toprak nemi</string>
+    <string name="seedling_metric_soil_temperature">Toprak ısısı</string>
+    <string name="seedling_metric_light">Işık</string>
+    <string name="seedling_metric_empty">—</string>
+    <string name="seedling_temperature_value">%1$.1f°C</string>
+    <string name="seedling_percent_value">%%%1$.0f</string>
+    <string name="seedling_light_value">%1$,.0f</string>
+    <string name="seedling_lux_unit" translatable="false">lux</string>
+    <string name="seedling_timeline_heading">Gelişim aşamaları</string>
+    <string name="seedling_stage_sowing">Ekim</string>
+    <string name="seedling_stage_germination">Çimlenme</string>
+    <string name="seedling_stage_first_leaf">İlk yaprak</string>
+    <string name="seedling_stage_transplant">Şaşırtma</string>
+    <string name="seedling_stage_ready">Dikime\nhazır</string>
+    <string name="seedling_overall_good">Genel durum iyi</string>
+    <string name="seedling_overall_good_message">Fideleriniz sağlıklı bir şekilde gelişiyor.</string>
+    <string name="seedling_overall_warning">Koşullar kontrol edilmeli</string>
+    <string name="seedling_overall_critical">Acil kontrol gerekli</string>
+    <string name="seedling_overall_waiting">Sensör verisi bekleniyor</string>
+    <string name="seedling_overall_waiting_message">Genel durum için güncel ölçüm gerekli.</string>
+    <string name="seedling_advice_title_format">Öneri: %1$s</string>
+    <string name="seedling_batch_information_title">Parti bilgileri</string>
+    <string name="seedling_batch_information">Alan: %1$s\nTohum: %2$d\nViyol gözü: %3$d\nSensör düğümü: %4$s</string>
+    <string name="seedling_batch_actions_description">%1$s parti işlemleri</string>
+    <string name="seedling_delete_batch">Partiyi sil</string>
+    <string name="seedling_delete_batch_title">%1$s partisini sil</string>
+    <string name="seedling_delete_batch_message">Bu fide partisi kalıcı olarak silinecek. Günlük kaydı bulunan partiler silinemez. Bu işlem geri alınamaz.</string>
+    <string name="seedling_delete_batch_success">Fide partisi silindi.</string>
+    <string name="seedling_delete_batch_failed">Fide partisi silinemedi. Bağlantıyı kontrol edip tekrar deneyin.</string>
+    <string name="seedling_delete_check_failed">Partinin günlük kayıtları kontrol edilemedi. Bağlantıyı kontrol edip tekrar deneyin.</string>
+    <string name="seedling_delete_blocked_title">Parti silinemez</string>
+    <string name="seedling_delete_blocked_message">Bu partiye ait günlük takip kaydı bulunduğu için parti silinemez. Böylece gelişim geçmişi korunur.</string>
+    <string name="seedling_close">Kapat</string>
+    <string name="seedling_last_measurement">Son ölçüm: %1$s</string>
+    <string name="seedling_no_telemetry">Sensör verisi bekleniyor. NodeMCU bağlandığında bu alan güncellenecek.</string>
+    <string name="seedling_advice_heading">AI Fide Asistanı</string>
+    <string name="seedling_advice_waiting">Öneri için geçerli sensör verisi bekleniyor.</string>
+    <string name="seedling_advisory_notice">Güvenli öneri modu: Donanım otomatik çalıştırılmaz.</string>
+    <string name="seedling_daily_record">Günlük Kayıt</string>
+    <string name="seedling_logs_heading">Son günlük kayıtlar</string>
+    <string name="seedling_no_logs">Henüz günlük gözlem yok.</string>
+    <plurals name="seedling_log_meta">
+        <item quantity="one">%1$.1f cm · %2$d yaprak · %3$d sağlıklı</item>
+        <item quantity="other">%1$.1f cm · %2$d yaprak · %3$d sağlıklı</item>
+    </plurals>
+    <string name="seedling_watered_yes">Sulama: Yapıldı</string>
+    <string name="seedling_watered_no">Sulama: Yapılmadı</string>
+    <string name="seedling_log_swipe_hint">%1$s tarihli kaydı düzenlemek veya silmek için sola kaydırın</string>
+    <string name="seedling_log_edit">Düzenle</string>
+    <string name="seedling_log_delete">Sil</string>
+    <string name="seedling_log_delete_title">Günlük kaydı silinsin mi?</string>
+    <string name="seedling_log_delete_message">%1$s tarihli günlük kayıt kalıcı olarak silinecek. Bu işlem geri alınamaz.</string>
+    <string name="seedling_log_delete_confirm">Kaydı sil</string>
+    <string name="seedling_log_deleted">Günlük kayıt silindi.</string>
+    <string name="seedling_log_delete_failed">Günlük kayıt silinemedi. Bağlantıyı kontrol edip tekrar deneyin.</string>
+    <string name="seedling_log_edit_title">Günlük Kaydı Düzenle</string>
+    <string name="seedling_log_update">Değişiklikleri Kaydet</string>
+    <string name="seedling_log_updated">Günlük kayıt güncellendi.</string>
+    <string name="seedling_log_update_failed">Günlük kayıt güncellenemedi. Bağlantıyı kontrol edip tekrar deneyin.</string>
+    <string name="seedling_log_not_found">Günlük kayıt bulunamadı veya daha önce silinmiş.</string>
+    <string name="seedling_daily_title">Günlük Takip</string>
+    <string name="seedling_daily_subtitle">Bugünkü fide gözlemini kaydedin</string>
+    <string name="seedling_height">Boy</string>
+    <string name="seedling_leaf_count">Yaprak sayısı</string>
+    <string name="seedling_healthy_count">Sağlıklı fide</string>
+    <string name="seedling_healthy_total">/ %1$d</string>
+    <string name="seedling_watered">Sulama durumu</string>
+    <string name="seedling_note">Not</string>
+    <string name="seedling_cm_unit" translatable="false">cm</string>
+    <string name="seedling_daily_note_hint">Bugünkü gözleminizi yazın</string>
+    <string name="seedling_watering_done">Yapıldı</string>
+    <string name="seedling_watering_not_done">Yapılmadı</string>
+    <string name="seedling_watering_picker_title">Sulama durumunu seçin</string>
+    <string name="seedling_daily_warning_stale_title">Sensör verisi güncel değil</string>
+    <string name="seedling_daily_warning_stale_message">Toprak nemi uyarısı için güncel ölçüm bekleniyor.</string>
+    <string name="seedling_daily_warning_soil_unavailable_title">Toprak nemi sensörü bekleniyor</string>
+    <string name="seedling_daily_warning_soil_unavailable_message">Diğer ortam ölçümleri güncel. ADS1115 takılana kadar nemi elle kontrol edin.</string>
+    <string name="seedling_daily_warning_dry_title">Uyarı: Toprak nemi düşük</string>
+    <string name="seedling_daily_warning_dry_message">Toprak nemi \u002535 altına düştüğünde sulama ihtiyacını kontrol edin.</string>
+    <string name="seedling_daily_warning_wet_title">Uyarı: Toprak fazla ıslak</string>
+    <string name="seedling_daily_warning_wet_message">Yeni sulama yapmadan önce drenajı ve toprağı kontrol edin.</string>
+    <string name="seedling_daily_advice_waiting_title">Öneri hazırlanıyor</string>
+    <string name="seedling_daily_advice_waiting_message">Güncel sensör verisi geldiğinde önerilen işlem burada görünecek.</string>
+    <string name="seedling_daily_recommended_action">Önerilen işlem: %1$s</string>
+    <string name="seedling_season_transfer_ready">Sezona aktarım hazır</string>
+    <string name="seedling_season_transfer_preparing">Sezona aktarım için hazırlanıyor</string>
+    <string name="seedling_target_season">Hedef sezon</string>
+    <string name="seedling_target_season_format">%1$d %2$s Sezonu</string>
+    <string name="seedling_open_season_management">Sezon yönetimini aç</string>
+    <string name="seedling_save_log">Kaydı Kaydet</string>
+    <string name="seedling_log_saved">Günlük kayıt kaydedildi.</string>
+    <string name="seedling_log_failed">Günlük kayıt kaydedilemedi.</string>
+    <string name="seedling_invalid_log">Boy, yaprak ve sağlıklı fide alanlarını kontrol edin.</string>
+    <string name="main_menu_seedling_title">AI Fide Asistanı</string>
+    <string name="main_menu_seedling_subtitle">Fide partilerini oluşturun ve takip edin</string>
+    <string name="symbol_seedling" translatable="false">🌱</string>
+    <string name="symbol_seedling_sensor" translatable="false">📡</string>
+    <string name="symbol_seedling_task" translatable="false">📋</string>
+    <string name="symbol_seedling_ready" translatable="false">🌿</string>
+    <string name="symbol_seedling_tag" translatable="false">🏷</string>
+    <string name="symbol_seedling_seed" translatable="false">◈</string>
+    <string name="symbol_seedling_tray" translatable="false">▦</string>
+    <string name="symbol_seedling_location" translatable="false">⌖</string>
+    <string name="symbol_seedling_calendar" translatable="false">📅</string>
+    <string name="symbol_seedling_info" translatable="false">ⓘ</string>
+    <string name="seedling_decimal_zero" translatable="false">0.0</string>
+    <string name="seedling_batch_name_format">%1$s  %2$s</string>
+    <string name="seedling_zero" translatable="false">0</string>
+    <string name="seedling_batches_heading_decorated">🌱  Fide Partileri</string>
+    <string name="seedling_stage_steps">Ekim  ·  Çimlenme  ·  İlk yaprak  ·  Şaşırtma  ·  Dikime hazır</string>
+    <string name="seedling_form_plant_hint">Domates</string>
+    <string name="seedling_form_variety_hint">H2274</string>
+    <string name="seedling_form_seed_hint" translatable="false">100</string>
+    <string name="seedling_form_tray_hint" translatable="false">100</string>
+    <string name="seedling_form_area_hint">Sera 1</string>
+    <string name="seedling_variety_custom">Diğer…</string>
+    <string name="seedling_variety_custom_title">Çeşit adını yazın</string>
+    <string name="seedling_variety_custom_hint">Çeşit adı</string>
+    <string name="seedling_form_note">Ekim tarihi bugün olarak kaydedilir; tahmini çıkış ve şaşırtma tarihleri otomatik hesaplanır.</string>
+    <string name="seedling_daily_help">Kayıt, fide gelişimini ve AI önerilerini güncellemek için kullanılacaktır.</string>
+    <string-array name="seedling_area_options">
+        <item>Sera 1</item>
+        <item>Sera 2</item>
+        <item>Fide odası</item>
+        <item>Balkon</item>
+        <item>Bahçe</item>
+    </string-array>
+</resources>

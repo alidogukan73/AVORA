@@ -1,0 +1,163 @@
+package com.alidogukan.avora.viewmodels;
+
+import androidx.lifecycle.LiveData;
+import androidx.lifecycle.ViewModel;
+import com.alidogukan.avora.crop.CropCatalog;
+import com.alidogukan.avora.firebase.FirebaseRepository;
+import com.alidogukan.avora.models.CropCatalogItem;
+import com.alidogukan.avora.models.SeedlingBatch;
+import com.alidogukan.avora.models.SeedlingDailyLog;
+import com.alidogukan.avora.models.SeedlingNodeState;
+import com.alidogukan.avora.models.SeedlingRecommendation;
+import com.alidogukan.avora.seedling.SeedlingRecommendationTiming;
+import com.alidogukan.avora.seedling.SeedlingRepository;
+import com.alidogukan.avora.seedling.SeedlingStagePolicy;
+import com.google.android.gms.tasks.Task;
+import java.util.List;
+
+/** Owns all seedling data operations; screens only validate and render input. */
+public final class SeedlingViewModel extends ViewModel {
+    private final SeedlingRepository repository = new SeedlingRepository();
+    private final FirebaseRepository firebaseRepository = new FirebaseRepository();
+    private final LiveData<List<SeedlingBatch>> batches = repository.observeBatches();
+    private final LiveData<List<CropCatalogItem>> cropCatalogItems =
+            firebaseRepository.observeCropCatalogItems();
+    public LiveData<List<SeedlingBatch>> getBatches() { return batches; }
+    public LiveData<List<CropCatalogItem>> getCropCatalogItems() { return cropCatalogItems; }
+    public List<CropCatalogItem> mergedCrops(List<CropCatalogItem> values) {
+        return CropCatalog.merge(values);
+    }
+    public LiveData<SeedlingBatch> getBatch(String id) { return repository.observeBatch(id); }
+    public LiveData<SeedlingNodeState> getNode(String id) { return repository.observeNode(id); }
+    public LiveData<List<SeedlingDailyLog>> getLogs(String id) { return repository.observeLogs(id); }
+    public Task<Boolean> hasDailyLogs(String id) { return repository.hasDailyLogs(id); }
+
+    public Task<Void> createBatch(CropCatalogItem crop, String variety, String area,
+                                  int seedCount, int trayCells, long sowingEpoch,
+                                  long emergenceEpoch, long transplantEpoch) {
+        if (crop == null) {
+            return com.google.android.gms.tasks.Tasks.forException(
+                    new IllegalArgumentException("Bitki türü gerekli."));
+        }
+        long now = System.currentTimeMillis() / 1000L;
+        SeedlingBatch batch = new SeedlingBatch();
+        batch.setPlant_type(crop.getName());
+        batch.setEmoji(crop.getEmoji());
+        batch.setVariety(variety);
+        batch.setArea(area);
+        batch.setNode_id("seedling-001");
+        batch.setStatus("ACTIVE");
+        batch.setStage(SeedlingStagePolicy.SOWN);
+        batch.setSowing_date_epoch(sowingEpoch);
+        batch.setEstimated_emergence_epoch(emergenceEpoch);
+        batch.setEstimated_transplant_epoch(transplantEpoch);
+        batch.setSeed_count(seedCount);
+        batch.setTray_cell_count(trayCells);
+        batch.setHealthy_count(seedCount);
+        batch.setCreated_at_epoch(now);
+        batch.setUpdated_at_epoch(now);
+        return repository.create(batch);
+    }
+
+    public Task<Void> saveDailyLog(String batchId, double height, int leaves,
+                                   int healthy, boolean watered, String note) {
+        SeedlingDailyLog log = new SeedlingDailyLog();
+        log.setBatch_id(batchId);
+        log.setHeight_cm(height);
+        log.setLeaf_count(leaves);
+        log.setHealthy_count(healthy);
+        log.setWatered(watered);
+        log.setNote(note);
+        log.setCreated_at_epoch(System.currentTimeMillis() / 1000L);
+        return repository.saveLog(log);
+    }
+
+    public Task<Void> updateDailyLog(SeedlingDailyLog existing, double height, int leaves,
+                                     int healthy, boolean watered, String note) {
+        if (existing == null) {
+            return com.google.android.gms.tasks.Tasks.forException(
+                    new IllegalArgumentException("Günlük kaydı gerekli."));
+        }
+        SeedlingDailyLog log = new SeedlingDailyLog();
+        log.setLog_id(existing.getLog_id());
+        log.setBatch_id(existing.getBatch_id());
+        log.setHeight_cm(height);
+        log.setLeaf_count(leaves);
+        log.setHealthy_count(healthy);
+        log.setWatered(watered);
+        log.setNote(note);
+        log.setCreated_at_epoch(existing.getCreated_at_epoch());
+        return repository.updateLog(log);
+    }
+
+    public Task<Void> deleteDailyLog(String batchId, String logId) {
+        return repository.deleteLog(batchId, logId);
+    }
+
+    public Task<Void> advanceStage(SeedlingBatch batch) {
+        return repository.advanceStage(batch.getBatch_id(),
+                SeedlingStagePolicy.next(batch.getStage()));
+    }
+
+    public Task<Void> setStage(String batchId, String stage) {
+        return repository.updateStage(batchId, stage);
+    }
+
+    public Task<Void> deleteBatch(String batchId) {
+        return repository.deleteBatch(batchId);
+    }
+
+    public boolean isDeletionBlockedByLogs(Throwable error) {
+        Throwable current = error;
+        while (current != null) {
+            if (current instanceof SeedlingRepository.BatchHasDailyLogsException) return true;
+            current = current.getCause();
+        }
+        return false;
+    }
+
+    public String recommendationAction(SeedlingRecommendation advice) {
+        return SeedlingRecommendationTiming.actionForDisplay(
+                advice, System.currentTimeMillis());
+    }
+
+    public String recommendationMessage(SeedlingRecommendation advice) {
+        return SeedlingRecommendationTiming.messageForDisplay(
+                advice, System.currentTimeMillis());
+    }
+
+    public boolean canAdvance(SeedlingBatch batch) {
+        return batch != null && SeedlingStagePolicy.canAdvance(batch.getStage());
+    }
+
+    public boolean canRetreat(SeedlingBatch batch) {
+        return batch != null && SeedlingStagePolicy.canRetreat(batch.getStage());
+    }
+
+    public String previousStage(SeedlingBatch batch) {
+        return batch == null
+                ? SeedlingStagePolicy.SOWN
+                : SeedlingStagePolicy.previous(batch.getStage());
+    }
+
+    public boolean isReady(SeedlingBatch batch) {
+        return batch != null && SeedlingStagePolicy.READY.equals(
+                SeedlingStagePolicy.normalize(batch.getStage()));
+    }
+
+    public int progress(SeedlingBatch batch) {
+        return batch == null ? 1 : SeedlingStagePolicy.progress(batch.getStage());
+    }
+
+    public String stageLabel(String stage) {
+        switch (SeedlingStagePolicy.normalize(stage)) {
+            case SeedlingStagePolicy.GERMINATING: return "Çimlenme";
+            case SeedlingStagePolicy.COTYLEDON: return "İlk yaprak";
+            case SeedlingStagePolicy.TRUE_LEAVES: return "2–3 gerçek yaprak";
+            case SeedlingStagePolicy.HARDENING: return "Şaşırtma / alıştırma";
+            case SeedlingStagePolicy.READY: return "Dikime hazır";
+            default: return "Ekim";
+        }
+    }
+
+}

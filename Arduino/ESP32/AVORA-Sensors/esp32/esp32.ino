@@ -1,5 +1,5 @@
 //
-// AVORA Wireless Soil Sensors v2.2.0
+// AVORA Wireless Soil Sensors v2.4.0
 // Two ADS1115 modules, up to eight capacitive soil sensors.
 //
 #include <WiFi.h>
@@ -18,12 +18,14 @@ constexpr int SCL_PIN = 22;
 constexpr uint8_t ADS_PRIMARY_ADDRESS = 0x48;
 constexpr uint8_t ADS_SECONDARY_ADDRESS = 0x49;
 constexpr uint16_t MQTT_PORT = 1883;
+constexpr uint16_t MQTT_BUFFER_SIZE = 512;
 constexpr unsigned long PUBLISH_INTERVAL_MS = 5000;
 constexpr uint8_t FILTER_SAMPLE_COUNT = 10;
 constexpr uint16_t FILTER_SAMPLE_DELAY_MS = 50;
 constexpr uint16_t I2C_TIMEOUT_MS = 100;
 constexpr unsigned long ADS_READ_TIMEOUT_MS = 100;
 constexpr unsigned long ADS_RETRY_INTERVAL_MS = 30000;
+constexpr unsigned long ADS_STATUS_INTERVAL_MS = 5000;
 constexpr unsigned long MQTT_DISCOVERY_RETRY_MS = 10000;
 constexpr uint16_t ADS_SINGLE_ENDED_MUX[] = {
     ADS1X15_REG_CONFIG_MUX_SINGLE_0,
@@ -36,7 +38,8 @@ const char* MQTT_FALLBACK_BROKER = "192.168.1.99";
 const char* MQTT_SERVICE = "mqtt";
 const char* MQTT_PROTOCOL = "tcp";
 const char* AVORA_DEVICE_ID = "avora-001";
-const char* FIRMWARE_VERSION = "2.2.0";
+const char* FIRMWARE_VERSION = "2.4.0";
+const char* ADS_STATUS_TOPIC = "avora/status/esp32/ads1115";
 const char* SENSOR_CONFIG_TOPIC_FILTER =
         "avora/config/esp32/sensors/#";
 const char* CALIBRATION_CONFIG_TOPIC_FILTER =
@@ -53,6 +56,7 @@ PubSubClient mqttClient(wifiClient);
 
 bool adsAvailable[] = {false, false};
 unsigned long lastAdsRetryMillis[] = {0, 0};
+unsigned long lastAdsStatusMillis = 0;
 unsigned long lastPublishMillis = 0;
 unsigned long lastMqttDiscoveryMillis = 0;
 bool mdnsStarted = false;
@@ -219,6 +223,52 @@ int calculateMoisturePercent(int16_t raw, const SensorConfig& sensor) {
 
 Adafruit_ADS1115& adsFor(uint8_t adsIndex) {
     return adsIndex == 0 ? adsPrimary : adsSecondary;
+}
+
+uint8_t adsAddressFor(uint8_t adsIndex) {
+    return adsIndex == 0
+            ? ADS_PRIMARY_ADDRESS
+            : ADS_SECONDARY_ADDRESS;
+}
+
+bool isAdsModuleConnected(uint8_t adsIndex) {
+    Wire.beginTransmission(adsAddressFor(adsIndex));
+    return Wire.endTransmission() == 0;
+}
+
+void publishAdsStatus(bool force = false) {
+    if (!mqttClient.connected()) {
+        return;
+    }
+
+    unsigned long now = millis();
+    if (!force
+            && now - lastAdsStatusMillis < ADS_STATUS_INTERVAL_MS) {
+        return;
+    }
+    lastAdsStatusMillis = now;
+
+    char payload[280];
+    snprintf(
+            payload,
+            sizeof(payload),
+            "{\"node_id\":\"avora-soil-esp32\","
+            "\"firmware\":\"%s\",\"node_online\":true,"
+            "\"primary_available\":%s,"
+            "\"secondary_available\":%s,"
+            "\"primary_address\":\"0x48\","
+            "\"secondary_address\":\"0x49\","
+            "\"rssi\":%d,\"uptime\":%lu}",
+            FIRMWARE_VERSION,
+            adsAvailable[0] ? "true" : "false",
+            adsAvailable[1] ? "true" : "false",
+            WiFi.RSSI(),
+            millis() / 1000
+    );
+
+    if (!mqttClient.publish(ADS_STATUS_TOPIC, payload, true)) {
+        Serial.println("HATA: ADS1115 durum mesaji gonderilemedi.");
+    }
 }
 
 bool readSingleEndedWithTimeout(
@@ -418,7 +468,23 @@ void connectToMqtt() {
                 "avora-esp32-" +
                 String(static_cast<uint32_t>(ESP.getEfuseMac()), HEX);
 
-        if (mqttClient.connect(clientId.c_str())) {
+        const char* offlineStatus =
+                "{\"node_id\":\"avora-soil-esp32\","
+                "\"firmware\":\"\",\"node_online\":false,"
+                "\"primary_available\":false,"
+                "\"secondary_available\":false,"
+                "\"primary_address\":\"0x48\","
+                "\"secondary_address\":\"0x49\","
+                "\"rssi\":0,\"uptime\":0}";
+        if (mqttClient.connect(
+                clientId.c_str(),
+                nullptr,
+                nullptr,
+                ADS_STATUS_TOPIC,
+                0,
+                true,
+                offlineStatus
+        )) {
             Serial.println("MQTT baglantisi kuruldu.");
             if (!mqttClient.subscribe(SENSOR_CONFIG_TOPIC_FILTER)) {
                 Serial.println("HATA: Sensor ayar konusuna abone olunamadi.");
@@ -430,6 +496,7 @@ void connectToMqtt() {
             } else {
                 Serial.println("Kalibrasyon ayarlari dinleniyor.");
             }
+            publishAdsStatus(true);
             return;
         }
 
@@ -440,14 +507,20 @@ void connectToMqtt() {
 }
 
 void markAdsUnavailable(uint8_t adsIndex, const char* sensorId) {
+    bool wasAvailable = adsAvailable[adsIndex];
     adsAvailable[adsIndex] = false;
     lastAdsRetryMillis[adsIndex] = millis();
+
+    if (!wasAvailable) {
+        return;
+    }
 
     Serial.print("HATA: ADS1115 #");
     Serial.print(adsIndex + 1);
     Serial.print(" okuma zaman asimi; sensor=");
     Serial.print(sensorId);
     Serial.println(". Diger ADS modulu calismaya devam edecek.");
+    publishAdsStatus(true);
 }
 
 void publishSensorData(const SensorConfig& sensor) {
@@ -488,9 +561,7 @@ void publishSensorData(const SensorConfig& sensor) {
 }
 
 bool initializeAdsModule(uint8_t adsIndex) {
-    uint8_t address = adsIndex == 0
-            ? ADS_PRIMARY_ADDRESS
-            : ADS_SECONDARY_ADDRESS;
+    uint8_t address = adsAddressFor(adsIndex);
     Adafruit_ADS1115& ads = adsFor(adsIndex);
 
     bool found = ads.begin(address, &Wire);
@@ -504,12 +575,14 @@ bool initializeAdsModule(uint8_t adsIndex) {
         ads.setGain(GAIN_ONE);
         Serial.print(" bulundu: 0x");
         Serial.println(address, HEX);
+        publishAdsStatus(true);
         return true;
     }
 
     Serial.print(" bulunamadi: 0x");
     Serial.print(address, HEX);
     Serial.println("; ilgili sensor kanallari pasif, MQTT devam ediyor.");
+    publishAdsStatus(true);
     return false;
 }
 
@@ -521,6 +594,9 @@ void initializeAds() {
 void retryUnavailableAds(unsigned long now) {
     for (uint8_t adsIndex = 0; adsIndex < 2; adsIndex++) {
         if (adsAvailable[adsIndex]) {
+            if (!isAdsModuleConnected(adsIndex)) {
+                markAdsUnavailable(adsIndex, "I2C baglantisi");
+            }
             continue;
         }
         if (now - lastAdsRetryMillis[adsIndex] < ADS_RETRY_INTERVAL_MS) {
@@ -543,6 +619,7 @@ void setup() {
     initializeAds();
     connectToWiFi();
     refreshMqttServer();
+    mqttClient.setBufferSize(MQTT_BUFFER_SIZE);
     mqttClient.setCallback(onMqttMessage);
     connectToMqtt();
 }
@@ -558,6 +635,7 @@ void loop() {
 
     unsigned long now = millis();
     retryUnavailableAds(now);
+    publishAdsStatus();
     if (now - lastPublishMillis < PUBLISH_INTERVAL_MS) {
         return;
     }

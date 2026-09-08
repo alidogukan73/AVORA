@@ -48,6 +48,30 @@ class MqttSensorReading:
         )
 
 
+@dataclass(frozen=True)
+class MqttAds1115Status:
+
+    node_online: bool
+    primary_available: bool
+    secondary_available: bool
+    rssi: int
+    firmware: str = ""
+    uptime_seconds: int = 0
+    received_at: datetime = field(
+        default_factory=datetime.now
+    )
+    received_monotonic: float = field(
+        default_factory=time.monotonic
+    )
+
+    @property
+    def age_seconds(self) -> float:
+        return max(
+            0.0,
+            time.monotonic() - self.received_monotonic,
+        )
+
+
 class MqttSoilMoistureSensor:
     """
     ESP32 kablosuz toprak nemi sensörünü MQTT üzerinden dinler.
@@ -61,6 +85,7 @@ class MqttSoilMoistureSensor:
         broker: str = "127.0.0.1",
         port: int = 1883,
         topic: str = "avora/sensors/soil-001",
+        ads_status_topic: str = "avora/status/esp32/ads1115",
         sensor_id: str = "soil-001",
         stale_after_seconds: float = 30.0,
         client_id: str = "avora-pi-wireless-sensor",
@@ -84,9 +109,13 @@ class MqttSoilMoistureSensor:
                 "stale_after_seconds sıfırdan büyük olmalıdır."
             )
 
+        if not ads_status_topic:
+            raise ValueError("ADS1115 durum konusu boş olamaz.")
+
         self._broker = broker
         self._port = port
         self._topic = topic
+        self._ads_status_topic = ads_status_topic
         self._sensor_id = sensor_id
         self._stale_after_seconds = stale_after_seconds
         self._client_id = client_id
@@ -98,6 +127,7 @@ class MqttSoilMoistureSensor:
             str,
             MqttSensorReading,
         ] = {}
+        self._latest_ads_status: MqttAds1115Status | None = None
         self._is_connected = False
         self._is_started = False
 
@@ -127,6 +157,10 @@ class MqttSoilMoistureSensor:
     @property
     def topic(self) -> str:
         return self._topic
+
+    @property
+    def ads_status_topic(self) -> str:
+        return self._ads_status_topic
 
     @property
     def expected_sensor_id(self) -> str:
@@ -282,6 +316,10 @@ class MqttSoilMoistureSensor:
             )
         }
 
+    def get_latest_ads1115_status(self) -> MqttAds1115Status | None:
+        with self._reading_lock:
+            return self._latest_ads_status
+
     def is_reading_fresh(self) -> bool:
         """
         Son ölçümün kullanılabilecek kadar güncel olup
@@ -361,6 +399,22 @@ class MqttSoilMoistureSensor:
             message_id,
         )
 
+        status_result, status_message_id = client.subscribe(
+            self._ads_status_topic,
+            qos=0,
+        )
+        if status_result != mqtt.MQTT_ERR_SUCCESS:
+            logger.error(
+                "ADS1115 durum konusuna abone olunamadı: result=%s",
+                status_result,
+            )
+            return
+        logger.info(
+            "ADS1115 durum konusu dinleniyor: topic=%s message_id=%s",
+            self._ads_status_topic,
+            status_message_id,
+        )
+
     def _on_disconnect(
         self,
         client: mqtt.Client,
@@ -388,6 +442,27 @@ class MqttSoilMoistureSensor:
         userdata: Any,
         message: mqtt.MQTTMessage,
     ) -> None:
+        if message.topic == self._ads_status_topic:
+            try:
+                status = self._parse_ads_status_payload(message.payload)
+            except (ValueError, TypeError) as exc:
+                logger.warning(
+                    "Geçersiz ADS1115 durum mesajı: %s; payload=%r",
+                    exc,
+                    message.payload,
+                )
+                return
+
+            with self._reading_lock:
+                self._latest_ads_status = status
+            logger.debug(
+                "ADS1115 durumu alındı: online=%s primary=%s secondary=%s",
+                status.node_online,
+                status.primary_available,
+                status.secondary_available,
+            )
+            return
+
         try:
             reading = self._parse_payload(
                 message.payload
@@ -539,6 +614,56 @@ class MqttSoilMoistureSensor:
             firmware=firmware,
             uptime_seconds=uptime_seconds,
 
+            received_at=datetime.now().astimezone(),
+            received_monotonic=time.monotonic(),
+        )
+
+    @staticmethod
+    def _parse_ads_status_payload(payload: bytes) -> MqttAds1115Status:
+        try:
+            data = json.loads(payload.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise ValueError("ADS1115 durum mesajı geçerli JSON değil.") from exc
+
+        if not isinstance(data, dict):
+            raise ValueError("ADS1115 durum mesajı JSON nesnesi olmalıdır.")
+
+        required = {
+            "node_online",
+            "primary_available",
+            "secondary_available",
+            "rssi",
+        }
+        missing = sorted(required.difference(data))
+        if missing:
+            raise ValueError(f"Eksik ADS1115 durum alanları: {', '.join(missing)}")
+
+        for name in (
+            "node_online",
+            "primary_available",
+            "secondary_available",
+        ):
+            if not isinstance(data[name], bool):
+                raise ValueError(f"{name} boolean olmalıdır.")
+
+        try:
+            rssi = int(data["rssi"])
+            uptime_seconds = int(data.get("uptime", 0))
+        except (TypeError, ValueError) as exc:
+            raise ValueError("ADS1115 durum sayıları geçersiz.") from exc
+
+        if not -120 <= rssi <= 0:
+            raise ValueError("ADS1115 durum RSSI değeri geçersiz.")
+        if not 0 <= uptime_seconds <= 4294967:
+            raise ValueError("ADS1115 durum çalışma süresi geçersiz.")
+
+        return MqttAds1115Status(
+            node_online=data["node_online"],
+            primary_available=data["primary_available"],
+            secondary_available=data["secondary_available"],
+            rssi=rssi,
+            firmware=str(data.get("firmware", ""))[:32],
+            uptime_seconds=uptime_seconds,
             received_at=datetime.now().astimezone(),
             received_monotonic=time.monotonic(),
         )

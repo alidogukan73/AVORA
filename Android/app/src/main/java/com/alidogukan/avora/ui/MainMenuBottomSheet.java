@@ -19,6 +19,7 @@ import com.alidogukan.avora.activities.FertilizationCalendarActivity;
 import com.alidogukan.avora.activities.PlantAssistantActivity;
 import com.alidogukan.avora.activities.PlantListActivity;
 import com.alidogukan.avora.activities.SeasonManagementActivity;
+import com.alidogukan.avora.activities.SeedlingAssistantActivity;
 import com.alidogukan.avora.activities.SettingsHubActivity;
 import com.alidogukan.avora.activities.StatisticsActivity;
 import com.alidogukan.avora.activities.WateringHistoryActivity;
@@ -43,8 +44,9 @@ public class MainMenuBottomSheet extends BottomSheetDialogFragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         bind(view, R.id.menuCardPlantAssistant, PlantAssistantActivity.class);
-        bind(view, R.id.menuCardAIAssistant, AIAssistantActivity.class);
+        bind(view, R.id.menuCardSeedlingAssistant, SeedlingAssistantActivity.class);
         bind(view, R.id.menuCardFertilization, FertilizationCalendarActivity.class);
+        bind(view, R.id.menuCardAIAssistant, AIAssistantActivity.class);
         bind(view, R.id.menuCardStatistics, StatisticsActivity.class);
         bind(view, R.id.menuCardHistory, WateringHistoryActivity.class);
         bind(view, R.id.menuCardPlantJournal, PlantListActivity.class);

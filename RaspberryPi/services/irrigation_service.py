@@ -16,6 +16,7 @@ from core.config import (
     FirebaseConfig,
     IrrigationConfig,
     SensorConfig,
+    SeedlingConfig,
 )
 from core.firebase_service import FirebaseService
 from core.logger import AppLogger
@@ -55,6 +56,7 @@ from controllers.shared_pump_zone_executor import (
 from hardware.relay import RelayController
 from hardware.valve_controller import ValveController
 from hardware.sensor_provider import SoilMoistureSensorProvider
+from hardware.seedling_mqtt_bridge import SeedlingMqttBridge
 
 from models.sensor_history_entry import SensorHistoryEntry
 from models.moisture_history import MoistureSample
@@ -77,6 +79,7 @@ class IrrigationService:
             mqtt_broker=SensorConfig.MQTT_BROKER,
             mqtt_port=SensorConfig.MQTT_PORT,
             mqtt_topic=SensorConfig.MQTT_TOPIC,
+            mqtt_ads_status_topic=SensorConfig.MQTT_ADS_STATUS_TOPIC,
             mqtt_sensor_id=SensorConfig.MQTT_SENSOR_ID,
             mqtt_stale_after_seconds=(
                 SensorConfig.MQTT_STALE_AFTER_SECONDS
@@ -90,6 +93,13 @@ class IrrigationService:
         self._relay = RelayController()
         self._valves = ValveController()
         self._firebase = FirebaseService()
+        self._seedling_bridge = SeedlingMqttBridge(
+            sink=self._firebase,
+            broker=SeedlingConfig.MQTT_BROKER,
+            port=SeedlingConfig.MQTT_PORT,
+            topic=SeedlingConfig.MQTT_TOPIC,
+            client_id=SeedlingConfig.MQTT_CLIENT_ID,
+        )
         self._network_configuration = NetworkConfigurationService()
         self._feedback_email = FeedbackEmailService(
             self._firebase,
@@ -124,6 +134,8 @@ class IrrigationService:
         self._zone_scheduler = ZoneIrrigationScheduler()
         self._last_multi_zone_status_signature = None
         self._last_multi_zone_log_signature = None
+        self._last_ads1115_status_signature = None
+        self._last_ads1115_status_publish_monotonic = 0.0
 
         self._ai_pipeline = AIPipeline()
         self._prediction_validation_queue = PredictionValidationQueue()
@@ -195,6 +207,14 @@ class IrrigationService:
         self._valves.initialize()
 
         self._firebase.initialize()
+        try:
+            self._seedling_bridge.start()
+        except Exception as exc:
+            # Seedling monitoring is advisory and must never stop irrigation.
+            self._logger.warning(
+                "Seedling assistant could not start: %s",
+                exc,
+            )
         self._feedback_email.start()
         # A service restart closes every relay/valve. Clear any stale
         # Firebase status as well, otherwise Android can keep a manual valve
@@ -1343,6 +1363,41 @@ class IrrigationService:
                 pass
         return True
 
+    def _update_ads1115_health_if_needed(self) -> None:
+        """Publish each ADS1115 state without coupling it to sensor reads."""
+
+        status_getter = getattr(self._sensor, "get_ads1115_status", None)
+        if not callable(status_getter):
+            return
+        status = status_getter()
+        if status is None:
+            return
+
+        signature = (
+            status.node_online,
+            status.primary_available,
+            status.secondary_available,
+            status.firmware,
+        )
+        now = time.monotonic()
+        if (
+            signature == self._last_ads1115_status_signature
+            and now - self._last_ads1115_status_publish_monotonic < 15.0
+        ):
+            return
+
+        self._firebase.update_ads1115_status(
+            node_online=status.node_online,
+            primary_available=status.primary_available,
+            secondary_available=status.secondary_available,
+            firmware=status.firmware,
+            rssi=status.rssi,
+            uptime_seconds=status.uptime_seconds,
+            received_at_epoch=int(status.received_at.timestamp()),
+        )
+        self._last_ads1115_status_signature = signature
+        self._last_ads1115_status_publish_monotonic = now
+
     def update(self) -> None:
         """
         Execute one irrigation cycle.
@@ -1362,6 +1417,7 @@ class IrrigationService:
             # connection outage.
             self._update_status_if_needed()
             self._update_health_if_needed()
+            self._update_ads1115_health_if_needed()
 
             if self._process_network_configuration_command(commands):
                 return
@@ -3070,6 +3126,14 @@ class IrrigationService:
         except Exception as exc:
             self._logger.exception(
                 "Sensor provider cleanup failed: %s",
+                exc,
+            )
+
+        try:
+            self._seedling_bridge.stop()
+        except Exception as exc:
+            self._logger.exception(
+                "Seedling assistant cleanup failed: %s",
                 exc,
             )
 

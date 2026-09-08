@@ -380,4 +380,34 @@
     <!-- Uyarı kartı -->
     <!-- Yuvarlak ikon görünümü -->
     <!-- Uygulamadaki bütün geri düğmelerinin tek ortak görünümü -->
+    <style name="Widget.AVORA.Seedling.Card" parent="Widget.Material3.CardView.Filled">
+        <item name="cardBackgroundColor">@color/card</item>
+        <item name="cardCornerRadius">14dp</item>
+        <item name="cardElevation">0dp</item>
+        <item name="strokeColor">@color/border</item>
+        <item name="strokeWidth">1dp</item>
+    </style>
+    <style name="Widget.AVORA.Seedling.Card.Metric" parent="Widget.AVORA.Seedling.Card">
+        <item name="cardCornerRadius">13dp</item>
+    </style>
+    <style name="Widget.AVORA.Seedling.Card.Status" parent="Widget.AVORA.Seedling.Card">
+        <item name="cardBackgroundColor">@color/surfaceGreen</item>
+        <item name="strokeColor">@color/accentLight</item>
+    </style>
+    <style name="Widget.AVORA.Seedling.Card.Form" parent="Widget.AVORA.Seedling.Card">
+        <item name="cardCornerRadius">16dp</item>
+    </style>
+    <style name="Widget.AVORA.Seedling.Card.Advice" parent="Widget.AVORA.Seedling.Card">
+        <item name="cardBackgroundColor">@color/infoBackground</item>
+        <item name="strokeColor">@color/info</item>
+    </style>
+    <style name="TextAppearance.AVORA.Seedling.RowLabel" parent="TextAppearance.Material3.BodyMedium">
+        <item name="android:textColor">@color/textPrimary</item>
+        <item name="android:textSize">14sp</item>
+    </style>
+    <style name="TextAppearance.AVORA.Seedling.Metric" parent="TextAppearance.Material3.BodyMedium">
+        <item name="android:textColor">@color/textPrimary</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
 </resources>
