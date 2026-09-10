@@ -4,9 +4,11 @@ import com.alidogukan.avora.models.FertilizationProfile;
 import com.alidogukan.avora.models.GardenZone;
 import com.alidogukan.avora.models.ZoneIrrigationStatus;
 import com.alidogukan.avora.plantassistant.PlantAssistantHealthSignal;
+import com.alidogukan.avora.plantassistant.PlantAssistantUrgency;
 import com.alidogukan.avora.season.SeasonScope;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import static com.alidogukan.avora.health.GardenHealthIssue.Target.*;
@@ -29,6 +31,15 @@ public final class GardenHealthCalculator {
             long now,
             PlantAssistantHealthSignal assistantSignal
     ) {
+        return calculateWithSignals(zones, now, assistantSignal == null
+                ? Collections.emptyList() : Collections.singletonList(assistantSignal));
+    }
+
+    public static GardenHealthSummary calculateWithSignals(
+            List<GardenZone> zones,
+            long now,
+            List<PlantAssistantHealthSignal> assistantSignals
+    ) {
         if (zones == null || zones.isEmpty()) {
             return new GardenHealthSummary(0, "Bahçe verisi bekleniyor",
                     "Bölgeler bağlandığında sağlık özeti hazırlanır.");
@@ -38,8 +49,15 @@ public final class GardenHealthCalculator {
         int count = 0;
         String priority = "";
         int priorityScore = Integer.MAX_VALUE;
+        int assistantSeverity = 0;
         for (GardenZone zone : healthZones) {
-            GardenHealthZoneResult result = evaluateZone(zone, now, assistantSignal);
+            PlantAssistantHealthSignal zoneSignal =
+                    signalFor(zone, now, assistantSignals);
+            assistantSeverity = Math.max(
+                    assistantSeverity,
+                    zoneSignal == null ? 0 : PlantAssistantUrgency.severity(zoneSignal.getUrgency()));
+            GardenHealthZoneResult result = evaluateZone(
+                    zone, now, zoneSignal);
             total += result.getScore();
             count++;
             if (result.getScore() < priorityScore && result.getScore() < 100) {
@@ -52,6 +70,9 @@ public final class GardenHealthCalculator {
                     "Sağlık özeti için en az bir aktif bölge gerekir.");
         }
         int average = Math.round((float) total / count);
+        // An actionable AI finding must remain visible even when several healthy
+        // zones would otherwise dilute the average back into the green range.
+        if (assistantSeverity > 0) average = Math.min(84, average);
         String title = average >= 85 ? "Bahçe genel olarak iyi durumda"
                 : average >= 65 ? "Bahçede uyarı var"
                 : "Bahçe kontrolü öneriliyor";
@@ -101,11 +122,11 @@ public final class GardenHealthCalculator {
             issues.add(new GardenHealthIssue("Gübreleme kaydı bekleniyor", 10, FERTILIZATION));
         }
         if (assistantSignal != null && assistantSignal.appliesTo(zone, now)) {
-            String urgency = assistantSignal.getUrgency();
-            if ("Yüksek".equalsIgnoreCase(urgency)) {
+            int severity = PlantAssistantUrgency.severity(assistantSignal.getUrgency());
+            if (severity >= 2) {
                 issues.add(new GardenHealthIssue("Bitki Asistanı: yüksek aciliyet",
                         25, PLANT_ASSISTANT, assistantSignal.getSeasonId()));
-            } else if ("Orta".equalsIgnoreCase(urgency)) {
+            } else if (severity == 1) {
                 issues.add(new GardenHealthIssue("Bitki Asistanı: orta aciliyet",
                         12, PLANT_ASSISTANT, assistantSignal.getSeasonId()));
             }
@@ -113,6 +134,35 @@ public final class GardenHealthCalculator {
             // Keep its recommendation/history, but only medium/high findings reduce the score.
         }
         return GardenHealthZoneResult.fromIssues(issues);
+    }
+
+    public static GardenHealthZoneResult evaluateZoneWithSignals(
+            GardenZone zone,
+            long now,
+            List<PlantAssistantHealthSignal> assistantSignals
+    ) {
+        return evaluateZone(zone, now, signalFor(zone, now, assistantSignals));
+    }
+
+    private static PlantAssistantHealthSignal signalFor(
+            GardenZone zone,
+            long now,
+            List<PlantAssistantHealthSignal> values
+    ) {
+        PlantAssistantHealthSignal selected = null;
+        int selectedSeverity = -1;
+        if (values == null) return null;
+        for (PlantAssistantHealthSignal value : values) {
+            if (value == null || !value.appliesTo(zone, now)) continue;
+            int severity = PlantAssistantUrgency.severity(value.getUrgency());
+            if (selected == null || severity > selectedSeverity
+                    || (severity == selectedSeverity
+                    && value.getCreatedAtEpoch() > selected.getCreatedAtEpoch())) {
+                selected = value;
+                selectedSeverity = severity;
+            }
+        }
+        return selected;
     }
 
     private static String safeName(GardenZone zone) {

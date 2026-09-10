@@ -23,9 +23,11 @@ import com.google.firebase.database.ValueEventListener;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Owns the lifecycle of zone seasons. All lifecycle mutations are atomic and
@@ -613,6 +615,136 @@ public final class SeasonRepository {
                 });
     }
 
+    public Task<EmptySeasonDeletionStatus> inspectEmptySeason(
+            String zoneId,
+            String seasonId,
+            Set<String> localPhotoIds
+    ) {
+        if (safe(zoneId).isBlank() || safe(seasonId).isBlank()) {
+            return Tasks.forException(new IllegalArgumentException(
+                    "Bölge ve sezon bilgisi gerekli."));
+        }
+        return deviceRef.get().continueWith(task -> {
+            if (!task.isSuccessful() || task.getResult() == null
+                    || !task.getResult().exists()) {
+                Exception error = task.getException();
+                if (error != null) throw error;
+                throw new IllegalStateException("Sezon verileri okunamadı.");
+            }
+            return evaluateEmptySeasonDeletion(
+                    zoneId,
+                    seasonId,
+                    task.getResult(),
+                    localPhotoIds
+            );
+        });
+    }
+
+    public Task<Boolean> canDeleteEmptySeason(String zoneId, String seasonId) {
+        return inspectEmptySeason(zoneId, seasonId, new LinkedHashSet<>())
+                .continueWith(task -> task.isSuccessful()
+                        && task.getResult() != null
+                        && task.getResult().canDelete());
+    }
+
+    public Task<Void> deleteEmptySeason(
+            String zoneId,
+            String seasonId,
+            Set<String> localPhotoIds
+    ) {
+        if (safe(zoneId).isBlank() || safe(seasonId).isBlank()) {
+            return Tasks.forException(new IllegalArgumentException(
+                    "Bölge ve sezon bilgisi gerekli."));
+        }
+        FirebaseDatabase.getInstance().goOnline();
+        return deviceRef.get().continueWithTask(task -> {
+            if (!task.isSuccessful() || task.getResult() == null
+                    || !task.getResult().exists()) {
+                Exception error = task.getException();
+                return Tasks.forException(error == null
+                        ? new IllegalStateException("Sezon verileri okunamadı.")
+                        : error);
+            }
+            DataSnapshot root = task.getResult();
+            EmptySeasonDeletionStatus check = evaluateEmptySeasonDeletion(
+                    zoneId,
+                    seasonId,
+                    root,
+                    localPhotoIds
+            );
+            if (!check.canDelete()) {
+                return Tasks.forException(new IllegalStateException(check.getReason()));
+            }
+
+            GardenSeason target = root.child("garden_journal")
+                    .child("seasons")
+                    .child(seasonId)
+                    .getValue(GardenSeason.class);
+            if (target != null && SeasonStatus.isActive(target.getStatus())) {
+                return cancelNewSeasonFromSnapshot(zoneId, seasonId, root);
+            }
+
+            Map<String, Object> updates = new HashMap<>();
+            updates.put("garden_journal/seasons/" + seasonId, null);
+            putEmptySeasonGeneratedRecordCleanup(updates, root, seasonId);
+            return deviceRef.updateChildren(updates);
+        });
+    }
+
+    public Task<Void> deleteEmptySeason(String zoneId, String seasonId) {
+        return deleteEmptySeason(zoneId, seasonId, new LinkedHashSet<>());
+    }
+
+    public Task<EmptySeasonDeletionStatus> cleanupMissingPhotoRecords(
+            String zoneId,
+            String seasonId,
+            Set<String> localPhotoIds
+    ) {
+        if (safe(zoneId).isBlank() || safe(seasonId).isBlank()) {
+            return Tasks.forException(new IllegalArgumentException(
+                    "Bölge ve sezon bilgisi gerekli."));
+        }
+        FirebaseDatabase.getInstance().goOnline();
+        return deviceRef.get().continueWithTask(task -> {
+            if (!task.isSuccessful() || task.getResult() == null
+                    || !task.getResult().exists()) {
+                Exception error = task.getException();
+                return Tasks.forException(error == null
+                        ? new IllegalStateException("Sezon verileri okunamadı.")
+                        : error);
+            }
+            DataSnapshot root = task.getResult();
+            EmptySeasonDeletionStatus status = evaluateEmptySeasonDeletion(
+                    zoneId,
+                    seasonId,
+                    root,
+                    localPhotoIds
+            );
+            if (!status.canCleanMissingPhotos()) {
+                return Tasks.forException(new IllegalStateException(
+                        "Temizlenecek eksik fotoğraf kaydı bulunamadı."));
+            }
+
+            Map<String, Object> updates = new HashMap<>();
+            Set<String> missingIds = status.getMissingPhotoIds();
+            for (String photoId : missingIds) {
+                updates.put("garden_journal/photo_metadata/" + photoId, null);
+            }
+            putPhotoDerivedRecordCleanup(updates, root, seasonId, missingIds);
+            return deviceRef.updateChildren(updates)
+                    .continueWithTask(write -> {
+                        if (!write.isSuccessful()) {
+                            return Tasks.forException(write.getException());
+                        }
+                        return inspectEmptySeason(
+                                zoneId,
+                                seasonId,
+                                localPhotoIds
+                        );
+                    });
+        });
+    }
+
     private Task<Void> cancelNewSeasonFromSnapshot(
             String zoneId, String requestedSeasonId, DataSnapshot root) {
         CancellationCheck check = evaluateCancellation(zoneId, requestedSeasonId, root);
@@ -667,7 +799,217 @@ public final class SeasonRepository {
 
         // Only the untouched, currently active manifest is removed. Closed archives remain intact.
         updates.put("garden_journal/seasons/" + seasonId, null);
+        putEmptySeasonGeneratedRecordCleanup(updates, root, seasonId);
         return deviceRef.updateChildren(updates);
+    }
+
+    private static EmptySeasonDeletionStatus evaluateEmptySeasonDeletion(
+            String zoneId,
+            String seasonId,
+            DataSnapshot root,
+            Set<String> localPhotoIds
+    ) {
+        DataSnapshot manifest = root.child("garden_journal")
+                .child("seasons")
+                .child(seasonId);
+        GardenSeason target = manifest.getValue(GardenSeason.class);
+        if (target == null) {
+            return EmptySeasonDeletionStatus.blocked(
+                    "Silinecek sezon bulunamadı.");
+        }
+        if (target.getSeason_id().isBlank()) target.setSeason_id(seasonId);
+        if (!safe(zoneId).equals(safe(target.getZone_id()))) {
+            return EmptySeasonDeletionStatus.blocked(
+                    "Sezon bu bölgeye ait değil.");
+        }
+
+        DataSnapshot zoneData = root.child("zones").child(zoneId);
+        GardenZone persistedZone = zoneData.getValue(GardenZone.class);
+        ZoneSeasonState current = zoneData.child("season")
+                .getValue(ZoneSeasonState.class);
+        boolean currentActive = persistedZone != null
+                && current != null
+                && current.isActive()
+                && current.isSeasonActive(seasonId)
+                && ZoneAreaIdentity.belongsToCurrentOrArea(
+                        persistedZone,
+                        target
+                );
+
+        ZoneSeasonState targetScope = seasonScopeFor(target);
+        SeasonCounts counts = calculateCounts(root, zoneId, targetScope, true);
+        Set<String> validLocalIds = localPhotoIds == null
+                ? new LinkedHashSet<>() : new LinkedHashSet<>(localPhotoIds);
+        Set<String> missingPhotoIds = new LinkedHashSet<>();
+        int localPhotoCount = 0;
+        int missingPhotoAnalysisCount = 0;
+        for (DataSnapshot photo : root.child("garden_journal")
+                .child("photo_metadata")
+                .getChildren()) {
+            if (!zoneId.equals(stringValue(photo.child("zone_id")))
+                    || !belongs(photo, targetScope)) {
+                continue;
+            }
+            String photoId = safe(photo.getKey());
+            if (!photoId.isBlank() && validLocalIds.contains(photoId)) {
+                localPhotoCount++;
+                continue;
+            }
+            if (!photoId.isBlank()) missingPhotoIds.add(photoId);
+            if (!stringValue(photo.child("analysis_title")).isBlank()) {
+                missingPhotoAnalysisCount++;
+            }
+        }
+        SeasonOutcome outcome = root.child("garden_journal")
+                .child("season_outcomes")
+                .child(seasonId)
+                .getValue(SeasonOutcome.class);
+        boolean meaningfulOutcome = SeasonRecordPolicy.hasMeaningfulOutcome(outcome)
+                || SeasonRecordPolicy.hasMeaningfulOutcomeValues(
+                        target.getHarvest_amount(),
+                        target.getYield_note(),
+                        target.getIssues_note(),
+                        target.getSuccessful_practices(),
+                        "",
+                        "",
+                        target.getNext_season_note()
+                );
+        boolean hasRecords = counts.wateringCount > 0
+                || counts.fertilizerCount > 0
+                || counts.eventCount > 0
+                || counts.photoCount > 0
+                || meaningfulOutcome;
+        boolean irrigationBusy = SeasonStatus.isActive(target.getStatus())
+                && persistedZone != null
+                && isZoneIrrigationBusy(root, zoneId);
+
+        boolean canDelete = SeasonScope.canDeleteEmptySeason(
+                target,
+                currentActive,
+                hasRecords,
+                irrigationBusy
+        );
+        boolean stateAllowsCleanup = !target.isIncludes_legacy_records()
+                && (SeasonStatus.isClosed(target.getStatus())
+                || (SeasonStatus.isActive(target.getStatus())
+                && currentActive
+                && !irrigationBusy));
+        String reason;
+        if (canDelete) {
+            reason = "";
+        } else if (!missingPhotoIds.isEmpty()) {
+            reason = "Fotoğraf dosyası bu telefonda bulunmayan kayıtlar var.";
+        } else if (target.isIncludes_legacy_records()) {
+            reason = "Eski kayıtları içeren sezon silinemez.";
+        } else if (counts.wateringCount > 0
+                || counts.fertilizerCount > 0
+                || counts.eventCount > 0
+                || localPhotoCount > 0
+                || meaningfulOutcome) {
+            reason = "Bu sezonda korunması gereken işlem kayıtları var.";
+        } else if (irrigationBusy) {
+            reason = "Sulama, pompa veya vana çalışırken sezon silinemez.";
+        } else {
+            reason = "Yalnızca boş etkin veya boş tamamlanmış sezon silinebilir.";
+        }
+        return new EmptySeasonDeletionStatus(
+                canDelete,
+                stateAllowsCleanup && !missingPhotoIds.isEmpty(),
+                reason,
+                counts.wateringCount,
+                counts.fertilizerCount,
+                counts.eventCount,
+                localPhotoCount,
+                missingPhotoIds,
+                missingPhotoAnalysisCount,
+                meaningfulOutcome
+        );
+    }
+
+    private static void putPhotoDerivedRecordCleanup(
+            Map<String, Object> updates,
+            DataSnapshot root,
+            String seasonId,
+            Set<String> photoIds
+    ) {
+        for (DataSnapshot event : root.child("garden_journal")
+                .child("events")
+                .getChildren()) {
+            if (!seasonId.equals(stringValue(event.child("season_id")))
+                    || SeasonRecordPolicy.isFieldJournalEvent(
+                    stringValue(event.child("type")),
+                    stringValue(event.child("source")),
+                    stringValue(event.child("source_key")))
+                    || !referencesAnyPhoto(
+                    stringValue(event.child("source_key")),
+                    photoIds)) {
+                continue;
+            }
+            String key = safe(event.getKey());
+            if (!key.isBlank()) updates.put("garden_journal/events/" + key, null);
+        }
+        long deletedAtEpoch = nowEpoch();
+        for (DataSnapshot notification : root.child("notifications").getChildren()) {
+            if (!seasonId.equals(stringValue(notification.child("season_id")))
+                    || !referencesAnyPhoto(
+                    stringValue(notification.child("source_key")),
+                    photoIds)) {
+                continue;
+            }
+            String key = safe(notification.getKey());
+            if (key.isBlank()) continue;
+            updates.put("notifications/" + key, null);
+            updates.put(
+                    "notification_deletions/" + key + "/source_key",
+                    stringValue(notification.child("source_key"))
+            );
+            updates.put(
+                    "notification_deletions/" + key + "/deleted_at_epoch",
+                    deletedAtEpoch
+            );
+        }
+    }
+
+    private static boolean referencesAnyPhoto(
+            String sourceKey,
+            Set<String> photoIds
+    ) {
+        String source = safe(sourceKey);
+        if (source.isBlank() || photoIds == null || photoIds.isEmpty()) {
+            return false;
+        }
+        for (String photoId : photoIds) {
+            if (!safe(photoId).isBlank() && source.contains(photoId)) return true;
+        }
+        return false;
+    }
+
+    private static void putEmptySeasonGeneratedRecordCleanup(
+            Map<String, Object> updates,
+            DataSnapshot root,
+            String seasonId
+    ) {
+        updates.put("garden_journal/season_outcomes/" + seasonId, null);
+        for (DataSnapshot event : root.child("garden_journal")
+                .child("events")
+                .getChildren()) {
+            if (!seasonId.equals(stringValue(event.child("season_id")))) continue;
+            if (SeasonRecordPolicy.isFieldJournalEvent(
+                    stringValue(event.child("type")),
+                    stringValue(event.child("source")),
+                    stringValue(event.child("source_key")))) {
+                continue;
+            }
+            String key = safe(event.getKey());
+            if (!key.isBlank()) updates.put("garden_journal/events/" + key, null);
+        }
+        for (DataSnapshot notification : root.child("notifications").getChildren()) {
+            if (!seasonId.equals(stringValue(notification.child("season_id")))) {
+                continue;
+            }
+            String key = safe(notification.getKey());
+            if (!key.isBlank()) updates.put("notifications/" + key, null);
+        }
     }
 
     private static CancellationCheck evaluateCancellation(
@@ -1348,6 +1690,111 @@ public final class SeasonRepository {
         return value == null ? "" : value;
     }
 
+    public static final class EmptySeasonDeletionStatus {
+        private final boolean canDelete;
+        private final boolean canCleanMissingPhotos;
+        private final String reason;
+        private final int wateringCount;
+        private final int fertilizerCount;
+        private final int journalCount;
+        private final int localPhotoCount;
+        private final Set<String> missingPhotoIds;
+        private final int missingPhotoAnalysisCount;
+        private final boolean meaningfulOutcome;
+
+        private EmptySeasonDeletionStatus(
+                boolean canDelete,
+                boolean canCleanMissingPhotos,
+                String reason,
+                int wateringCount,
+                int fertilizerCount,
+                int journalCount,
+                int localPhotoCount,
+                Set<String> missingPhotoIds,
+                int missingPhotoAnalysisCount,
+                boolean meaningfulOutcome
+        ) {
+            this.canDelete = canDelete;
+            this.canCleanMissingPhotos = canCleanMissingPhotos;
+            this.reason = safe(reason);
+            this.wateringCount = Math.max(0, wateringCount);
+            this.fertilizerCount = Math.max(0, fertilizerCount);
+            this.journalCount = Math.max(0, journalCount);
+            this.localPhotoCount = Math.max(0, localPhotoCount);
+            this.missingPhotoIds = missingPhotoIds == null
+                    ? new LinkedHashSet<>()
+                    : new LinkedHashSet<>(missingPhotoIds);
+            this.missingPhotoAnalysisCount = Math.max(
+                    0,
+                    missingPhotoAnalysisCount
+            );
+            this.meaningfulOutcome = meaningfulOutcome;
+        }
+
+        static EmptySeasonDeletionStatus blocked(String reason) {
+            return new EmptySeasonDeletionStatus(
+                    false,
+                    false,
+                    reason,
+                    0,
+                    0,
+                    0,
+                    0,
+                    new LinkedHashSet<>(),
+                    0,
+                    false
+            );
+        }
+
+        public boolean canDelete() { return canDelete; }
+        public boolean canCleanMissingPhotos() { return canCleanMissingPhotos; }
+        public String getReason() { return reason; }
+        public int getWateringCount() { return wateringCount; }
+        public int getFertilizerCount() { return fertilizerCount; }
+        public int getJournalCount() { return journalCount; }
+        public int getLocalPhotoCount() { return localPhotoCount; }
+        public int getMissingPhotoCount() { return missingPhotoIds.size(); }
+        public Set<String> getMissingPhotoIds() {
+            return new LinkedHashSet<>(missingPhotoIds);
+        }
+        public int getMissingPhotoAnalysisCount() {
+            return missingPhotoAnalysisCount;
+        }
+        public boolean hasMeaningfulOutcome() { return meaningfulOutcome; }
+
+        public EmptySeasonDeletionStatus withLocalRecords(
+                int localJournalCount,
+                int validLocalPhotoCount,
+                boolean localMeaningfulOutcome
+        ) {
+            int mergedJournalCount = Math.max(
+                    journalCount,
+                    Math.max(0, localJournalCount)
+            );
+            int mergedLocalPhotoCount = Math.max(
+                    localPhotoCount,
+                    Math.max(0, validLocalPhotoCount)
+            );
+            boolean mergedOutcome = meaningfulOutcome || localMeaningfulOutcome;
+            boolean locallyBlocked = mergedJournalCount > 0
+                    || mergedLocalPhotoCount > 0
+                    || mergedOutcome;
+            return new EmptySeasonDeletionStatus(
+                    canDelete && !locallyBlocked,
+                    canCleanMissingPhotos,
+                    locallyBlocked
+                            ? "Bu sezonda telefonda korunması gereken kayıtlar var."
+                            : reason,
+                    wateringCount,
+                    fertilizerCount,
+                    mergedJournalCount,
+                    mergedLocalPhotoCount,
+                    missingPhotoIds,
+                    missingPhotoAnalysisCount,
+                    mergedOutcome
+            );
+        }
+    }
 
     private static final class CancellationCheck {
         final boolean allowed;

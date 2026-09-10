@@ -31,6 +31,13 @@ public class FertilizerDataFreshnessPolicyTest {
     }
 
     @Test
+    public void distantFutureTimestampIsNotAcceptedAsFresh() {
+        GardenZone zone = zone();
+        zone.setUpdated_at_epoch((NOW + 61L) * 1000L);
+        assertFalse(FertilizerDataFreshnessPolicy.isSensorFresh(zone, NOW));
+    }
+
+    @Test
     public void weatherOlderThanSixHoursIsIgnored() {
         WeatherForecast weather = new WeatherForecast("Düzce", "Merkez",
                 35.0, 0.0, 0.0, 10.0);

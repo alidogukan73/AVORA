@@ -81,6 +81,7 @@ public class PlantTimelineActivity extends EdgeToEdgeActivity {
         title = findViewById(R.id.txtTimelineTitle); season = findViewById(R.id.txtTimelineSeason); planting = findViewById(R.id.txtTimelinePlanting); status = findViewById(R.id.txtTimelineStatus); emoji = findViewById(R.id.txtTimelineEmoji); month = findViewById(R.id.txtTimelineMonth); empty = findViewById(R.id.txtTimelineEmpty); entries = findViewById(R.id.layoutTimelineEvents);
         tabTimeline = findViewById(R.id.tabTimeline); tabPhotos = findViewById(R.id.tabPhotos); tabNotes = findViewById(R.id.tabNotes); tabCompare = findViewById(R.id.tabCompare);
         findViewById(R.id.btnTimelineBack).setOnClickListener(v -> finish());
+        findViewById(R.id.btnTimelineMenu).setOnClickListener(this::showTimelineMenu);
         findViewById(R.id.btnTimelineAdd).setOnClickListener(v -> showNewRecordTypes());
         season.setOnClickListener(v -> showSeasonPicker());
         tabTimeline.setOnClickListener(v -> { activeTab = "timeline"; render(); });
@@ -452,6 +453,218 @@ public class PlantTimelineActivity extends EdgeToEdgeActivity {
             });
         }
         menu.show();
+    }
+
+    private void showTimelineMenu(View anchor) {
+        GardenSeason selected = selectedSeason();
+        PopupMenu menu = new PopupMenu(this, anchor);
+        android.view.MenuItem delete = menu.getMenu().add(
+                R.string.season_delete_empty_confirm
+        );
+        delete.setEnabled(selected != null
+                && !selected.getSeason_id().isBlank());
+        menu.setOnMenuItemClickListener(item -> {
+            if (selected == null || selected.getSeason_id().isBlank()) return false;
+            inspectSelectedSeasonForDeletion(anchor, selected);
+            return true;
+        });
+        menu.show();
+    }
+
+    private void inspectSelectedSeasonForDeletion(
+            View anchor,
+            GardenSeason selected
+    ) {
+        anchor.setEnabled(false);
+        viewModel.inspectEmptySeason(zoneId, selected.getSeason_id())
+                .addOnSuccessListener(check -> {
+                    anchor.setEnabled(true);
+                    if (isFinishing() || isDestroyed()) return;
+                    if (check.canDelete()) {
+                        showDeleteEmptySeasonDialog(selected);
+                    } else {
+                        showSeasonDeletionBlockers(selected, check);
+                    }
+                })
+                .addOnFailureListener(error -> {
+                    anchor.setEnabled(true);
+                    if (isFinishing() || isDestroyed()) return;
+                    Toast.makeText(
+                            this,
+                            R.string.season_delete_empty_check_failed,
+                            Toast.LENGTH_LONG
+                    ).show();
+                });
+    }
+
+    private void showSeasonDeletionBlockers(
+            GardenSeason selected,
+            PlantJournalViewModel.SeasonDeletionStatus check
+    ) {
+        MaterialAlertDialogBuilder dialog = new MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.season_delete_blocked_title)
+                .setMessage(buildSeasonDeletionMessage(check))
+                .setNegativeButton(R.string.season_cancel, null);
+        if (check.canCleanMissingPhotos()) {
+            dialog.setPositiveButton(
+                    R.string.season_delete_cleanup_action,
+                    (ignored, which) -> confirmMissingPhotoCleanup(selected, check)
+            );
+        }
+        dialog.show();
+    }
+
+    private String buildSeasonDeletionMessage(
+            PlantJournalViewModel.SeasonDeletionStatus check
+    ) {
+        List<String> lines = new ArrayList<>();
+        int missingPhotos = check.getMissingPhotoCount();
+        if (missingPhotos > 0) {
+            lines.add("• " + getResources().getQuantityString(
+                    R.plurals.season_delete_missing_photos,
+                    missingPhotos,
+                    missingPhotos
+            ));
+        }
+        int missingAnalyses = check.getMissingPhotoAnalysisCount();
+        if (missingAnalyses > 0) {
+            lines.add("• " + getResources().getQuantityString(
+                    R.plurals.season_delete_missing_analyses,
+                    missingAnalyses,
+                    missingAnalyses
+            ));
+        }
+        addCountLine(lines, R.plurals.season_delete_local_photos,
+                check.getLocalPhotoCount());
+        addCountLine(lines, R.plurals.season_delete_watering_records,
+                check.getWateringCount());
+        addCountLine(lines, R.plurals.season_delete_fertilizer_records,
+                check.getFertilizerCount());
+        addCountLine(lines, R.plurals.season_delete_journal_records,
+                check.getJournalCount());
+        if (check.hasMeaningfulOutcome()) {
+            lines.add("• " + getString(R.string.season_delete_outcome_record));
+        }
+        if (lines.isEmpty() && !check.getReason().isBlank()) {
+            lines.add(check.getReason());
+        }
+        if (check.canCleanMissingPhotos()) {
+            lines.add("");
+            lines.add(getString(R.string.season_delete_cleanup_explanation));
+        }
+        return String.join("\n", lines);
+    }
+
+    private void addCountLine(List<String> lines, int pluralId, int count) {
+        if (count <= 0) return;
+        lines.add("• " + getResources().getQuantityString(
+                pluralId,
+                count,
+                count
+        ));
+    }
+
+    private void confirmMissingPhotoCleanup(
+            GardenSeason selected,
+            PlantJournalViewModel.SeasonDeletionStatus check
+    ) {
+        int missingCount = check.getMissingPhotoCount();
+        new MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.season_delete_cleanup_confirm_title)
+                .setMessage(getResources().getQuantityString(
+                        R.plurals.season_delete_cleanup_confirm_message,
+                        missingCount,
+                        missingCount
+                ))
+                .setNegativeButton(R.string.season_cancel, null)
+                .setPositiveButton(R.string.season_delete_cleanup_action,
+                        (ignored, which) -> cleanupMissingPhotoRecords(
+                                selected,
+                                missingCount
+                        ))
+                .show();
+    }
+
+    private void cleanupMissingPhotoRecords(
+            GardenSeason selected,
+            int missingCount
+    ) {
+        viewModel.cleanupMissingPhotoRecords(zoneId, selected.getSeason_id())
+                .addOnSuccessListener(check -> {
+                    if (isFinishing() || isDestroyed()) return;
+                    loadItems();
+                    render();
+                    Toast.makeText(
+                            this,
+                            getResources().getQuantityString(
+                                    R.plurals.season_delete_cleanup_success,
+                                    missingCount,
+                                    missingCount
+                            ),
+                            Toast.LENGTH_LONG
+                    ).show();
+                    if (check.canDelete()) {
+                        showDeleteEmptySeasonDialog(selected);
+                    } else {
+                        showSeasonDeletionBlockers(selected, check);
+                    }
+                })
+                .addOnFailureListener(error -> {
+                    if (isFinishing() || isDestroyed()) return;
+                    Toast.makeText(
+                            this,
+                            error == null || error.getMessage() == null
+                                    || error.getMessage().isBlank()
+                                    ? getString(R.string.season_delete_cleanup_failed)
+                                    : error.getMessage(),
+                            Toast.LENGTH_LONG
+                    ).show();
+                });
+    }
+
+    private void showDeleteEmptySeasonDialog(GardenSeason selected) {
+        String crop = SeasonDisplayIdentity.name(selected, zone);
+        if (crop.isBlank()) crop = getString(R.string.runtime_plant_default);
+        String label = selected.getLabel().isBlank()
+                ? getString(
+                        R.string.runtime_timeline_season_year,
+                        yearOf(selected.getStarted_at_epoch())
+                )
+                : selected.getLabel().trim();
+        String seasonId = selected.getSeason_id();
+        new MaterialAlertDialogBuilder(this)
+                .setTitle(getString(
+                        R.string.season_delete_empty_dialog_title,
+                        crop + " · " + label
+                ))
+                .setMessage(R.string.season_delete_empty_dialog_message)
+                .setNegativeButton(R.string.season_cancel, null)
+                .setPositiveButton(R.string.season_delete_empty_confirm, (dialog, which) ->
+                        viewModel.deleteEmptySeason(zoneId, seasonId)
+                                .addOnSuccessListener(ignored -> {
+                                    observedSeasons.removeIf(value ->
+                                            value != null
+                                                    && seasonId.equals(value.getSeason_id()));
+                                    selectedSeasonId = "";
+                                    seasonSelectionInitialized = false;
+                                    refreshVisibleSeasons();
+                                    selectInitialSeason();
+                                    render();
+                                    Toast.makeText(
+                                            this,
+                                            R.string.season_delete_empty_success,
+                                            Toast.LENGTH_LONG
+                                    ).show();
+                                })
+                                .addOnFailureListener(error -> Toast.makeText(
+                                        this,
+                                        error == null || error.getMessage() == null
+                                                || error.getMessage().isBlank()
+                                                ? getString(R.string.season_delete_empty_failed)
+                                                : error.getMessage(),
+                                        Toast.LENGTH_LONG
+                                ).show()))
+                .show();
     }
 
 

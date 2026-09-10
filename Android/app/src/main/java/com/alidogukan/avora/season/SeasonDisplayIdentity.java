@@ -9,6 +9,7 @@ import com.alidogukan.avora.zones.PhysicalZoneIdentity;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 /** Resolves a season's immutable display identity without borrowing a later crop. */
@@ -129,6 +130,56 @@ public final class SeasonDisplayIdentity {
             addUnique(names, name(season, zone));
         }
         return String.join(" + ", names);
+    }
+
+    /**
+     * Compact, newest-first crop list for a season archive card. Archived
+     * identities are used deliberately so a later crop in the area cannot
+     * rename an older season.
+     */
+    public static String archiveCropSummary(
+            List<GardenSeason> archivedSeasons,
+            int maxVisible
+    ) {
+        if (archivedSeasons == null || archivedSeasons.isEmpty()) return "";
+        int limit = Math.max(1, maxVisible);
+        List<GardenSeason> newestFirst = new ArrayList<>();
+        for (GardenSeason season : archivedSeasons) {
+            if (season != null) newestFirst.add(season);
+        }
+        newestFirst.sort((left, right) -> {
+            int ended = Long.compare(
+                    right.getEnded_at_epoch(), left.getEnded_at_epoch());
+            if (ended != 0) return ended;
+            int started = Long.compare(
+                    right.getStarted_at_epoch(), left.getStarted_at_epoch());
+            if (started != 0) return started;
+            return safe(name(left, null)).compareToIgnoreCase(
+                    safe(name(right, null)));
+        });
+
+        Set<String> uniqueNames = new LinkedHashSet<>();
+        List<String> labels = new ArrayList<>();
+        for (GardenSeason season : newestFirst) {
+            String crop = safe(name(season, null));
+            if (crop.isBlank()
+                    || !uniqueNames.add(crop.toLowerCase(Locale.ROOT))) {
+                continue;
+            }
+            String icon = safe(emoji(season, null));
+            labels.add(icon.isBlank() ? crop : icon + " " + crop);
+        }
+        if (labels.isEmpty()) return "";
+
+        int visible = Math.min(limit, labels.size());
+        StringBuilder summary = new StringBuilder();
+        for (int i = 0; i < visible; i++) {
+            if (i > 0) summary.append(", ");
+            summary.append(labels.get(i));
+        }
+        int hidden = labels.size() - visible;
+        if (hidden > 0) summary.append(" +").append(hidden);
+        return summary.toString();
     }
 
     /** Stable physical-area name; it never changes when its crops change. */

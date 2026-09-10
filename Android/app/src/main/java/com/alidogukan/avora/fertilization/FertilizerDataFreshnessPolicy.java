@@ -13,6 +13,7 @@ public final class FertilizerDataFreshnessPolicy {
     public static final long SENSOR_MAX_AGE_SECONDS = 90L;
     public static final long WEATHER_MAX_AGE_SECONDS = 6L * 60L * 60L;
     public static final long WATER_ANALYSIS_MAX_AGE_SECONDS = 30L * 24L * 60L * 60L;
+    private static final long CLOCK_SKEW_TOLERANCE_SECONDS = 60L;
 
     private FertilizerDataFreshnessPolicy() { }
 
@@ -68,7 +69,9 @@ public final class FertilizerDataFreshnessPolicy {
         if (timestamp <= 0L || nowEpochSeconds <= 0L) return false;
         long normalizedTimestamp = timestamp > 10_000_000_000L
                 ? timestamp / 1000L : timestamp;
-        long age = Math.max(0L, nowEpochSeconds - normalizedTimestamp);
+        long age = nowEpochSeconds - normalizedTimestamp;
+        if (age < -CLOCK_SKEW_TOLERANCE_SECONDS) return false;
+        age = Math.max(0L, age);
         return age <= maxAgeSeconds;
     }
 }

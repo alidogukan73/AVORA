@@ -26,6 +26,7 @@ import com.alidogukan.avora.models.GardenZone;
 import com.alidogukan.avora.models.SeasonOutcome;
 import com.alidogukan.avora.models.ZoneSeasonState;
 import com.alidogukan.avora.season.SeasonDisplayIdentity;
+import com.alidogukan.avora.season.ZoneAreaIdentity;
 import com.alidogukan.avora.viewmodels.SeasonManagementViewModel;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
@@ -36,11 +37,15 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Comparator;
 import java.util.Date;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 /** Explicit, non-destructive lifecycle management for every garden zone season. */
 public final class SeasonManagementActivity extends EdgeToEdgeActivity {
+    private static final String STATE_EXPANDED_ARCHIVES = "expanded_archive_zones";
+
     private SeasonManagementViewModel viewModel;
     private LinearLayout inactiveZoneContainer;
     private TextView inactiveZonesTitle;
@@ -48,6 +53,7 @@ public final class SeasonManagementActivity extends EdgeToEdgeActivity {
     private final List<GardenZone> zones = new ArrayList<>();
     private final List<GardenSeason> seasons = new ArrayList<>();
     private final List<CropCatalogItem> cropCatalogItems = new ArrayList<>();
+    private final Set<String> expandedArchiveZones = new LinkedHashSet<>();
 
     private LinearLayout zoneContainer;
     private TextView emptyView;
@@ -65,6 +71,11 @@ public final class SeasonManagementActivity extends EdgeToEdgeActivity {
         inactiveZonesTitle = findViewById(R.id.txtInactiveSeasonZonesTitle);
         inactiveZonesDescription = findViewById(R.id.txtInactiveSeasonZonesDescription);
         viewModel = new ViewModelProvider(this).get(SeasonManagementViewModel.class);
+        if (savedInstanceState != null) {
+            ArrayList<String> expanded = savedInstanceState.getStringArrayList(
+                    STATE_EXPANDED_ARCHIVES);
+            if (expanded != null) expandedArchiveZones.addAll(expanded);
+        }
 
         viewModel.getZones().observe(this, values -> {
             zones.clear();
@@ -101,6 +112,15 @@ public final class SeasonManagementActivity extends EdgeToEdgeActivity {
             lastRenderSignature = "";
             renderIfChanged();
         }
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        outState.putStringArrayList(
+                STATE_EXPANDED_ARCHIVES,
+                new ArrayList<>(expandedArchiveZones)
+        );
+        super.onSaveInstanceState(outState);
     }
 
     private void renderIfChanged() {
@@ -182,6 +202,9 @@ public final class SeasonManagementActivity extends EdgeToEdgeActivity {
             value.append("S|")
                     .append(safe(season.getZone_id())).append('|')
                     .append(safe(season.getSeason_id())).append('|')
+                    .append(safe(season.getZone_name())).append('|')
+                    .append(safe(season.getPlant_type())).append('|')
+                    .append(safe(season.getEmoji())).append('|')
                     .append(safe(season.getStatus())).append('|')
                     .append(safe(season.getResult())).append('|')
                     .append(season.getEnded_at_epoch()).append('|')
@@ -241,9 +264,7 @@ public final class SeasonManagementActivity extends EdgeToEdgeActivity {
         label.setPadding(0, dp(7), 0, 0);
         content.addView(label);
 
-        TextView historySummary = text(historySummary(history), 12, R.color.textSecondary, Typeface.NORMAL);
-        historySummary.setPadding(0, dp(8), 0, 0);
-        content.addView(historySummary);
+        content.addView(createHistoryDropdown(zone, history, false));
         for (GardenSeason season : activeSeasons) {
             content.addView(createActiveSeasonRow(zone, season));
         }
@@ -383,8 +404,6 @@ public final class SeasonManagementActivity extends EdgeToEdgeActivity {
         LinearLayout content = vertical();
         content.setPadding(dp(16), dp(15), dp(16), dp(15));
         card.addView(content);
-        GardenSeason archiveIdentity = latestCompletedSeason(seasonsFor(zone), true);
-
         LinearLayout heading = horizontal();
         heading.addView(text(zoneLabel(zone), 18, R.color.textPrimary, Typeface.BOLD), weighted());
         TextView badge = text(
@@ -402,9 +421,7 @@ public final class SeasonManagementActivity extends EdgeToEdgeActivity {
         content.addView(label);
 
         List<GardenSeason> history = seasonsFor(zone);
-        TextView historyText = text(historySummary(history, true), 12, R.color.textSecondary, Typeface.NORMAL);
-        historyText.setPadding(0, dp(8), 0, 0);
-        content.addView(historyText);
+        content.addView(createHistoryDropdown(zone, history, true));
 
         MaterialButton archive = new MaterialButton(
                 this,
@@ -448,7 +465,6 @@ public final class SeasonManagementActivity extends EdgeToEdgeActivity {
     private void openSeasonArchive(GardenZone zone, GardenSeason latest) {
         Intent intent = new Intent(this, PlantTimelineActivity.class);
         intent.putExtra(PlantTimelineActivity.EXTRA_ZONE_ID, zone.getZone_id());
-        intent.putExtra(PlantTimelineActivity.EXTRA_INITIAL_TAB, PlantTimelineActivity.TAB_COMPARE);
         if (!blank(latest.getSeason_id())) {
             intent.putExtra(PlantTimelineActivity.EXTRA_SEASON_ID, latest.getSeason_id());
         }
@@ -489,7 +505,189 @@ public final class SeasonManagementActivity extends EdgeToEdgeActivity {
         String latest = latestClosed == null || blank(latestClosed.getResult())
                 ? getString(R.string.season_result_not_entered)
                 : latestClosed.getResult();
-        return getResources().getQuantityString(R.plurals.season_history_count, closed, closed, latest);
+        String historyText = getResources().getQuantityString(
+                R.plurals.season_history_count,
+                closed,
+                closed,
+                latest
+        );
+        String crops = SeasonDisplayIdentity.archiveCropSummary(completed, 2);
+        return crops.isBlank()
+                ? historyText
+                : getString(R.string.season_history_with_crops, crops, historyText);
+    }
+
+    private View createHistoryDropdown(
+            GardenZone zone,
+            List<GardenSeason> history,
+            boolean requireRecordedActivity
+    ) {
+        List<GardenSeason> completed =
+                viewModel.completedArchives(history, requireRecordedActivity);
+        if (completed.isEmpty()) {
+            TextView empty = text(
+                    getString(R.string.season_history_empty),
+                    12,
+                    R.color.textSecondary,
+                    Typeface.NORMAL
+            );
+            empty.setPadding(0, dp(8), 0, 0);
+            return empty;
+        }
+
+        String areaKey = ZoneAreaIdentity.effective(zone);
+        boolean initiallyExpanded = expandedArchiveZones.contains(areaKey);
+        MaterialCardView box = new MaterialCardView(this);
+        box.setCardBackgroundColor(ContextCompat.getColor(this, R.color.surfaceSoft));
+        box.setStrokeColor(ContextCompat.getColor(
+                this,
+                initiallyExpanded ? R.color.online : R.color.border
+        ));
+        box.setStrokeWidth(dp(1));
+        box.setRadius(dp(13));
+        LinearLayout.LayoutParams boxParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        boxParams.topMargin = dp(8);
+        box.setLayoutParams(boxParams);
+
+        LinearLayout body = vertical();
+        box.addView(body);
+        LinearLayout header = horizontal();
+        header.setMinimumHeight(dp(42));
+        header.setPadding(dp(12), dp(7), dp(10), dp(7));
+        TextView summary = text(
+                historySummary(history, requireRecordedActivity),
+                12,
+                R.color.textSecondary,
+                Typeface.NORMAL
+        );
+        header.addView(summary, weighted());
+        TextView arrow = text(
+                getString(initiallyExpanded
+                        ? R.string.season_history_arrow_up
+                        : R.string.season_history_arrow_down),
+                17,
+                R.color.online,
+                Typeface.BOLD
+        );
+        arrow.setPadding(dp(8), 0, 0, 0);
+        header.addView(arrow);
+        body.addView(header);
+
+        LinearLayout list = vertical();
+        list.setPadding(dp(12), 0, dp(12), dp(7));
+        list.setVisibility(initiallyExpanded ? View.VISIBLE : View.GONE);
+        List<GardenSeason> newestFirst = new ArrayList<>(completed);
+        newestFirst.sort(Comparator
+                .comparingLong(GardenSeason::getEnded_at_epoch)
+                .reversed()
+                .thenComparing(GardenSeason::getSeason_id));
+        for (int i = 0; i < newestFirst.size(); i++) {
+            if (i > 0) {
+                View divider = new View(this);
+                divider.setBackgroundColor(ContextCompat.getColor(this, R.color.border));
+                divider.setLayoutParams(new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        dp(1)
+                ));
+                list.addView(divider);
+            }
+            list.addView(createArchivedSeasonRow(zone, newestFirst.get(i)));
+        }
+        body.addView(list);
+
+        updateHistoryDropdownAccessibility(
+                header,
+                summary.getText().toString(),
+                initiallyExpanded
+        );
+        header.setClickable(true);
+        header.setFocusable(true);
+        header.setOnClickListener(view -> {
+            boolean expand = list.getVisibility() != View.VISIBLE;
+            list.setVisibility(expand ? View.VISIBLE : View.GONE);
+            arrow.setText(expand
+                    ? R.string.season_history_arrow_up
+                    : R.string.season_history_arrow_down);
+            box.setStrokeColor(ContextCompat.getColor(
+                    this,
+                    expand ? R.color.online : R.color.border
+            ));
+            if (expand) {
+                expandedArchiveZones.add(areaKey);
+            } else {
+                expandedArchiveZones.remove(areaKey);
+            }
+            updateHistoryDropdownAccessibility(
+                    header,
+                    summary.getText().toString(),
+                    expand
+            );
+        });
+        return box;
+    }
+
+    private View createArchivedSeasonRow(GardenZone zone, GardenSeason season) {
+        LinearLayout row = horizontal();
+        row.setMinimumHeight(dp(58));
+        row.setPadding(0, dp(7), 0, dp(7));
+
+        LinearLayout labels = vertical();
+        String crop = archivedCropLabel(season);
+        labels.addView(text(crop, 13, R.color.textPrimary, Typeface.BOLD));
+        String result = blank(season.getResult())
+                ? getString(R.string.season_result_not_entered)
+                : season.getResult();
+        labels.addView(text(
+                getString(
+                        R.string.season_archive_row_details,
+                        formatEpoch(season.getStarted_at_epoch()),
+                        formatEpoch(season.getEnded_at_epoch()),
+                        result
+                ),
+                11,
+                R.color.textSecondary,
+                Typeface.NORMAL
+        ));
+        row.addView(labels, weighted());
+        TextView arrow = text(
+                getString(R.string.symbol_chevron_right),
+                22,
+                R.color.textSecondary,
+                Typeface.NORMAL
+        );
+        arrow.setPadding(dp(8), 0, 0, 0);
+        row.addView(arrow);
+        row.setClickable(true);
+        row.setFocusable(true);
+        row.setContentDescription(getString(
+                R.string.season_archive_open_description,
+                crop
+        ));
+        row.setOnClickListener(view -> openSeasonArchive(zone, season));
+        return row;
+    }
+
+    private String archivedCropLabel(GardenSeason season) {
+        String crop = SeasonDisplayIdentity.name(season, null);
+        if (blank(crop)) crop = getString(R.string.season_archive_crop_unknown);
+        String icon = SeasonDisplayIdentity.emoji(season, null);
+        return blank(icon) ? crop : icon + " " + crop;
+    }
+
+    private void updateHistoryDropdownAccessibility(
+            View header,
+            String summary,
+            boolean expanded
+    ) {
+        header.setContentDescription(getString(
+                expanded
+                        ? R.string.season_history_collapse_description
+                        : R.string.season_history_expand_description,
+                summary
+        ));
     }
 
     private GardenSeason latestCompletedSeason(List<GardenSeason> history) {

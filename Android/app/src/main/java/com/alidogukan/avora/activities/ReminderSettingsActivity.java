@@ -28,6 +28,7 @@ public class ReminderSettingsActivity extends AppCompatActivity {
     private MaterialSwitch irrigationReminder;
     private MaterialSwitch fertilizationReminder;
     private MaterialSwitch plantReminder;
+    private MaterialSwitch seedlingReminder;
     private MaterialSwitch quietHoursSwitch;
     private MaterialButton quietStart;
     private MaterialButton quietEnd;
@@ -69,6 +70,7 @@ public class ReminderSettingsActivity extends AppCompatActivity {
         irrigationReminder = findViewById(R.id.switchReminderIrrigation);
         fertilizationReminder = findViewById(R.id.switchReminderFertilization);
         plantReminder = findViewById(R.id.switchReminderPlant);
+        seedlingReminder = findViewById(R.id.switchReminderSeedling);
         quietHoursSwitch = findViewById(R.id.switchReminderQuietHours);
         quietStart = findViewById(R.id.btnReminderQuietStart);
         quietEnd = findViewById(R.id.btnReminderQuietEnd);
@@ -82,6 +84,8 @@ public class ReminderSettingsActivity extends AppCompatActivity {
                 saveReminder("fertilization", checked));
         plantReminder.setOnCheckedChangeListener((button, checked) ->
                 saveReminder("plant", checked));
+        seedlingReminder.setOnCheckedChangeListener((button, checked) ->
+                saveReminder("seedling", checked));
         quietHoursSwitch.setOnCheckedChangeListener((button, checked) -> {
             quietHoursLayout.setVisibility(checked ? View.VISIBLE : View.GONE);
             if (applyingCloudBackup) return;
@@ -97,6 +101,7 @@ public class ReminderSettingsActivity extends AppCompatActivity {
         irrigationReminder.setChecked(viewModel.isReminderEnabled("irrigation"));
         fertilizationReminder.setChecked(viewModel.isReminderEnabled("fertilization"));
         plantReminder.setChecked(viewModel.isReminderEnabled("plant"));
+        seedlingReminder.setChecked(viewModel.isReminderEnabled("seedling"));
         quietHoursSwitch.setChecked(viewModel.isQuietHoursEnabled());
         quietHoursLayout.setVisibility(viewModel.isQuietHoursEnabled() ? View.VISIBLE : View.GONE);
         renderTimes();

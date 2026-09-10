@@ -19,8 +19,11 @@ import com.alidogukan.avora.BuildConfig;
 import com.alidogukan.avora.R;
 import com.alidogukan.avora.config.AppInfo;
 import com.alidogukan.avora.models.Health;
+import com.alidogukan.avora.models.SeedlingNodeState;
+import com.alidogukan.avora.models.SeedlingTelemetry;
 import com.alidogukan.avora.ui.PrimaryBottomNavigation;
 import com.alidogukan.avora.viewmodels.DeviceHealthViewModel;
+import com.alidogukan.avora.viewmodels.SeedlingViewModel;
 
 /** AVORA product, system and developer information shown in the Settings design language. */
 public class AboutActivity extends AppCompatActivity {
@@ -28,6 +31,8 @@ public class AboutActivity extends AppCompatActivity {
     private TextView systemAppVersion;
     private TextView deviceId;
     private TextView backendVersion;
+    private TextView esp32Version;
+    private TextView nodeMcuVersion;
     private TextView developerName;
     private TextView developerRole;
 
@@ -41,6 +46,7 @@ public class AboutActivity extends AppCompatActivity {
         configureToolbar();
         renderStaticInfo();
         observeBackendVersion();
+        observeNodeMcuVersion();
         findViewById(R.id.btnOpenGitHub).setOnClickListener(view -> openGitHub());
         PrimaryBottomNavigation.bind(this, PrimaryBottomNavigation.SETTINGS);
     }
@@ -50,6 +56,8 @@ public class AboutActivity extends AppCompatActivity {
         systemAppVersion = findViewById(R.id.txtSystemAppVersion);
         deviceId = findViewById(R.id.txtDeviceId);
         backendVersion = findViewById(R.id.txtBackendVersion);
+        esp32Version = findViewById(R.id.txtEsp32Version);
+        nodeMcuVersion = findViewById(R.id.txtNodeMcuVersion);
         developerName = findViewById(R.id.txtDeveloperName);
         developerRole = findViewById(R.id.txtDeveloperRole);
     }
@@ -78,6 +86,7 @@ public class AboutActivity extends AppCompatActivity {
         viewModel.getError().observe(this, error -> {
             if (error != null && !error.isBlank()) {
                 backendVersion.setText(R.string.about_settings_backend_unavailable);
+                esp32Version.setText(R.string.about_settings_backend_unavailable);
             }
         });
     }
@@ -85,10 +94,29 @@ public class AboutActivity extends AppCompatActivity {
     private void renderHealth(Health health) {
         if (health == null) {
             backendVersion.setText(R.string.about_settings_backend_waiting);
+            esp32Version.setText(R.string.about_settings_backend_waiting);
             return;
         }
         String firmware = health.getFirmware();
         backendVersion.setText(firmware == null || firmware.isBlank()
+                ? getString(R.string.about_settings_backend_unavailable)
+                : firmware);
+        String esp32Firmware = health.getAds1115StatusFirmware();
+        esp32Version.setText(esp32Firmware == null || esp32Firmware.isBlank()
+                ? getString(R.string.about_settings_backend_unavailable)
+                : esp32Firmware);
+    }
+
+    private void observeNodeMcuVersion() {
+        SeedlingViewModel viewModel = new ViewModelProvider(this)
+                .get(SeedlingViewModel.class);
+        viewModel.getNode("seedling-001").observe(this, this::renderNodeMcuVersion);
+    }
+
+    private void renderNodeMcuVersion(SeedlingNodeState state) {
+        SeedlingTelemetry telemetry = state == null ? null : state.getLatest();
+        String firmware = telemetry == null ? "" : telemetry.getFirmware();
+        nodeMcuVersion.setText(firmware == null || firmware.isBlank()
                 ? getString(R.string.about_settings_backend_unavailable)
                 : firmware);
     }

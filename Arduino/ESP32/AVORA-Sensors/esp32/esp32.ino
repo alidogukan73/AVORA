@@ -1,5 +1,5 @@
 //
-// AVORA Wireless Soil Sensors v2.4.0
+// AVORA Wireless Soil Sensors v2.4.1
 // Two ADS1115 modules, up to eight capacitive soil sensors.
 //
 #include <WiFi.h>
@@ -38,7 +38,7 @@ const char* MQTT_FALLBACK_BROKER = "192.168.1.99";
 const char* MQTT_SERVICE = "mqtt";
 const char* MQTT_PROTOCOL = "tcp";
 const char* AVORA_DEVICE_ID = "avora-001";
-const char* FIRMWARE_VERSION = "2.4.0";
+const char* FIRMWARE_VERSION = "2.4.1";
 const char* ADS_STATUS_TOPIC = "avora/status/esp32/ads1115";
 const char* SENSOR_CONFIG_TOPIC_FILTER =
         "avora/config/esp32/sensors/#";

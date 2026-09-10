@@ -6,4 +6,45 @@
     <string name="season_delete_empty_confirm">Sezonu sil</string>
     <string name="season_delete_empty_success">İşlem görmemiş sezon silindi.</string>
     <string name="season_delete_empty_failed">Sezon silinemedi.</string>
+    <string name="timeline_menu_description">Bitki günlüğü menüsü</string>
+    <string name="season_delete_empty_unavailable">Bu sezon silinemez</string>
+    <string name="season_delete_empty_check_failed">Sezonun boş olup olmadığı kontrol edilemedi.</string>
+    <string name="season_delete_blocked_title">Bu sezon henüz silinemez</string>
+    <plurals name="season_delete_missing_photos">
+        <item quantity="one">%1$d fotoğraf kaydı var; fotoğraf dosyası bu telefonda bulunamadı.</item>
+        <item quantity="other">%1$d fotoğraf kaydı var; fotoğraf dosyaları bu telefonda bulunamadı.</item>
+    </plurals>
+    <plurals name="season_delete_missing_analyses">
+        <item quantity="one">Kayıp fotoğrafların %1$d tanesinde AI analizi bulunuyor.</item>
+        <item quantity="other">Kayıp fotoğrafların %1$d tanesinde AI analizi bulunuyor.</item>
+    </plurals>
+    <plurals name="season_delete_local_photos">
+        <item quantity="one">Telefonda bulunan %1$d gerçek fotoğraf korunuyor.</item>
+        <item quantity="other">Telefonda bulunan %1$d gerçek fotoğraf korunuyor.</item>
+    </plurals>
+    <plurals name="season_delete_watering_records">
+        <item quantity="one">%1$d sulama kaydı var.</item>
+        <item quantity="other">%1$d sulama kaydı var.</item>
+    </plurals>
+    <plurals name="season_delete_fertilizer_records">
+        <item quantity="one">%1$d gübreleme kaydı var.</item>
+        <item quantity="other">%1$d gübreleme kaydı var.</item>
+    </plurals>
+    <plurals name="season_delete_journal_records">
+        <item quantity="one">%1$d günlük veya elle eklenmiş olay kaydı var.</item>
+        <item quantity="other">%1$d günlük veya elle eklenmiş olay kaydı var.</item>
+    </plurals>
+    <string name="season_delete_outcome_record">Sezon sonuç notları var.</string>
+    <string name="season_delete_cleanup_explanation">Eksik fotoğraf kayıtlarıyla yalnızca onlardan oluşan AI analizleri, otomatik olaylar ve bildirimler temizlenebilir. Telefonda bulunan fotoğraflara dokunulmaz.</string>
+    <string name="season_delete_cleanup_action">Eksik kayıtları temizle</string>
+    <string name="season_delete_cleanup_confirm_title">Eksik kayıtlar temizlensin mi?</string>
+    <plurals name="season_delete_cleanup_confirm_message">
+        <item quantity="one">Bulunamayan %1$d fotoğraf kaydı ve yalnızca bundan oluşan bağlantılı kayıtlar silinecek. Bu işlem geri alınamaz. Telefonda bulunan fotoğraflar korunacak.</item>
+        <item quantity="other">Bulunamayan %1$d fotoğraf kaydı ve yalnızca bunlardan oluşan bağlantılı kayıtlar silinecek. Bu işlem geri alınamaz. Telefonda bulunan fotoğraflar korunacak.</item>
+    </plurals>
+    <plurals name="season_delete_cleanup_success">
+        <item quantity="one">%1$d eksik fotoğraf kaydı temizlendi.</item>
+        <item quantity="other">%1$d eksik fotoğraf kaydı temizlendi.</item>
+    </plurals>
+    <string name="season_delete_cleanup_failed">Eksik fotoğraf kayıtları temizlenemedi.</string>
 </resources>

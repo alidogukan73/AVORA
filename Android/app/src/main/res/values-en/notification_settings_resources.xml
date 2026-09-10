@@ -2,7 +2,7 @@
 <resources>
     <string name="notification_settings_title">Notification Preferences</string>
     <string name="notification_settings_intro_title">Which updates would you like to receive?</string>
-    <string name="notification_settings_intro_message">Manage irrigation, fertilization, Plant Assistant, weather, device and stock notifications separately.</string>
+    <string name="notification_settings_intro_message">Manage irrigation, fertilization, Plant Assistant, Seedling Assistant, weather, device and stock notifications separately.</string>
     <string name="notification_settings_save_failed">Notification preferences could not be backed up. Local settings are preserved.</string>
     <string name="notification_phone_section">Phone notifications</string>
     <string name="notification_phone_title">Phone notification permission</string>
@@ -11,13 +11,14 @@
     <string name="notification_system_settings">System settings</string>
     <string name="notification_allow">Allow</string>
     <string name="notification_startup_permission_title">Allow notifications</string>
-    <string name="notification_startup_permission_message">AVORA requests permission so it can notify you about important updates such as irrigation, device status and maintenance timing.</string>
+    <string name="notification_startup_permission_message">AVORA requests permission so it can notify you about important updates such as irrigation, seedling development, device status and maintenance timing.</string>
     <string name="notification_startup_settings_message">Notification permission was previously disabled. You can enable AVORA notifications in system settings to receive alerts on your phone.</string>
     <string name="notification_permission_later">Later</string>
     <string name="notification_categories_section">Notification categories</string>
     <string name="notification_category_irrigation">Irrigation</string>
     <string name="notification_category_fertilization">Fertilization</string>
     <string name="notification_category_plant">Plant Assistant and follow-up</string>
+    <string name="notification_category_seedling">Seedling Assistant</string>
     <string name="notification_category_weather">Weather</string>
     <string name="notification_category_device">Device and system</string>
     <string name="notification_category_stock">Fertilizer stock</string>
@@ -32,6 +33,8 @@
     <string name="reminder_fertilization_subtitle">Remind on the application day and for overdue fertilizer records.</string>
     <string name="reminder_plant_title">Plant Assistant follow-up</string>
     <string name="reminder_plant_subtitle">Remind you to add a comparison photo three days after analysis.</string>
+    <string name="reminder_seedling_title">Seedling development follow-up</string>
+    <string name="reminder_seedling_subtitle">Remind you about due growth stages and missing daily checks.</string>
     <string name="reminder_quiet_section">Do not disturb</string>
     <string name="reminder_quiet_title">Quiet hours</string>
     <string name="reminder_quiet_subtitle">Phone alerts pause during this period; Notification Center records are preserved.</string>

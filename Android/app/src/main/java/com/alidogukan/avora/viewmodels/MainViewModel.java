@@ -206,19 +206,19 @@ public class MainViewModel extends AndroidViewModel {
     }
 
     public GardenHealthSummary gardenHealth(List<GardenZone> zones, long nowEpoch) {
-        return GardenHealthCalculator.calculate(zones, nowEpoch,
-                PlantAssistantRecommendationStore.healthSignal(getApplication()));
+        return GardenHealthCalculator.calculateWithSignals(zones, nowEpoch,
+                PlantAssistantRecommendationStore.healthSignals(getApplication()));
     }
 
     public GardenHealthZoneResult gardenHealthForZone(GardenZone zone, long nowEpoch) {
-        return GardenHealthCalculator.evaluateZone(zone, nowEpoch,
-                PlantAssistantRecommendationStore.healthSignal(getApplication()));
+        return GardenHealthCalculator.evaluateZoneWithSignals(zone, nowEpoch,
+                PlantAssistantRecommendationStore.healthSignals(getApplication()));
     }
 
     public PlantAssistantHomeRecommendation.Recommendation plantRecommendation(
             List<GardenZone> zones, WeatherForecast weather, long nowEpoch) {
-        return PlantAssistantHomeRecommendation.evaluate(zones, weather,
-                PlantAssistantRecommendationStore.healthSignal(getApplication()), nowEpoch);
+        return PlantAssistantHomeRecommendation.evaluateWithSignals(zones, weather,
+                PlantAssistantRecommendationStore.healthSignals(getApplication()), nowEpoch);
     }
 
     public int unreadNotificationCount() {

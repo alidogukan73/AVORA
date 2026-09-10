@@ -64,6 +64,8 @@ def make_service(
     }
     service._zone_map_refreshed_at = time.monotonic()
     service._zone_map_refresh_seconds = 10.0
+    service._published_zone_sensor_signatures = {}
+    service._zone_sensor_published_at = {}
     service._device_ref = lambda: reference
     return service, reference
 
@@ -102,6 +104,11 @@ def main() -> None:
     assert first_update["zones/zone-004/moisture"] == 41
     assert "zones/zone-004/sensor_id" not in first_update
 
+    service.update_zone_sensors(
+        {"soil-004": reading("soil-004", 41)}
+    )
+    assert len(reference.updates) == 1
+
     # Simulate the next refreshed map after Patlican is reassigned to soil-006.
     service._zone_by_sensor_id = {
         "soil-006": "zone-004",
@@ -120,7 +127,7 @@ def main() -> None:
     assert second_update["zones/zone-004/raw"] == 5000
     assert "zones/zone-004/sensor_id" not in second_update
 
-    print("[PASS] Zone sensor reassignment preserves configuration.")
+    print("[PASS] Zone telemetry is deduplicated and preserves configuration.")
 
 
 if __name__ == "__main__":

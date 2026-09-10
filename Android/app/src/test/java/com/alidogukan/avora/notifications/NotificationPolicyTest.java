@@ -14,6 +14,7 @@ public class NotificationPolicyTest {
     public void categoriesAreCaseInsensitiveAndSystemUsesDeviceCategory() {
         assertEquals("irrigation", NotificationPolicy.categoryFor("irrigation"));
         assertEquals("plant", NotificationPolicy.categoryFor("PHOTO_FOLLOW_UP"));
+        assertEquals("seedling", NotificationPolicy.categoryFor("SEEDLING"));
         assertEquals("device", NotificationPolicy.categoryFor("SYSTEM"));
     }
 

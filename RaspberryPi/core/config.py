@@ -12,7 +12,7 @@ class AppConfig:
 
     DEVICE_ID = "avora-001"
 
-    VERSION = "2.11.0"
+    VERSION = "2.11.1"
 
     LOOP_DELAY_SECONDS = 2.0
 
@@ -32,7 +32,9 @@ class FirebaseConfig:
 
     STATUS_UPDATE_INTERVAL_SECONDS = 10
 
-    COMMAND_SYNC_INTERVAL_SECONDS = 0.5
+    # Normal command delivery uses one long-lived Firebase stream. This
+    # interval is used only if that stream cannot be started.
+    COMMAND_SYNC_FALLBACK_INTERVAL_SECONDS = 10.0
 
 
 class SensorConfig:

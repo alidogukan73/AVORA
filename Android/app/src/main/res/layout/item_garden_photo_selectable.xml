@@ -44,5 +44,20 @@
             android:textSize="20sp"
             android:textStyle="bold"
             android:visibility="gone" />
+        <TextView
+            android:id="@+id/btnSelectableGardenPhotoOpen"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:layout_gravity="top|start"
+            android:layout_margin="8dp"
+            android:background="@drawable/bg_photo_archive_icon"
+            android:clickable="true"
+            android:contentDescription="@string/runtime_open_photo"
+            android:focusable="true"
+            android:gravity="center"
+            android:text="@string/symbol_open_photo"
+            android:textColor="@color/primary"
+            android:textSize="18sp"
+            android:textStyle="bold" />
     </FrameLayout>
 </com.google.android.material.card.MaterialCardView>

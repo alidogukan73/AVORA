@@ -110,6 +110,7 @@
             android:exported="false" />
         <activity
             android:name=".activities.PlantAssistantActivity"
+            android:configChanges="keyboardHidden|orientation|screenSize"
             android:exported="false" />
         <activity
             android:name=".activities.SeedlingAssistantActivity"

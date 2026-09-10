@@ -15,6 +15,8 @@
     <string name="about_settings_app_version_label">Uygulama sürümü</string>
     <string name="about_settings_version_format">v%1$s</string>
     <string name="about_settings_backend_version_label">Raspberry Pi backend sürümü</string>
+    <string name="about_settings_esp32_version_label">ESP32 sürümü</string>
+    <string name="about_settings_nodemcu_version_label">NodeMCU sürümü</string>
     <string name="about_settings_device_label">Bağlı cihaz</string>
     <string name="about_settings_backend_waiting">Bağlantı bekleniyor</string>
     <string name="about_settings_backend_unavailable">Bilgi alınamadı</string>

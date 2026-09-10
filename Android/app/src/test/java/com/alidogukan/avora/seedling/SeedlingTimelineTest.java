@@ -18,15 +18,16 @@ public final class SeedlingTimelineTest {
         assertEquals(5, SeedlingTimeline.completedSteps(SeedlingStagePolicy.READY));
     }
 
-    @Test public void derivesFirstLeafHalfwayThroughNurseryPeriod() {
+    @Test public void derivesAllPendingDatesFromTheCropSchedule() {
         SeedlingBatch batch = new SeedlingBatch();
+        batch.setPlant_type("Domates");
         batch.setSowing_date_epoch(10L * DAY);
         batch.setEstimated_emergence_epoch(16L * DAY);
         batch.setEstimated_transplant_epoch(27L * DAY);
         batch.setStage(SeedlingStagePolicy.TRUE_LEAVES);
 
         assertArrayEquals(new long[] {
-                10L * DAY, 16L * DAY, 19L * DAY, 27L * DAY, 0L
+                10L * DAY, 16L * DAY, 22L * DAY, 27L * DAY, 52L * DAY
         }, SeedlingTimeline.milestoneEpochs(batch));
     }
 
@@ -52,10 +53,27 @@ public final class SeedlingTimelineTest {
         batch.setEstimated_emergence_epoch(16L * DAY);
         batch.setEstimated_transplant_epoch(27L * DAY);
         batch.setGermination_date_epoch(20L * DAY);
+        batch.setPlant_type("Domates");
         batch.setStage(SeedlingStagePolicy.GERMINATING);
 
         assertArrayEquals(new long[] {
-                10L * DAY, 20L * DAY, 23L * DAY, 27L * DAY, 0L
+                10L * DAY, 20L * DAY, 26L * DAY, 31L * DAY, 56L * DAY
+        }, SeedlingTimeline.milestoneEpochs(batch));
+    }
+
+    @Test public void eachReachedStageReanchorsOnlyTheDatesThatFollowIt() {
+        SeedlingBatch batch = new SeedlingBatch();
+        batch.setPlant_type("Biber");
+        batch.setSowing_date_epoch(10L * DAY);
+        batch.setEstimated_emergence_epoch(18L * DAY);
+        batch.setEstimated_transplant_epoch(34L * DAY);
+        batch.setGermination_date_epoch(20L * DAY);
+        batch.setFirst_leaf_date_epoch(29L * DAY);
+        batch.setTrue_leaves_date_epoch(36L * DAY);
+        batch.setStage(SeedlingStagePolicy.TRUE_LEAVES);
+
+        assertArrayEquals(new long[] {
+                10L * DAY, 20L * DAY, 29L * DAY, 40L * DAY, 65L * DAY
         }, SeedlingTimeline.milestoneEpochs(batch));
     }
 }

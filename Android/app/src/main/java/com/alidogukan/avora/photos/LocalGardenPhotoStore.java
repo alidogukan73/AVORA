@@ -3,6 +3,8 @@ package com.alidogukan.avora.photos;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Matrix;
+import android.media.ExifInterface;
 import android.net.Uri;
 
 import com.alidogukan.avora.models.GardenPhoto;
@@ -33,13 +35,22 @@ public class LocalGardenPhotoStore {
 
     public GardenPhoto save(Uri source, String zoneId, String note,
                             String relatedApplicationId) throws Exception {
+        return save(source, zoneId, note, relatedApplicationId,
+                GardenPhotoQualityPolicy.MAX_LONG_EDGE,
+                GardenPhotoQualityPolicy.JPEG_QUALITY);
+    }
+
+    /** Saves with a caller-selected bound, useful for lightweight cloud-linked photos. */
+    public GardenPhoto save(Uri source, String zoneId, String note,
+                            String relatedApplicationId, int maxLongEdge,
+                            int jpegQuality) throws Exception {
         String id = UUID.randomUUID().toString();
         File folder = new File(context.getFilesDir(), "garden_photos");
         if (!folder.exists() && !folder.mkdirs()) {
             throw new IllegalStateException("Photo folder could not be created");
         }
         File target = new File(folder, id + ".jpg");
-        writeOptimizedImage(source, target);
+        writeOptimizedImage(source, target, maxLongEdge, jpegQuality);
         GardenPhoto photo = new GardenPhoto();
         photo.setId(id);
         photo.setZone_id(zoneId);
@@ -131,6 +142,12 @@ public class LocalGardenPhotoStore {
                 photo.setGrowth_previous_captured_at_epoch(
                         item.optLong("growth_previous_captured_at_epoch"));
                 photo.setCaptured_at_epoch(item.optLong("captured_at_epoch"));
+                photo.setRotation_degrees(normalizeRotation(
+                        item.optInt("rotation_degrees")));
+                photo.setFlipped_horizontally(
+                        item.optBoolean("flipped_horizontally"));
+                photo.setFlipped_vertically(
+                        item.optBoolean("flipped_vertically"));
                 photos.add(photo);
                 validIndex.put(item);
             } catch (Exception ignored) { }
@@ -213,6 +230,28 @@ public class LocalGardenPhotoStore {
         }
         return false;
     }
+
+    /** Keeps viewer orientation on this phone without rewriting the JPEG. */
+    public boolean updateViewerOrientation(String photoId, int rotationDegrees,
+                                           boolean flippedHorizontally,
+                                           boolean flippedVertically) {
+        if (photoId == null || photoId.isBlank()) return false;
+        JSONArray index = readIndex();
+        for (int i = 0; i < index.length(); i++) {
+            try {
+                JSONObject item = index.getJSONObject(i);
+                if (!photoId.equals(item.optString("id"))) continue;
+                item.put("rotation_degrees", normalizeRotation(rotationDegrees));
+                item.put("flipped_horizontally", flippedHorizontally);
+                item.put("flipped_vertically", flippedVertically);
+                context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                        .putString(KEY_INDEX, index.toString()).apply();
+                return true;
+            } catch (Exception ignored) { }
+        }
+        return false;
+    }
+
     /** Removes both the private archive record and its private phone copy. */
     public boolean delete(GardenPhoto photo) {
         if (photo == null || photo.getId() == null || photo.getId().isBlank()) {
@@ -249,8 +288,18 @@ public class LocalGardenPhotoStore {
         return value == null ? "" : value.trim();
     }
 
+    private static int normalizeRotation(int degrees) {
+        return ((degrees % 360) + 360) % 360;
+    }
+
     /** Keeps a useful plant photo while preventing full camera originals filling storage. */
     private void writeOptimizedImage(Uri source, File target) throws Exception {
+        writeOptimizedImage(source, target, GardenPhotoQualityPolicy.MAX_LONG_EDGE,
+                GardenPhotoQualityPolicy.JPEG_QUALITY);
+    }
+
+    private void writeOptimizedImage(Uri source, File target, int maxLongEdge,
+                                     int jpegQuality) throws Exception {
         BitmapFactory.Options bounds = new BitmapFactory.Options();
         bounds.inJustDecodeBounds = true;
         try (InputStream input = context.getContentResolver().openInputStream(source)) {
@@ -261,8 +310,8 @@ public class LocalGardenPhotoStore {
             throw new IllegalArgumentException("Selected file is not a readable image");
         }
         BitmapFactory.Options decode = new BitmapFactory.Options();
-        decode.inSampleSize = GardenPhotoQualityPolicy.decodeSampleSize(
-                bounds.outWidth, bounds.outHeight);
+        decode.inSampleSize = decodeSampleSize(
+                bounds.outWidth, bounds.outHeight, maxLongEdge);
         decode.inPreferredConfig = Bitmap.Config.ARGB_8888;
         Bitmap bitmap;
         try (InputStream input = context.getContentResolver().openInputStream(source)) {
@@ -270,16 +319,70 @@ public class LocalGardenPhotoStore {
             bitmap = BitmapFactory.decodeStream(input, null, decode);
         }
         if (bitmap == null) throw new IllegalStateException("Photo could not be decoded");
+        Bitmap oriented = applyExifOrientation(bitmap, readExifOrientation(source));
         try {
-            writeOptimizedBitmap(bitmap, target);
+            writeOptimizedBitmap(oriented, target, maxLongEdge, jpegQuality);
         } finally {
+            if (oriented != bitmap && !oriented.isRecycled()) oriented.recycle();
             bitmap.recycle();
         }
     }
 
+    private int readExifOrientation(Uri source) {
+        try (InputStream input = context.getContentResolver().openInputStream(source)) {
+            if (input == null) return ExifInterface.ORIENTATION_NORMAL;
+            return new ExifInterface(input).getAttributeInt(
+                    ExifInterface.TAG_ORIENTATION,
+                    ExifInterface.ORIENTATION_NORMAL
+            );
+        } catch (Exception ignored) {
+            return ExifInterface.ORIENTATION_NORMAL;
+        }
+    }
+
+    private static Bitmap applyExifOrientation(Bitmap source, int orientation) {
+        Matrix matrix = new Matrix();
+        switch (orientation) {
+            case ExifInterface.ORIENTATION_FLIP_HORIZONTAL:
+                matrix.setScale(-1f, 1f);
+                break;
+            case ExifInterface.ORIENTATION_ROTATE_180:
+                matrix.setRotate(180f);
+                break;
+            case ExifInterface.ORIENTATION_FLIP_VERTICAL:
+                matrix.setRotate(180f);
+                matrix.postScale(-1f, 1f);
+                break;
+            case ExifInterface.ORIENTATION_TRANSPOSE:
+                matrix.setRotate(90f);
+                matrix.postScale(-1f, 1f);
+                break;
+            case ExifInterface.ORIENTATION_ROTATE_90:
+                matrix.setRotate(90f);
+                break;
+            case ExifInterface.ORIENTATION_TRANSVERSE:
+                matrix.setRotate(-90f);
+                matrix.postScale(-1f, 1f);
+                break;
+            case ExifInterface.ORIENTATION_ROTATE_270:
+                matrix.setRotate(-90f);
+                break;
+            default:
+                return source;
+        }
+        return Bitmap.createBitmap(
+                source, 0, 0, source.getWidth(), source.getHeight(), matrix, true);
+    }
+
     private void writeOptimizedBitmap(Bitmap source, File target) throws Exception {
-        int[] dimensions = GardenPhotoQualityPolicy.scaledDimensions(
-                source.getWidth(), source.getHeight());
+        writeOptimizedBitmap(source, target, GardenPhotoQualityPolicy.MAX_LONG_EDGE,
+                GardenPhotoQualityPolicy.JPEG_QUALITY);
+    }
+
+    private void writeOptimizedBitmap(Bitmap source, File target, int maxLongEdge,
+                                      int jpegQuality) throws Exception {
+        int[] dimensions = scaledDimensions(
+                source.getWidth(), source.getHeight(), maxLongEdge);
         Bitmap outputBitmap = source;
         if (dimensions[0] != source.getWidth() || dimensions[1] != source.getHeight()) {
             outputBitmap = Bitmap.createScaledBitmap(
@@ -287,11 +390,33 @@ public class LocalGardenPhotoStore {
         }
         try (FileOutputStream output = new FileOutputStream(target)) {
             if (!outputBitmap.compress(Bitmap.CompressFormat.JPEG,
-                    GardenPhotoQualityPolicy.JPEG_QUALITY, output)) {
+                    Math.max(1, Math.min(100, jpegQuality)), output)) {
                 throw new IllegalStateException("Photo could not be written");
             }
+        } catch (Exception error) {
+            if (target.exists()) target.delete();
+            throw error;
         } finally {
             if (outputBitmap != source) outputBitmap.recycle();
         }
+    }
+
+    private static int decodeSampleSize(int width, int height, int maxLongEdge) {
+        int boundedEdge = Math.max(320, maxLongEdge);
+        int largest = Math.max(width, height);
+        int sample = 1;
+        while (largest / (sample * 2) >= boundedEdge) sample *= 2;
+        return sample;
+    }
+
+    private static int[] scaledDimensions(int width, int height, int maxLongEdge) {
+        int boundedEdge = Math.max(320, maxLongEdge);
+        int largest = Math.max(width, height);
+        if (largest <= boundedEdge) return new int[]{width, height};
+        double scale = (double) boundedEdge / largest;
+        return new int[]{
+                Math.max(1, (int) Math.round(width * scale)),
+                Math.max(1, (int) Math.round(height * scale))
+        };
     }
 }

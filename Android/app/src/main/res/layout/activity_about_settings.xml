@@ -316,6 +316,58 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
+                            android:text="@string/about_settings_esp32_version_label"
+                            android:textAppearance="@style/TextAppearance.AVORA.Settings.RowSubtitle" />
+                        <TextView
+                            android:id="@+id/txtEsp32Version"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/about_settings_backend_waiting"
+                            android:textAppearance="@style/TextAppearance.AVORA.Settings.RowTitle" />
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginTop="12dp"
+                        android:layout_marginBottom="12dp"
+                        android:background="@color/divider" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="@string/about_settings_nodemcu_version_label"
+                            android:textAppearance="@style/TextAppearance.AVORA.Settings.RowSubtitle" />
+                        <TextView
+                            android:id="@+id/txtNodeMcuVersion"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/about_settings_backend_waiting"
+                            android:textAppearance="@style/TextAppearance.AVORA.Settings.RowTitle" />
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginTop="12dp"
+                        android:layout_marginBottom="12dp"
+                        android:background="@color/divider" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
                             android:text="@string/about_settings_device_label"
                             android:textAppearance="@style/TextAppearance.AVORA.Settings.RowSubtitle" />
                         <TextView

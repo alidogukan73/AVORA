@@ -32,8 +32,22 @@
     <string name="notification_photo_follow_up_title">Fotoğraf takip zamanı</string>
     <string name="notification_photo_follow_up_description">Bitki Asistanı değerlendirmesi için aynı bölgeden yeni bir fotoğraf ekleyin.</string>
 
+    <string name="notification_seedling_data_missing_title">Fide sensör verisi alınamıyor</string>
+    <string name="notification_seedling_data_missing_description">NodeMCU fide sensöründen güncel ölçüm gelmiyor. Bağlı %1$d aktif partiyi ve cihaz bağlantısını kontrol edin.</string>
+    <string name="notification_seedling_condition_critical_title">%1$s için acil fide kontrolü</string>
+    <string name="notification_seedling_condition_warning_title">%1$s koşulları kontrol edilmeli</string>
+    <string name="notification_seedling_condition_description">Kontrol edilecek koşullar: %1$s</string>
+    <string name="notification_seedling_shared_sensor_note">Bu sensöre bağlı %1$d aktif parti birlikte etkilenebilir.</string>
+    <string name="notification_seedling_germination_title">Çimlenme kontrolü zamanı: %1$s</string>
+    <string name="notification_seedling_first_leaf_title">İlk yaprak kontrolü zamanı: %1$s</string>
+    <string name="notification_seedling_hardening_title">Şaşırtma hazırlığını kontrol edin: %1$s</string>
+    <string name="notification_seedling_ready_title">Dikime hazırlığı kontrolü: %1$s</string>
+    <string name="notification_seedling_stage_description">%1$s için %2$s tarihine ulaşıldı. Gelişimi kontrol edip uygunsa aşamayı güncelleyin.</string>
+    <string name="notification_seedling_daily_title">Fide günlük kontrolü bekliyor</string>
+    <string name="notification_seedling_daily_description">Bugün günlük kaydı olmayan %1$d aktif fide partisi var.</string>
+
     <string name="notification_channel_normal_name">AVORA bahçe bildirimleri</string>
-    <string name="notification_channel_normal_description">Sulama, gübreleme, Bitki Asistanı, stok ve sistem bildirimleri</string>
+    <string name="notification_channel_normal_description">Sulama, gübreleme, Bitki ve Fide Asistanı, stok ve sistem bildirimleri</string>
     <string name="notification_channel_urgent_name">AVORA kritik uyarıları</string>
     <string name="notification_channel_urgent_description">Acil cihaz, kritik stok ve gecikmiş işlem uyarıları</string>
     <string name="notification_remote_fallback_title">AVORA bildirimi</string>

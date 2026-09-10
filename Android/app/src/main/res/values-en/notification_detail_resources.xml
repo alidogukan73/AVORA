@@ -8,10 +8,25 @@
     <string name="notification_detail_description">Description</string>
     <string name="notification_detail_general">General</string>
     <string name="notification_detail_zone_loading">Loading zone information</string>
+    <string name="notification_detail_seedling_batch">Related seedling batch</string>
+    <string name="notification_detail_all_seedling_batches">All active batches</string>
+    <string name="notification_detail_seedling_loading">Loading batch information</string>
+    <string name="notification_detail_seedling_missing">The seedling batch is no longer available</string>
     <string name="notification_category_photo">Photo follow-up</string>
     <string name="notification_category_plant_assistant">Plant Assistant</string>
     <string name="notification_category_system">System</string>
     <string name="notification_priority_high">High</string>
     <string name="notification_priority_normal">Medium</string>
     <string name="notification_priority_low">Low</string>
+    <string name="notification_action_add_photo">Add a new photo</string>
+    <string name="notification_action_open_plant_assistant">Open Plant Assistant</string>
+    <string name="notification_action_open_irrigation">Open watering advice</string>
+    <string name="notification_action_open_watering_history">Open watering history</string>
+    <string name="notification_action_open_fertilization">Open fertilization action</string>
+    <string name="notification_action_open_fertilizer_follow_up">Open follow-up assessment</string>
+    <string name="notification_action_open_stock">Open product stock</string>
+    <string name="notification_action_open_weather">Open weather forecast</string>
+    <string name="notification_action_open_device_health">Open Device Health</string>
+    <string name="notification_action_open_seedling_assistant">Open Seedling Assistant</string>
+    <string name="notification_action_open_seedling_batch">Open seedling batch</string>
 </resources>

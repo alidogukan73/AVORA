@@ -32,6 +32,7 @@
     <string name="notification_center_category_irrigation">Sulama</string>
     <string name="notification_center_category_fertilization">Gübreleme</string>
     <string name="notification_center_category_plant_assistant">Bitki Asistanı</string>
+    <string name="notification_center_category_seedling">Fide Asistanı</string>
     <string name="notification_center_category_weather">Hava durumu</string>
     <string name="notification_center_category_device">Cihaz ve sistem</string>
     <string name="notification_center_category_stock">Stok</string>

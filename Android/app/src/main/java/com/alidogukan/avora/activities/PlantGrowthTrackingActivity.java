@@ -17,6 +17,7 @@ import com.alidogukan.avora.R;
 import com.alidogukan.avora.models.GardenPhoto;
 import com.alidogukan.avora.plantassistant.PlantGrowthAssessment;
 import com.alidogukan.avora.ui.PrimaryBottomNavigation;
+import com.alidogukan.avora.ui.GardenPhotoViewerDialog;
 import com.alidogukan.avora.viewmodels.PlantGrowthTrackingViewModel;
 
 import java.io.File;
@@ -40,6 +41,7 @@ public final class PlantGrowthTrackingActivity extends EdgeToEdgeActivity {
     private TextView recordCount;
     private String seasonId;
     private String zoneId;
+    private List<GardenPhoto> visibleRecords = java.util.Collections.emptyList();
 
     @Override
     protected void onCreate(@Nullable Bundle state) {
@@ -68,6 +70,8 @@ public final class PlantGrowthTrackingActivity extends EdgeToEdgeActivity {
     private void render(List<GardenPhoto> records) {
         recordsLayout.removeAllViews();
         boolean empty = records == null || records.isEmpty();
+        visibleRecords = empty
+                ? java.util.Collections.emptyList() : new java.util.ArrayList<>(records);
         emptyState.setVisibility(empty ? View.VISIBLE : View.GONE);
         summaryCard.setVisibility(empty ? View.GONE : View.VISIBLE);
         if (empty) return;
@@ -95,9 +99,12 @@ public final class PlantGrowthTrackingActivity extends EdgeToEdgeActivity {
         if (local.isFile()) {
             image.setImageURI(Uri.fromFile(local));
             image.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            image.setOnClickListener(view ->
+                    GardenPhotoViewerDialog.show(this, visibleRecords, photo.getId()));
         } else {
             image.setImageResource(R.drawable.ic_plant_assistant_logo);
             image.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+            image.setOnClickListener(null);
         }
         ((TextView) item.findViewById(R.id.txtGrowthRecordScore)).setText(
                 getString(R.string.runtime_growth_score_format, photo.getGrowth_score()));

@@ -28,6 +28,18 @@ public final class GardenPhotoCapture {
         return new Target(uri, file);
     }
 
+    /** Restores a pending camera destination after Activity/process recreation. */
+    public static Target restore(Context context, String absolutePath) throws IOException {
+        if (absolutePath == null || absolutePath.isBlank()) return null;
+        File folder = new File(context.getCacheDir(), "camera").getCanonicalFile();
+        File file = new File(absolutePath).getCanonicalFile();
+        File parent = file.getParentFile();
+        if (parent == null || !parent.equals(folder) || !file.isFile()) return null;
+        Uri uri = FileProvider.getUriForFile(
+                context, BuildConfig.APPLICATION_ID + ".fileprovider", file);
+        return new Target(uri, file);
+    }
+
     private static void removeStaleCaptures(File folder) {
         File[] files = folder.listFiles();
         if (files == null) return;
@@ -47,6 +59,7 @@ public final class GardenPhotoCapture {
         }
 
         public Uri getUri() { return uri; }
+        public String getAbsolutePath() { return file.getAbsolutePath(); }
 
         public void delete() {
             if (file.exists()) file.delete();

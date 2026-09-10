@@ -8,10 +8,25 @@
     <string name="notification_detail_description">Açıklama</string>
     <string name="notification_detail_general">Genel</string>
     <string name="notification_detail_zone_loading">Bölge bilgisi yükleniyor</string>
+    <string name="notification_detail_seedling_batch">İlgili fide partisi</string>
+    <string name="notification_detail_all_seedling_batches">Tüm aktif partiler</string>
+    <string name="notification_detail_seedling_loading">Parti bilgisi yükleniyor</string>
+    <string name="notification_detail_seedling_missing">Fide partisi artık bulunamıyor</string>
     <string name="notification_category_photo">Fotoğraf takibi</string>
     <string name="notification_category_plant_assistant">Bitki Asistanı</string>
     <string name="notification_category_system">Sistem</string>
     <string name="notification_priority_high">Yüksek</string>
     <string name="notification_priority_normal">Orta</string>
     <string name="notification_priority_low">Düşük</string>
+    <string name="notification_action_add_photo">Yeni fotoğraf ekle</string>
+    <string name="notification_action_open_plant_assistant">Bitki Asistanı’nı aç</string>
+    <string name="notification_action_open_irrigation">Sulama önerisini aç</string>
+    <string name="notification_action_open_watering_history">Sulama geçmişini aç</string>
+    <string name="notification_action_open_fertilization">Gübreleme işlemini aç</string>
+    <string name="notification_action_open_fertilizer_follow_up">Takip değerlendirmesini aç</string>
+    <string name="notification_action_open_stock">Ürün stoklarını aç</string>
+    <string name="notification_action_open_weather">Hava tahminini aç</string>
+    <string name="notification_action_open_device_health">Cihaz Sağlığı’nı aç</string>
+    <string name="notification_action_open_seedling_assistant">Fide Asistanı’nı aç</string>
+    <string name="notification_action_open_seedling_batch">Fide partisini aç</string>
 </resources>

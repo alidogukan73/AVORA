@@ -3,6 +3,7 @@ package com.alidogukan.avora.journal;
 import android.content.Context;
 
 import com.alidogukan.avora.models.GardenEvent;
+import com.alidogukan.avora.season.SeasonRecordPolicy;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -10,6 +11,7 @@ import org.json.JSONObject;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 /** Keeps the garden journal's manual season notes private on this phone. */
@@ -170,6 +172,77 @@ public final class LocalGardenEventStore {
         }
         if (removed > 0) context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY_INDEX, remaining.toString()).apply();
         return removed;
+    }
+
+    /** Removes only derived/system events belonging to a deleted empty season. */
+    public int removeGeneratedBySeason(String seasonId) {
+        if (seasonId == null || seasonId.isBlank()) return 0;
+        JSONArray current = read();
+        JSONArray remaining = new JSONArray();
+        int removed = 0;
+        for (int i = 0; i < current.length(); i++) {
+            JSONObject item = current.optJSONObject(i);
+            if (item == null) continue;
+            boolean belongs = seasonId.equals(item.optString("season_id"));
+            boolean fieldRecord = SeasonRecordPolicy.isFieldJournalEvent(
+                    item.optString("type"),
+                    item.optString("source", "MANUAL"),
+                    item.optString("source_key")
+            );
+            if (belongs && !fieldRecord) {
+                removed++;
+            } else {
+                remaining.put(item);
+            }
+        }
+        if (removed > 0) {
+            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                    .putString(KEY_INDEX, remaining.toString())
+                    .apply();
+        }
+        return removed;
+    }
+
+    public int removeGeneratedForPhotos(
+            String seasonId,
+            Set<String> photoIds
+    ) {
+        if (seasonId == null || seasonId.isBlank()
+                || photoIds == null || photoIds.isEmpty()) return 0;
+        JSONArray current = read();
+        JSONArray remaining = new JSONArray();
+        int removed = 0;
+        for (int i = 0; i < current.length(); i++) {
+            JSONObject item = current.optJSONObject(i);
+            if (item == null) continue;
+            boolean derived = seasonId.equals(item.optString("season_id"))
+                    && !SeasonRecordPolicy.isFieldJournalEvent(
+                    item.optString("type"),
+                    item.optString("source", "MANUAL"),
+                    item.optString("source_key"))
+                    && referencesAny(
+                    item.optString("source_key"),
+                    photoIds);
+            if (derived) {
+                removed++;
+            } else {
+                remaining.put(item);
+            }
+        }
+        if (removed > 0) {
+            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                    .putString(KEY_INDEX, remaining.toString())
+                    .apply();
+        }
+        return removed;
+    }
+
+    private static boolean referencesAny(String value, Set<String> ids) {
+        String source = value == null ? "" : value;
+        for (String id : ids) {
+            if (id != null && !id.isBlank() && source.contains(id)) return true;
+        }
+        return false;
     }
 
     private JSONArray read() {

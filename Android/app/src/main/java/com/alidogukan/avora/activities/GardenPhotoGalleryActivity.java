@@ -15,6 +15,7 @@ import androidx.lifecycle.ViewModelProvider;
 
 import com.alidogukan.avora.R;
 import com.alidogukan.avora.models.GardenPhoto;
+import com.alidogukan.avora.ui.GardenPhotoViewerDialog;
 import com.alidogukan.avora.viewmodels.GardenPhotoGalleryViewModel;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
@@ -132,6 +133,7 @@ public class GardenPhotoGalleryActivity extends EdgeToEdgeActivity {
         ImageView image = item.findViewById(R.id.imgSelectableGardenPhoto);
         TextView date = item.findViewById(R.id.txtSelectableGardenPhotoDate);
         TextView check = item.findViewById(R.id.txtSelectableGardenPhotoCheck);
+        TextView open = item.findViewById(R.id.btnSelectableGardenPhotoOpen);
         MaterialCardView card = (MaterialCardView) item;
         image.setImageURI(android.net.Uri.fromFile(new File(photo.getLocal_path())));
         date.setText(new SimpleDateFormat("dd.MM.yyyy\nHH:mm", Locale.getDefault())
@@ -140,6 +142,9 @@ public class GardenPhotoGalleryActivity extends EdgeToEdgeActivity {
         check.setVisibility(selected ? View.VISIBLE : View.GONE);
         card.setStrokeWidth(dp(selected ? 3 : 1));
         card.setStrokeColor(getColor(selected ? R.color.primary : R.color.textSecondary));
+        open.setVisibility(pickMode ? View.GONE : View.VISIBLE);
+        open.setOnClickListener(view ->
+                GardenPhotoViewerDialog.show(this, photos, photo.getId()));
         item.setOnClickListener(view -> {
             if (pickMode) {
                 android.content.Intent data = new android.content.Intent();

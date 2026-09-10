@@ -1,5 +1,6 @@
 package com.alidogukan.avora.activities;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.widget.TextView;
 import android.view.View;
@@ -12,8 +13,11 @@ import androidx.lifecycle.ViewModelProvider;
 import com.alidogukan.avora.R;
 import com.alidogukan.avora.models.GardenNotification;
 import com.alidogukan.avora.models.GardenZone;
+import com.alidogukan.avora.models.SeedlingBatch;
+import com.alidogukan.avora.notifications.NotificationActionRouter;
 import com.alidogukan.avora.ui.PrimaryBottomNavigation;
 import com.alidogukan.avora.viewmodels.NotificationCenterViewModel;
+import com.google.android.material.button.MaterialButton;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -31,6 +35,8 @@ public class NotificationDetailActivity extends EdgeToEdgeActivity {
     private static final String TYPE_PLANT_ASSISTANT = "PLANT_ASSISTANT";
     private static final String TYPE_WEATHER = "WEATHER";
     private static final String TYPE_DEVICE = "DEVICE";
+    private static final String TYPE_SEEDLING = "SEEDLING";
+    private static final String TYPE_SEEDLING_ASSISTANT = "SEEDLING_ASSISTANT";
 
     private static final String PRIORITY_HIGH = "HIGH";
     private static final String PRIORITY_LOW = "LOW";
@@ -38,6 +44,7 @@ public class NotificationDetailActivity extends EdgeToEdgeActivity {
     private GardenNotification value;
     private NotificationCenterViewModel viewModel;
     private TextView zoneView;
+    private TextView zoneLabelView;
 
     @Override
     public void onCreate(@Nullable Bundle state) {
@@ -128,6 +135,7 @@ public class NotificationDetailActivity extends EdgeToEdgeActivity {
 
     private void bindViews() {
         zoneView = findViewById(R.id.txtNotificationDetailZone);
+        zoneLabelView = findViewById(R.id.txtNotificationDetailZoneLabel);
     }
 
     private void renderNotification() {
@@ -140,15 +148,33 @@ public class NotificationDetailActivity extends EdgeToEdgeActivity {
         priorityView.setText(priorityLabel(value.getPriority()));
         priorityView.setTextColor(getColor(priorityColor(value.getPriority())));
 
+        boolean seedling = isSeedlingNotification();
+        zoneLabelView.setText(seedling
+                ? R.string.notification_detail_seedling_batch
+                : R.string.notification_detail_zone);
         zoneView.setText(value.getZone_id().isBlank()
-                ? R.string.notification_detail_general
-                : R.string.notification_detail_zone_loading);
+                ? (seedling ? R.string.notification_detail_all_seedling_batches
+                        : R.string.notification_detail_general)
+                : (seedling ? R.string.notification_detail_seedling_loading
+                        : R.string.notification_detail_zone_loading));
         ((TextView) findViewById(R.id.txtNotificationDetailDescription)).setText(value.getDescription());
     }
 
     private void observeZoneName() {
         String zoneId = value.getZone_id();
         if (zoneId.isBlank()) return;
+
+        if (isSeedlingNotification()) {
+            viewModel.getSeedlingBatch(zoneId).observe(this, batch -> {
+                if (batch == null) {
+                    zoneView.setText(R.string.notification_detail_seedling_missing);
+                    return;
+                }
+                String emoji = batch.getEmoji().isBlank() ? "🌱" : batch.getEmoji();
+                zoneView.setText((emoji + " " + batch.displayName()).trim());
+            });
+            return;
+        }
 
         viewModel.getZones().observe(this, zones -> {
             GardenZone zone = findZone(zones, zoneId);
@@ -189,6 +215,23 @@ public class NotificationDetailActivity extends EdgeToEdgeActivity {
 
         findViewById(R.id.btnNotificationDetailMenu)
                 .setOnClickListener(this::showNotificationMenu);
+
+        MaterialButton actionButton = findViewById(R.id.btnNotificationDetailAction);
+        Intent action = NotificationActionRouter.createIntent(this, value);
+        int label = NotificationActionRouter.actionLabel(value);
+        boolean visible = action != null && label != 0;
+        actionButton.setVisibility(visible ? View.VISIBLE : View.GONE);
+        if (visible) {
+            actionButton.setText(label);
+            actionButton.setOnClickListener(view -> openRelatedAction());
+        }
+    }
+
+    private boolean openRelatedAction() {
+        Intent action = NotificationActionRouter.createIntent(this, value);
+        if (action == null) return false;
+        startActivity(action);
+        return true;
     }
 
     private void showNotificationMenu(View anchor) {
@@ -229,6 +272,10 @@ public class NotificationDetailActivity extends EdgeToEdgeActivity {
         if (TYPE_PLANT.equalsIgnoreCase(type) || TYPE_PLANT_ASSISTANT.equalsIgnoreCase(type)) return getString(R.string.notification_category_plant_assistant);
         if (TYPE_WEATHER.equalsIgnoreCase(type)) return getString(R.string.notification_category_weather);
         if (TYPE_DEVICE.equalsIgnoreCase(type)) return getString(R.string.notification_category_device);
+        if (TYPE_SEEDLING.equalsIgnoreCase(type)
+                || TYPE_SEEDLING_ASSISTANT.equalsIgnoreCase(type)) {
+            return getString(R.string.notification_category_seedling);
+        }
         return getString(R.string.notification_category_system);
     }
 
@@ -252,6 +299,13 @@ public class NotificationDetailActivity extends EdgeToEdgeActivity {
         if (TYPE_PLANT.equalsIgnoreCase(type) || TYPE_PLANT_ASSISTANT.equalsIgnoreCase(type)) return getString(R.string.symbol_sparkle);
         if (TYPE_WEATHER.equalsIgnoreCase(type)) return getString(R.string.symbol_sun);
         if (TYPE_DEVICE.equalsIgnoreCase(type)) return getString(R.string.symbol_notification);
+        if (TYPE_SEEDLING.equalsIgnoreCase(type)
+                || TYPE_SEEDLING_ASSISTANT.equalsIgnoreCase(type)) return "🌱";
         return getString(R.string.symbol_bullet);
+    }
+
+    private boolean isSeedlingNotification() {
+        return TYPE_SEEDLING.equalsIgnoreCase(value.getType())
+                || TYPE_SEEDLING_ASSISTANT.equalsIgnoreCase(value.getType());
     }
 }

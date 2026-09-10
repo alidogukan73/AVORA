@@ -17,6 +17,7 @@ Arduino/ESP32/**/secrets*.h
 Arduino/ESP8266/**/secrets*.h
 
 # Local Android / Codex build caches and temporary UI captures
+.artifacts/
 .android-cache/
 .gradle-cache/
 .gradle-user-home/

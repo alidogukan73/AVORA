@@ -32,8 +32,22 @@
     <string name="notification_photo_follow_up_title">Photo follow-up due</string>
     <string name="notification_photo_follow_up_description">Add a new photo from the same zone for Plant Assistant follow-up.</string>
 
+    <string name="notification_seedling_data_missing_title">Seedling sensor data unavailable</string>
+    <string name="notification_seedling_data_missing_description">No current reading is arriving from the NodeMCU seedling sensor. Check the device connection and %1$d linked active batches.</string>
+    <string name="notification_seedling_condition_critical_title">Urgent seedling check: %1$s</string>
+    <string name="notification_seedling_condition_warning_title">Check conditions for %1$s</string>
+    <string name="notification_seedling_condition_description">Conditions to check: %1$s</string>
+    <string name="notification_seedling_shared_sensor_note">The %1$d active batches linked to this sensor may be affected together.</string>
+    <string name="notification_seedling_germination_title">Germination check due: %1$s</string>
+    <string name="notification_seedling_first_leaf_title">First-leaf check due: %1$s</string>
+    <string name="notification_seedling_hardening_title">Check hardening preparation: %1$s</string>
+    <string name="notification_seedling_ready_title">Check transplant readiness: %1$s</string>
+    <string name="notification_seedling_stage_description">%1$s has reached its %2$s target date. Check development and update the stage if appropriate.</string>
+    <string name="notification_seedling_daily_title">Daily seedling check pending</string>
+    <string name="notification_seedling_daily_description">%1$d active seedling batches do not have a daily record today.</string>
+
     <string name="notification_channel_normal_name">AVORA garden notifications</string>
-    <string name="notification_channel_normal_description">Watering, fertilization, Plant Assistant, stock, and system notifications</string>
+    <string name="notification_channel_normal_description">Watering, fertilization, Plant and Seedling Assistant, stock, and system notifications</string>
     <string name="notification_channel_urgent_name">AVORA critical alerts</string>
     <string name="notification_channel_urgent_description">Urgent device, critical stock, and overdue task alerts</string>
     <string name="notification_remote_fallback_title">AVORA notification</string>

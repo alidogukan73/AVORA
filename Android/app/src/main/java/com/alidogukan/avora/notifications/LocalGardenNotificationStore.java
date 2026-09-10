@@ -320,6 +320,61 @@ public final class LocalGardenNotificationStore {
         }
     }
 
+    /** Removes local alerts that belonged only to a deleted empty season. */
+    public int removeBySeason(String seasonId) {
+        if (seasonId == null || seasonId.isBlank()) return 0;
+        synchronized (LocalGardenNotificationStore.class) {
+            List<GardenNotification> targets = new ArrayList<>();
+            List<String> ids = new ArrayList<>();
+            for (GardenNotification value : loadUnlocked()) {
+                if (value == null
+                        || !seasonId.equals(value.getSeason_id())
+                        || value.getId() == null
+                        || value.getId().isBlank()) {
+                    continue;
+                }
+                targets.add(value);
+                ids.add(value.getId());
+            }
+            if (ids.isEmpty()) return 0;
+            rememberDeletedIds(new HashSet<>(ids));
+            rememberDismissedUnlocked(targets);
+            return removeAllUnlocked(ids);
+        }
+    }
+
+    public int removeForPhotos(String seasonId, Set<String> photoIds) {
+        if (seasonId == null || seasonId.isBlank()
+                || photoIds == null || photoIds.isEmpty()) return 0;
+        synchronized (LocalGardenNotificationStore.class) {
+            List<GardenNotification> targets = new ArrayList<>();
+            List<String> ids = new ArrayList<>();
+            for (GardenNotification value : loadUnlocked()) {
+                if (value == null
+                        || !seasonId.equals(value.getSeason_id())
+                        || !referencesAny(value.getSource_key(), photoIds)
+                        || value.getId() == null
+                        || value.getId().isBlank()) {
+                    continue;
+                }
+                targets.add(value);
+                ids.add(value.getId());
+            }
+            if (ids.isEmpty()) return 0;
+            rememberDeletedIds(new HashSet<>(ids));
+            rememberDismissedUnlocked(targets);
+            return removeAllUnlocked(ids);
+        }
+    }
+
+    private static boolean referencesAny(String value, Set<String> ids) {
+        String source = value == null ? "" : value;
+        for (String id : ids) {
+            if (id != null && !id.isBlank() && source.contains(id)) return true;
+        }
+        return false;
+    }
+
     private int removeAllUnlocked(List<String> ids) {
         if (ids == null || ids.isEmpty()) {
             return 0;

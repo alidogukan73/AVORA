@@ -2,7 +2,7 @@ package com.alidogukan.avora.seedling;
 
 import com.alidogukan.avora.models.SeedlingBatch;
 
-/** Maps the six internal nursery states onto the five milestones shown to users. */
+/** Maps the six internal nursery states onto five visible, crop-aware milestones. */
 public final class SeedlingTimeline {
     private static final long DAY_SECONDS = 86_400L;
 
@@ -17,33 +17,61 @@ public final class SeedlingTimeline {
 
     public static long[] milestoneEpochs(SeedlingBatch batch) {
         if (batch == null) return new long[] {0L, 0L, 0L, 0L, 0L};
+        SeedlingCropCatalog.Profile profile =
+                SeedlingCropCatalog.profileForPlant(batch.getPlant_type());
         long sowing = batch.getSowing_date_epoch();
+        long plannedEmergence = batch.getEstimated_emergence_epoch() > 0L
+                ? batch.getEstimated_emergence_epoch()
+                : plusDays(sowing, profile.getEmergenceDays());
         long emergence = actualOrEstimate(batch.getGermination_date_epoch(),
-                batch.getEstimated_emergence_epoch());
-        long transplant = actualOrEstimate(batch.getHardening_date_epoch(),
-                batch.getEstimated_transplant_epoch());
-        long firstLeafEstimate = firstLeafEpoch(sowing,
-                emergence, batch.getEstimated_transplant_epoch());
+                plannedEmergence);
+
+        long firstLeafEstimate = plusDays(emergence,
+                profile.getFirstLeafAfterEmergenceDays());
         long firstLeaf = actualOrEstimate(batch.getFirst_leaf_date_epoch(), firstLeafEstimate);
-        long ready = actualOrEstimate(batch.getReady_date_epoch(), 0L);
-        if (ready <= 0L && SeedlingStagePolicy.READY.equals(
-                SeedlingStagePolicy.normalize(batch.getStage()))) {
-            ready = Math.max(transplant, batch.getUpdated_at_epoch());
-        }
-        return new long[] {sowing, emergence, firstLeaf, transplant, ready};
+
+        long hardeningEstimate = hardeningEstimate(batch, profile,
+                emergence, firstLeaf, sowing);
+        long hardening = actualOrEstimate(batch.getHardening_date_epoch(),
+                hardeningEstimate);
+        long readyEstimate = plusDays(hardening, profile.getReadyAfterHardeningDays());
+        long ready = actualOrEstimate(batch.getReady_date_epoch(), readyEstimate);
+        return new long[] {sowing, emergence, firstLeaf, hardening, ready};
     }
 
     private static long actualOrEstimate(Long actual, long estimate) {
         return actual != null && actual > 0L ? actual : estimate;
     }
 
-    private static long firstLeafEpoch(long sowing, long emergence, long transplant) {
-        if (sowing <= 0L || transplant <= sowing) return emergence;
-        long nurseryDays = Math.max(1L, (transplant - sowing) / DAY_SECONDS);
-        long firstLeaf = sowing + ((nurseryDays + 1L) / 2L) * DAY_SECONDS;
-        if (emergence > 0L && firstLeaf <= emergence) {
-            firstLeaf = Math.min(transplant, emergence + 3L * DAY_SECONDS);
+    private static long hardeningEstimate(SeedlingBatch batch,
+                                          SeedlingCropCatalog.Profile profile,
+                                          long emergence, long firstLeaf,
+                                          long sowing) {
+        Long trueLeaves = batch.getTrue_leaves_date_epoch();
+        if (isActual(trueLeaves)) {
+            return plusDays(trueLeaves, profile.getHardeningAfterTrueLeavesDays());
         }
-        return firstLeaf;
+        if (isActual(batch.getFirst_leaf_date_epoch())) {
+            return plusDays(firstLeaf, profile.getTrueLeavesAfterFirstLeafDays()
+                    + profile.getHardeningAfterTrueLeavesDays());
+        }
+        if (isActual(batch.getGermination_date_epoch())) {
+            return plusDays(emergence, profile.getFirstLeafAfterEmergenceDays()
+                    + profile.getTrueLeavesAfterFirstLeafDays()
+                    + profile.getHardeningAfterTrueLeavesDays());
+        }
+        if (batch.getEstimated_transplant_epoch() > 0L) {
+            return batch.getEstimated_transplant_epoch();
+        }
+        return plusDays(sowing, profile.getTransplantDays());
+    }
+
+    private static boolean isActual(Long value) {
+        return value != null && value > 0L;
+    }
+
+    private static long plusDays(long epoch, int days) {
+        if (epoch <= 0L) return 0L;
+        return epoch + Math.max(0L, days) * DAY_SECONDS;
     }
 }

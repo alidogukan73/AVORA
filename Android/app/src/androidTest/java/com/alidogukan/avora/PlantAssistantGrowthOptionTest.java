@@ -29,4 +29,12 @@ public class PlantAssistantGrowthOptionTest {
                 .check(matches(isDisplayed()))
                 .check(matches(withText(R.string.plant_assistant_growth_status_option)));
     }
+
+    @Test
+    public void screenCanBeRecreatedWithoutLosingItsMainControls() {
+        activityRule.getScenario().recreate();
+        onView(withId(R.id.btnAnalyzePlant))
+                .perform(scrollTo())
+                .check(matches(isDisplayed()));
+    }
 }

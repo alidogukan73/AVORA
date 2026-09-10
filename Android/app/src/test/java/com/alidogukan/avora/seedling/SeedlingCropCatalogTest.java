@@ -16,6 +16,7 @@ public final class SeedlingCropCatalogTest {
         assertEquals("H2274", profile.getVarieties().get(0));
         assertEquals(6, profile.getEmergenceDays());
         assertEquals(17, profile.getTransplantDays());
+        assertEquals(42, profile.getReadyDays());
     }
 
     @Test public void customCropGetsSafeFallbackProfile() {
@@ -27,5 +28,15 @@ public final class SeedlingCropCatalogTest {
         assertEquals("Standart", profile.getVarieties().get(0));
         assertEquals(7, profile.getEmergenceDays());
         assertEquals(21, profile.getTransplantDays());
+        assertEquals(42, profile.getReadyDays());
+    }
+
+    @Test public void resolvesTurkishBatchDisplayNameToItsCropProfile() {
+        SeedlingCropCatalog.Profile profile =
+                SeedlingCropCatalog.profileForPlant("Domates");
+
+        assertEquals(6, profile.getEmergenceDays());
+        assertEquals(6, profile.getFirstLeafAfterEmergenceDays());
+        assertEquals(42, profile.getReadyDays());
     }
 }

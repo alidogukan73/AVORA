@@ -4,10 +4,9 @@
     android:layout_height="match_parent"
     android:background="@android:color/black">
 
-    <ImageView
+    <com.alidogukan.avora.ui.TransformableImageView
         android:id="@+id/imgGardenPhotoPage"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:adjustViewBounds="true"
-        android:scaleType="fitCenter" />
+        android:contentDescription="@string/garden_photo_content_description" />
 </FrameLayout>

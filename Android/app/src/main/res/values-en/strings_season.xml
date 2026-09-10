@@ -36,6 +36,14 @@
         <item quantity="one">%1$d completed season · Latest result: %2$s</item>
         <item quantity="other">%1$d completed seasons · Latest result: %2$s</item>
     </plurals>
+    <string name="season_history_with_crops">%1$s · %2$s</string>
+    <string name="season_history_arrow_down">▾</string>
+    <string name="season_history_arrow_up">▴</string>
+    <string name="season_history_expand_description">%1$s. Show all seasons.</string>
+    <string name="season_history_collapse_description">%1$s. Collapse the season list.</string>
+    <string name="season_archive_crop_unknown">Crop not specified</string>
+    <string name="season_archive_row_details">%1$s – %2$s · %3$s</string>
+    <string name="season_archive_open_description">Open the %1$s season archive</string>
     <string name="season_prepare_action">Preparing season…</string>
     <string name="season_start_action">Start new season</string>
     <string name="season_add_crop_action">Add a crop season to this area</string>
@@ -62,7 +70,7 @@
     <string name="season_closed_event_title">Season completed</string>
     <string name="season_harvest_short">Harvest: %1$s</string>
     <string name="season_operation_wait">Processing…</string>
-    <string name="season_archive_action">Open season archive and comparison</string>
+    <string name="season_archive_action">Open season archive</string>
     <string name="season_reactivate_zone_action">Open Zone Management</string>
 
     <string name="season_start_crop_label">Crop to grow in the new season</string>

@@ -10,9 +10,41 @@ import com.alidogukan.avora.models.ZoneSeasonState;
 import org.junit.Test;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 
 public final class SeasonDisplayIdentityTest {
+    @Test
+    public void archiveCropSummaryListsNewestUniqueCropsWithoutGrowingTheCard() {
+        GardenSeason olderTomato = season("Domates", "tomato", "🍅");
+        olderTomato.setEnded_at_epoch(100L);
+        GardenSeason pepper = season("Biber", "pepper", "🌶️");
+        pepper.setEnded_at_epoch(300L);
+        GardenSeason newerTomato = season("domates", "tomato", "🍅");
+        newerTomato.setEnded_at_epoch(400L);
+        GardenSeason cucumber = season("Salatalık", "cucumber", "🥒");
+        cucumber.setEnded_at_epoch(200L);
+
+        assertEquals(
+                "🍅 domates, 🌶️ Biber +1",
+                SeasonDisplayIdentity.archiveCropSummary(
+                        Arrays.asList(olderTomato, pepper, newerTomato, cucumber),
+                        2
+                )
+        );
+    }
+
+    @Test
+    public void archiveCropSummaryUsesOnlyFrozenArchiveIdentity() {
+        GardenSeason unidentified = new GardenSeason();
+        GardenZone current = zone("Sonraki bitki", "🥬");
+
+        assertEquals("", SeasonDisplayIdentity.archiveCropSummary(
+                Collections.singletonList(unidentified), 2));
+        assertEquals("Sonraki bitki",
+                SeasonDisplayIdentity.name(unidentified, current));
+    }
+
     @Test
     public void legacyCucumberArchiveDoesNotBorrowCurrentCropEmoji() {
         GardenZone current = zone("Domates", "🍅");

@@ -2,7 +2,7 @@
 <resources>
     <string name="crop_catalog_title">Crop Catalog</string>
     <string name="crop_catalog_subtitle">Manage the crops used in your seasons</string>
-    <string name="crop_catalog_info">System crops are provided by AVORA and cannot be deleted. Add your own crop once, then select it from the list in future seasons. Names and icons stored in previous seasons remain unchanged.</string>
+    <string name="crop_catalog_info">Tap a crop to view its varieties or add a new one. System crops are provided by AVORA and cannot be deleted. Add your own crop once, then select it in future seasons.</string>
     <string name="crop_catalog_add">Add new crop</string>
     <string name="crop_catalog_system_heading">System crops</string>
     <string name="crop_catalog_user_heading">My crops</string>
@@ -10,7 +10,17 @@
     <string name="crop_catalog_system_badge">System crop</string>
     <string name="crop_catalog_user_badge">User crop</string>
     <string name="crop_catalog_card_detail">Ideal moisture: %1$d–%2$d</string>
+    <string name="crop_catalog_card_source_varieties">%1$s · %2$d varieties</string>
     <string name="crop_catalog_edit">Edit</string>
+    <string name="crop_catalog_varieties_title">%1$s varieties</string>
+    <string name="crop_catalog_varieties_explanation">Varieties added here can be selected directly when creating a new seedling batch.</string>
+    <string name="crop_catalog_variety_hint">New variety name</string>
+    <string name="crop_catalog_variety_add">Add variety</string>
+    <string name="crop_catalog_close">Close</string>
+    <string name="crop_catalog_variety_required">Enter a variety name.</string>
+    <string name="crop_catalog_variety_too_long">The variety name can be at most %1$d characters.</string>
+    <string name="crop_catalog_variety_exists">This variety is already listed.</string>
+    <string name="crop_catalog_variety_saved">Variety added to the list.</string>
     <string name="crop_catalog_add_dialog_title">Add new crop</string>
     <string name="crop_catalog_edit_dialog_title">Edit crop</string>
     <string name="crop_catalog_name_hint">Crop name</string>

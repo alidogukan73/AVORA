@@ -14,9 +14,7 @@ import androidx.core.app.NotificationManagerCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.app.TaskStackBuilder;
 import com.alidogukan.avora.R;
-import com.alidogukan.avora.activities.FertilizerHistoryActivity;
 import com.alidogukan.avora.activities.NotificationDetailActivity;
-import com.alidogukan.avora.fertilization.FertilizerOutcomeFollowUpPolicy;
 import com.alidogukan.avora.language.AvoraLanguageManager;
 import com.alidogukan.avora.firebase.FirebaseRepository;
 import com.alidogukan.avora.models.GardenNotification;
@@ -61,12 +59,22 @@ public final class GardenNotificationManager {
     }
     public GardenNotification publishOnce(String type, String priority, String zoneId,
                                           String title, String description, String sourceKey) {
+        return publishOnce(type, priority, zoneId, "", title, description, sourceKey);
+    }
+
+    public GardenNotification publishOnce(String type, String priority, String zoneId,
+                                          String seasonId, String title,
+                                          String description, String sourceKey) {
         if (!new NotificationSettingsStore(context).isCategoryEnabled(type)) return null;
 
         GardenNotification value =
                 store.addOnce(type, priority, zoneId, title, description, sourceKey);
 
         if (value != null) {
+            if (seasonId != null && !seasonId.isBlank()) {
+                value.setSeason_id(seasonId);
+                store.updateSeasonId(value.getId(), value.getSeason_id());
+            }
             persistNotification(value);
 
             notifyNotificationsChanged();
@@ -305,22 +313,11 @@ public final class GardenNotificationManager {
         if (value == null || !new NotificationSettingsStore(context).shouldShowPhoneAlert(value.getType())) return;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
                 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return;
-        String applicationId = FertilizerOutcomeFollowUpPolicy.applicationIdFromSource(
-                value.getSource_key()
-        );
-        Intent intent;
-        if (!applicationId.isBlank()) {
-            intent = new Intent(context, FertilizerHistoryActivity.class)
-                    .putExtra("outcome_application_id", applicationId)
-                    .putExtra("zone_id", value.getZone_id())
-                    .putExtra("notification_id", value.getId());
-        } else {
-            intent = new Intent(context, NotificationDetailActivity.class)
-                    .putExtra("id", value.getId()).putExtra("type", value.getType()).putExtra("priority", value.getPriority())
-                    .putExtra("zone_id", value.getZone_id()).putExtra("title", value.getTitle()).putExtra("description", value.getDescription())
-                    .putExtra("source_key", value.getSource_key())
-                    .putExtra("created_at_epoch", value.getCreated_at_epoch()).putExtra("read", value.isRead()).putExtra("saved", value.isSaved());
-        }
+        Intent intent = new Intent(context, NotificationDetailActivity.class)
+                .putExtra("id", value.getId()).putExtra("type", value.getType()).putExtra("priority", value.getPriority())
+                .putExtra("zone_id", value.getZone_id()).putExtra("title", value.getTitle()).putExtra("description", value.getDescription())
+                .putExtra("source_key", value.getSource_key())
+                .putExtra("created_at_epoch", value.getCreated_at_epoch()).putExtra("read", value.isRead()).putExtra("saved", value.isSaved());
         Intent mainIntent = new Intent(context, MainActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
 

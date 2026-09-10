@@ -62,7 +62,7 @@ public final class AvoraBackupManager {
             "settings_hub_preferences", "plant_list_preferences", "garden_journal_events",
             "avora_season_outcomes", "avora_notifications", "plant_assistant_recommendation",
             "plant_assistant_followups", "avora_theme_preferences", "avora_language_preferences",
-            "avora_fertilization_preferences"
+            "avora_fertilization_preferences", "avora_seedling_varieties"
     );
 
     private final Context context;

@@ -13,7 +13,7 @@
 namespace {
 constexpr char NODE_ID[] = "seedling-001";
 constexpr char AVORA_DEVICE_ID[] = "avora-001";
-constexpr char FIRMWARE_VERSION[] = "1.3.0";
+constexpr char FIRMWARE_VERSION[] = "1.3.1";
 constexpr char MQTT_TOPIC[] = "avora/seedling/seedling-001/telemetry";
 constexpr char MQTT_STATUS_TOPIC[] = "avora/seedling/seedling-001/status";
 constexpr uint8_t I2C_SDA_PIN = D2;

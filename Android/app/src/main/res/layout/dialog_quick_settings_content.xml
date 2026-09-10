@@ -34,4 +34,58 @@
 
     </com.alidogukan.avora.views.QuickSettingsScrollView>
 
+    <LinearLayout
+        android:id="@+id/layoutQuickSettingsActions"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        android:paddingBottom="4dp">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnQuickSettingsRestoreDefaults"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:insetLeft="0dp"
+            android:insetRight="0dp"
+            android:minWidth="0dp"
+            android:text="@string/settings_quick_restore_defaults"
+            android:textAllCaps="false"
+            android:textColor="@color/primary"
+            android:textSize="13sp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnQuickSettingsCancel"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:insetLeft="0dp"
+            android:insetRight="0dp"
+            android:minWidth="0dp"
+            android:text="@string/settings_quick_cancel"
+            android:textAllCaps="false"
+            android:textColor="@color/primary"
+            android:textSize="13sp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnQuickSettingsSave"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:insetLeft="0dp"
+            android:insetRight="0dp"
+            android:minWidth="0dp"
+            android:text="@string/settings_quick_save"
+            android:textAllCaps="false"
+            android:textColor="@color/primary"
+            android:textSize="13sp" />
+    </LinearLayout>
+
 </LinearLayout>

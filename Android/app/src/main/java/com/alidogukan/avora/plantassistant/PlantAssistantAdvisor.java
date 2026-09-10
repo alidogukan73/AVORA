@@ -1,5 +1,6 @@
 package com.alidogukan.avora.plantassistant;
 
+import com.alidogukan.avora.fertilization.FertilizerDataFreshnessPolicy;
 import com.alidogukan.avora.models.FertilizationProfile;
 import com.alidogukan.avora.models.GardenZone;
 import com.alidogukan.avora.models.WeatherForecast;
@@ -18,17 +19,28 @@ public final class PlantAssistantAdvisor {
                                            boolean hasPhoto, boolean growthStatusRequested) {
         int moisture = zone.getMoisture();
         int limit = zone.getMoisture_limit();
-        boolean veryDry = moisture < Math.max(0, limit - 10);
-        boolean sensorReady = zone.hasSensorData();
+        long nowEpoch = System.currentTimeMillis() / 1000L;
+        boolean sensorPresent = zone.hasSensorData();
+        boolean sensorReady =
+                FertilizerDataFreshnessPolicy.isSensorFresh(zone, nowEpoch);
+        boolean veryDry = sensorReady && moisture < Math.max(0, limit - 10);
+        boolean veryWet = sensorReady && moisture > limit + 20;
         boolean fertilizerDue = isFertilizerDue(zone.getFertilization());
-        double temperature = value(weather == null ? null : weather.getCurrentTemperature());
-        double humidity = value(weather == null ? null : weather.getCurrentHumidity());
-        double rain = value(weather == null ? null : weather.getTodayRainProbability());
-        double wind = value(weather == null ? null : weather.getCurrentWind());
+        boolean weatherReady = weather != null
+                && FertilizerDataFreshnessPolicy.isWeatherFresh(weather, nowEpoch);
+        WeatherForecast trustedWeather = weatherReady ? weather : null;
+        double temperature = value(trustedWeather == null ? null : trustedWeather.getCurrentTemperature());
+        double humidity = value(trustedWeather == null ? null : trustedWeather.getCurrentHumidity());
+        double rain = value(trustedWeather == null ? null : trustedWeather.getTodayRainProbability());
+        double wind = value(trustedWeather == null ? null : trustedWeather.getCurrentWind());
 
-        String context = "Toprak nemi %" + moisture + " (sınır %" + limit + ") · "
-                + (sensorReady ? "sensör verisi güncel" : "sensör verisi bekleniyor")
-                + weatherContext(weather)
+        String moistureContext = sensorReady
+                ? "Toprak nemi %" + moisture + " (sınır %" + limit + ") · sensör verisi güncel"
+                : sensorPresent
+                ? "Toprak nemi ölçümü güncel değil · sensör verisi güncel değil"
+                : "Toprak nemi bekleniyor · sensör verisi bekleniyor";
+        String context = moistureContext
+                + weatherContext(trustedWeather)
                 + " · " + (fertilizerDue ? "gübreleme planı gecikmiş" : "gübreleme planı güncel")
                 + " · " + (hasPhoto ? "fotoğraf eklendi" : "fotoğraf eklenmedi");
 
@@ -38,14 +50,15 @@ public final class PlantAssistantAdvisor {
                             + "için bahçe verileriyle birlikte inceleniyor.");
         }
 
-        if (symptoms.contains("Yaprakta leke / yanıklık")
-                && (symptoms.contains("Solma") || symptoms.contains("Yaprak kuruması"))) {
+        if (hasSymptom(symptoms, "Yaprakta leke / yanıklık", "Leaf spots / scorching")
+                && (hasSymptom(symptoms, "Solma", "Wilting")
+                || hasSymptom(symptoms, "Yaprak kuruması", "Leaf drying"))) {
             return result("Yayılım gösteren yaprak sorunu ihtimali", "%75", "Yüksek", context,
                     "Lekeli ve solan yapraklar birlikte görüldüğü için aynı bitkinin yakın plan fotoğrafını 24 saat içinde tekrar alın. "
                             + "Hızlı yayılma, küf, çürüme veya gövdede kararma varsa yerel ziraat uzmanına başvurun.");
         }
 
-        if (symptoms.contains("Yaprakta leke / yanıklık")) {
+        if (hasSymptom(symptoms, "Yaprakta leke / yanıklık", "Leaf spots / scorching")) {
             int score = humidity >= 70 || rain >= 50 ? 70 : 52;
             String urgency = score >= 70 ? "Orta" : "Düşük";
             return result("Yaprak hastalığı veya yanık ihtimali", percent(score), urgency, context,
@@ -54,21 +67,21 @@ public final class PlantAssistantAdvisor {
                             + "yakın plan fotoğrafla ziraat uzmanına danışın.");
         }
 
-        if (symptoms.contains("Meyve çatlaması")) {
-            int score = rain >= 40 || moisture > limit + 20 ? 72 : 55;
+        if (hasSymptom(symptoms, "Meyve çatlaması", "Fruit cracking")) {
+            int score = rain >= 40 || veryWet ? 72 : 55;
             return result("Düzensiz su alımı kaynaklı çatlama ihtimali", percent(score), "Orta", context,
                     "Sulamayı ani ve büyük değişimler yerine kısa, dengeli çevrimlerle sürdürün. "
                             + "Yağış sonrası ekstra sulama veya gübre uygulaması yapmadan önce kök bölgesini kontrol edin.");
         }
 
-        if (symptoms.contains("Çiçek dökümü")) {
+        if (hasSymptom(symptoms, "Çiçek dökümü", "Flower drop")) {
             int score = temperature >= 32 || wind >= 25 ? 68 : 48;
             return result("Sıcaklık veya çevre stresi ihtimali", percent(score), score >= 65 ? "Orta" : "Düşük", context,
                     "Öğle sıcağında işlem yapmayın. Sabah erken gözlem yapın; toprak nemini dengeli tutun. "
                             + "Çiçek kaybı artarsa fotoğrafla ve son besleme kaydıyla birlikte değerlendirin.");
         }
 
-        if (symptoms.contains("Alt yapraklarda sararma")) {
+        if (hasSymptom(symptoms, "Alt yapraklarda sararma", "Yellowing of lower leaves")) {
             if (veryDry) {
                 return result("Su stresi ihtimali", "%78", "Orta", context,
                         "Önce normal sulama çevriminin tamamlanmasını bekleyin. Sulama sonrası 24–48 saat gözlem yapın; "
@@ -80,7 +93,8 @@ public final class PlantAssistantAdvisor {
                             + "Gübre önerisini yalnızca ürün etiketi ve toprak/yaprak analiziyle kesinleştirin.");
         }
 
-        if (symptoms.contains("Yaprak kuruması") || symptoms.contains("Solma")) {
+        if (hasSymptom(symptoms, "Yaprak kuruması", "Leaf drying")
+                || hasSymptom(symptoms, "Solma", "Wilting")) {
             int score = veryDry || temperature >= 31 ? 72 : 48;
             return result("Su, kök veya sıcaklık stresi ihtimali", percent(score), score >= 70 ? "Orta" : "Düşük", context,
                     "Kök bölgesinde kuruluk ya da su birikmesi olmadığını kontrol edin. "
@@ -100,6 +114,19 @@ public final class PlantAssistantAdvisor {
         return profile != null && profile.isEnabled()
                 && profile.getNext_application_at_epoch() > 0L
                 && profile.getNext_application_at_epoch() <= now;
+    }
+
+    private static boolean hasSymptom(List<String> symptoms, String... localizedValues) {
+        if (symptoms == null || symptoms.isEmpty() || localizedValues == null) return false;
+        for (String symptom : symptoms) {
+            if (symptom == null) continue;
+            for (String localizedValue : localizedValues) {
+                if (localizedValue != null && localizedValue.equalsIgnoreCase(symptom.trim())) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private static String weatherContext(WeatherForecast weather) {

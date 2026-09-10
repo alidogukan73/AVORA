@@ -164,6 +164,31 @@ public final class SeasonScope {
                 && !hasSeasonRecords
                 && !irrigationBusy;
     }
+
+    /**
+     * Allows cleanup of a modern season only while it has no field work or
+     * meaningful outcome. Active seasons must still be the area's current
+     * season and irrigation must be idle; closed empty test seasons can be
+     * removed without changing the area's current season.
+     */
+    public static boolean canDeleteEmptySeason(
+            GardenSeason season,
+            boolean currentActiveSeason,
+            boolean hasSeasonRecords,
+            boolean irrigationBusy
+    ) {
+        if (season == null
+                || safe(season.getSeason_id()).isBlank()
+                || season.isIncludes_legacy_records()
+                || hasSeasonRecords) {
+            return false;
+        }
+        if (SeasonStatus.isClosed(season.getStatus())) return true;
+        return SeasonStatus.isActive(season.getStatus())
+                && currentActiveSeason
+                && !irrigationBusy;
+    }
+
     public static boolean isHarvestStage(String growthStage) {
         String value = safe(growthStage).trim().toUpperCase(Locale.ROOT);
         return "HARVEST".equals(value) || "ACTIVE_HARVEST".equals(value)

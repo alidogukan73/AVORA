@@ -352,6 +352,27 @@ test("owner can manage bounded seedling batches and daily observations", async (
   await assertFails(update(ref(owner, batchPath), {
     first_leaf_date_epoch: 1788000000,
   }));
+  await assertSucceeds(update(ref(owner, batchPath), {
+    stage: "COTYLEDON",
+    first_leaf_date_epoch: 1788357600,
+    updated_at_epoch: 1788357600,
+  }));
+  await assertSucceeds(update(ref(owner, batchPath), {
+    stage: "TRUE_LEAVES",
+    true_leaves_date_epoch: 1788357600,
+    updated_at_epoch: 1788357600,
+  }));
+  await assertFails(update(ref(owner, batchPath), {
+    true_leaves_date_epoch: 1788357599,
+  }));
+  await assertSucceeds(update(ref(owner, batchPath), {
+    stage: "HARDENING",
+    hardening_date_epoch: 1788357600,
+    updated_at_epoch: 1788357600,
+  }));
+  await assertFails(update(ref(owner, batchPath), {
+    hardening_date_epoch: 1788357599,
+  }));
 
   const logPath = `devices/${DEVICE_ID}/seedling/daily_logs/${id}/log-001`;
   await assertSucceeds(set(ref(owner, logPath), {
@@ -363,6 +384,22 @@ test("owner can manage bounded seedling batches and daily observations", async (
     watered: true,
     note: "Gelişim dengeli.",
     created_at_epoch: 1788357600,
+  }));
+
+  const photoId = "550e8400-e29b-41d4-a716-446655440000";
+  const photoPath = `devices/${DEVICE_ID}/seedling/daily_logs/${id}/${photoId}.jpg`;
+  await assertSucceeds(update(ref(owner, logPath), {
+    photo_id: photoId,
+    photo_storage_path: "",
+  }));
+  await assertSucceeds(update(ref(owner, logPath), {
+    photo_storage_path: photoPath,
+  }));
+  await assertFails(update(ref(owner, logPath), {
+    photo_storage_path: `devices/${DEVICE_ID}/seedling/daily_logs/other/${photoId}.jpg`,
+  }));
+  await assertFails(update(ref(owner, logPath), {
+    photo_id: "",
   }));
 
   const unknown = validSeedlingBatch("batch-secret");

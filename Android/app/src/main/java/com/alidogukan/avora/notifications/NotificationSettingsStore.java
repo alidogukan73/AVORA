@@ -12,9 +12,12 @@ import java.util.Map;
 public final class NotificationSettingsStore {
     private static final String PREFS = "avora_notification_settings";
     private static final String[] CATEGORIES = {
-            "irrigation", "fertilization", "plant", "weather", "device", "stock"
+            "irrigation", "fertilization", "plant", "seedling",
+            "weather", "device", "stock"
     };
-    private static final String[] REMINDERS = {"irrigation", "fertilization", "plant"};
+    private static final String[] REMINDERS = {
+            "irrigation", "fertilization", "plant", "seedling"
+    };
     private final SharedPreferences prefs;
 
     public NotificationSettingsStore(Context context) {
@@ -119,11 +122,15 @@ public final class NotificationSettingsStore {
 
     /** In-app records remain visible; this only decides whether a phone alert may be shown. */
     public boolean shouldShowPhoneAlert(String type) {
-        if (!isCategoryEnabled(type) || !isQuietHoursEnabled()) return isCategoryEnabled(type);
+        return isCategoryEnabled(type) && !isQuietNow();
+    }
+
+    public boolean isQuietNow() {
+        if (!isQuietHoursEnabled()) return false;
         int hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
         int start = quietStartHour();
         int end = quietEndHour();
-        return !NotificationPolicy.isQuietHour(true, hour, start, end);
+        return NotificationPolicy.isQuietHour(true, hour, start, end);
     }
 
     public static String categoryFor(String type) {

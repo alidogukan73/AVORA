@@ -2,7 +2,7 @@
 <resources>
     <string name="crop_catalog_title">Ürün Kataloğu</string>
     <string name="crop_catalog_subtitle">Sezonlarda kullanacağınız bitkileri yönetin</string>
-    <string name="crop_catalog_info">Sistem ürünleri AVORA ile gelir ve silinmez. Kendi ürününüzü bir kez eklediğinizde sonraki sezonlarda listeden seçebilirsiniz. Eski sezonların adı ve simgesi değişmeden korunur.</string>
+    <string name="crop_catalog_info">Bir bitkiye dokunarak çeşitlerini görebilir ve yeni çeşit ekleyebilirsiniz. Sistem ürünleri AVORA ile gelir ve silinmez. Kendi ürününüzü bir kez eklediğinizde sonraki sezonlarda listeden seçebilirsiniz.</string>
     <string name="crop_catalog_add">Yeni ürün ekle</string>
     <string name="crop_catalog_system_heading">Sistem ürünleri</string>
     <string name="crop_catalog_user_heading">Eklediğim ürünler</string>
@@ -10,7 +10,17 @@
     <string name="crop_catalog_system_badge">Sistem ürünü</string>
     <string name="crop_catalog_user_badge">Kullanıcı ürünü</string>
     <string name="crop_catalog_card_detail">İdeal nem: %1$d–%2$d</string>
+    <string name="crop_catalog_card_source_varieties">%1$s · %2$d çeşit</string>
     <string name="crop_catalog_edit">Düzenle</string>
+    <string name="crop_catalog_varieties_title">%1$s çeşitleri</string>
+    <string name="crop_catalog_varieties_explanation">Buraya eklediğiniz çeşitler Yeni Fide Partisi oluştururken doğrudan seçilebilir.</string>
+    <string name="crop_catalog_variety_hint">Yeni çeşit adı</string>
+    <string name="crop_catalog_variety_add">Çeşit ekle</string>
+    <string name="crop_catalog_close">Kapat</string>
+    <string name="crop_catalog_variety_required">Çeşit adını yazın.</string>
+    <string name="crop_catalog_variety_too_long">Çeşit adı en fazla %1$d karakter olabilir.</string>
+    <string name="crop_catalog_variety_exists">Bu çeşit zaten listede.</string>
+    <string name="crop_catalog_variety_saved">Çeşit listeye eklendi.</string>
     <string name="crop_catalog_add_dialog_title">Yeni ürün ekle</string>
     <string name="crop_catalog_edit_dialog_title">Ürünü düzenle</string>
     <string name="crop_catalog_name_hint">Ürün adı</string>

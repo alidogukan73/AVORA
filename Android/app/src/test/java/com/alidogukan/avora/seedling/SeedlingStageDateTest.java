@@ -22,6 +22,11 @@ public final class SeedlingStageDateTest {
                 SeedlingStagePolicy.COTYLEDON, NOW + 60L, true);
         assertEquals(NOW + 60L, firstLeaf.get("first_leaf_date_epoch"));
         assertFalse(firstLeaf.containsKey("germination_date_epoch"));
+
+        Map<String, Object> trueLeaves = SeedlingRepository.stageUpdateValues(
+                SeedlingStagePolicy.TRUE_LEAVES, NOW + 120L, true);
+        assertEquals(NOW + 120L, trueLeaves.get("true_leaves_date_epoch"));
+        assertFalse(trueLeaves.containsKey("first_leaf_date_epoch"));
     }
 
     @Test public void rollbackClearsOnlyDatesBeyondTheSelectedStage() {
@@ -30,6 +35,7 @@ public final class SeedlingStageDateTest {
         assertFalse(germinating.containsKey("germination_date_epoch"));
         assertTrue(germinating.containsKey("first_leaf_date_epoch"));
         assertNull(germinating.get("first_leaf_date_epoch"));
+        assertNull(germinating.get("true_leaves_date_epoch"));
         assertNull(germinating.get("hardening_date_epoch"));
         assertNull(germinating.get("ready_date_epoch"));
 
@@ -54,5 +60,23 @@ public final class SeedlingStageDateTest {
         batch.setUpdated_at_epoch(NOW + 3_600L);
         assertTrue(SeedlingRepository.legacyStageDateUpdates(batch).isEmpty());
         assertEquals(Long.valueOf(NOW + 120L), batch.getGermination_date_epoch());
+    }
+
+    @Test public void legacyTrueLeavesUsesCropTimingInsteadOfLastEditTime() {
+        long day = 86_400L;
+        SeedlingBatch batch = new SeedlingBatch();
+        batch.setPlant_type("Domates");
+        batch.setStage(SeedlingStagePolicy.TRUE_LEAVES);
+        batch.setSowing_date_epoch(NOW);
+        batch.setEstimated_emergence_epoch(NOW + 6L * day);
+        batch.setEstimated_transplant_epoch(NOW + 17L * day);
+        batch.setGermination_date_epoch(NOW + 6L * day);
+        batch.setFirst_leaf_date_epoch(NOW + 12L * day);
+        batch.setCreated_at_epoch(NOW);
+        batch.setUpdated_at_epoch(NOW + 20L * day);
+
+        Map<String, Object> migration = SeedlingRepository.legacyStageDateUpdates(batch);
+
+        assertEquals(NOW + 15L * day, migration.get("true_leaves_date_epoch"));
     }
 }

@@ -6,4 +6,45 @@
     <string name="season_delete_empty_confirm">Delete season</string>
     <string name="season_delete_empty_success">The untouched season was deleted.</string>
     <string name="season_delete_empty_failed">The season could not be deleted.</string>
+    <string name="timeline_menu_description">Plant journal menu</string>
+    <string name="season_delete_empty_unavailable">This season cannot be deleted</string>
+    <string name="season_delete_empty_check_failed">Could not verify whether the season is empty.</string>
+    <string name="season_delete_blocked_title">This season cannot be deleted yet</string>
+    <plurals name="season_delete_missing_photos">
+        <item quantity="one">There is %1$d photo record, but its file was not found on this phone.</item>
+        <item quantity="other">There are %1$d photo records, but their files were not found on this phone.</item>
+    </plurals>
+    <plurals name="season_delete_missing_analyses">
+        <item quantity="one">%1$d missing photo has an AI analysis.</item>
+        <item quantity="other">%1$d missing photos have AI analyses.</item>
+    </plurals>
+    <plurals name="season_delete_local_photos">
+        <item quantity="one">%1$d real photo on this phone is being preserved.</item>
+        <item quantity="other">%1$d real photos on this phone are being preserved.</item>
+    </plurals>
+    <plurals name="season_delete_watering_records">
+        <item quantity="one">There is %1$d watering record.</item>
+        <item quantity="other">There are %1$d watering records.</item>
+    </plurals>
+    <plurals name="season_delete_fertilizer_records">
+        <item quantity="one">There is %1$d fertilization record.</item>
+        <item quantity="other">There are %1$d fertilization records.</item>
+    </plurals>
+    <plurals name="season_delete_journal_records">
+        <item quantity="one">There is %1$d journal or manually added event.</item>
+        <item quantity="other">There are %1$d journal or manually added events.</item>
+    </plurals>
+    <string name="season_delete_outcome_record">Season outcome notes are present.</string>
+    <string name="season_delete_cleanup_explanation">Only missing photo records and their derived AI analyses, automatic events, and notifications can be cleaned. Photos that still exist on this phone are left untouched.</string>
+    <string name="season_delete_cleanup_action">Clean missing records</string>
+    <string name="season_delete_cleanup_confirm_title">Clean missing records?</string>
+    <plurals name="season_delete_cleanup_confirm_message">
+        <item quantity="one">The %1$d missing photo record and only its related records will be deleted. This cannot be undone. Photos found on this phone will be preserved.</item>
+        <item quantity="other">The %1$d missing photo records and only their related records will be deleted. This cannot be undone. Photos found on this phone will be preserved.</item>
+    </plurals>
+    <plurals name="season_delete_cleanup_success">
+        <item quantity="one">%1$d missing photo record was cleaned.</item>
+        <item quantity="other">%1$d missing photo records were cleaned.</item>
+    </plurals>
+    <string name="season_delete_cleanup_failed">Missing photo records could not be cleaned.</string>
 </resources>

@@ -202,106 +202,198 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
-                android:baselineAligned="false"
-                android:orientation="horizontal">
+                android:orientation="vertical">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="2dp">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/seedling_telemetry_heading"
+                            android:textColor="@color/textPrimary"
+                            android:textSize="15sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/txtSeedlingTargetContext"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:textColor="@color/textSecondary"
+                            android:textSize="11sp" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/bg_seedling_target_chip"
+                        android:paddingHorizontal="9dp"
+                        android:paddingVertical="5dp"
+                        android:text="@string/seedling_crop_targets"
+                        android:textColor="@color/primary"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:baselineAligned="false"
+                    android:orientation="horizontal">
 
                 <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardSeedlingAirTemp"
                     style="@style/Widget.AVORA.Seedling.Card.Metric"
                     android:layout_width="0dp"
-                    android:layout_height="112dp"
-                    android:layout_marginEnd="2dp"
+                    android:layout_height="146dp"
+                    android:layout_marginEnd="4dp"
                     android:layout_weight="1">
                     <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent"
-                        android:gravity="center" android:orientation="vertical" android:paddingHorizontal="2dp">
-                        <ImageView android:layout_width="28dp" android:layout_height="28dp"
+                        android:gravity="center" android:orientation="vertical" android:paddingHorizontal="4dp">
+                        <ImageView android:id="@+id/imgSeedlingAirTemp" android:layout_width="26dp" android:layout_height="26dp"
                             android:contentDescription="@null" app:srcCompat="@drawable/ic_seedling_thermometer_24" />
-                        <TextView android:layout_width="match_parent" android:layout_height="32dp"
+                        <TextView android:layout_width="match_parent" android:layout_height="28dp"
                             android:gravity="center" android:maxLines="2" android:text="@string/seedling_metric_temperature"
-                            android:textColor="@color/textSecondary" android:textSize="10sp" />
+                            android:textColor="@color/textSecondary" android:textSize="11sp" />
                         <TextView android:id="@+id/txtSeedlingAirTemp" android:layout_width="match_parent"
                             android:layout_height="wrap_content" android:gravity="center" android:text="@string/seedling_metric_empty"
-                            android:textColor="@color/textPrimary" android:textSize="15sp" android:textStyle="bold" />
+                            android:textColor="@color/textPrimary" android:textSize="18sp" android:textStyle="bold" />
+                        <TextView android:id="@+id/txtSeedlingAirTempTarget" android:layout_width="match_parent"
+                            android:layout_height="wrap_content" android:layout_marginTop="3dp" android:gravity="center"
+                            android:maxLines="1" android:textColor="@color/textSecondary" android:textSize="10sp" />
+                        <TextView android:id="@+id/txtSeedlingAirTempState" android:layout_width="match_parent"
+                            android:layout_height="wrap_content" android:layout_marginTop="3dp" android:gravity="center"
+                            android:maxLines="1" android:textColor="@color/primary" android:textSize="11sp" android:textStyle="bold" />
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
 
                 <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardSeedlingAirHumidity"
                     style="@style/Widget.AVORA.Seedling.Card.Metric"
                     android:layout_width="0dp"
-                    android:layout_height="112dp"
-                    android:layout_marginHorizontal="2dp"
+                    android:layout_height="146dp"
+                    android:layout_marginHorizontal="4dp"
                     android:layout_weight="1">
                     <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent"
-                        android:gravity="center" android:orientation="vertical" android:paddingHorizontal="2dp">
-                        <ImageView android:layout_width="28dp" android:layout_height="28dp"
+                        android:gravity="center" android:orientation="vertical" android:paddingHorizontal="4dp">
+                        <ImageView android:id="@+id/imgSeedlingAirHumidity" android:layout_width="26dp" android:layout_height="26dp"
                             android:contentDescription="@null" app:srcCompat="@drawable/ic_ai_water_drop_24" app:tint="@color/info" />
-                        <TextView android:layout_width="match_parent" android:layout_height="32dp"
+                        <TextView android:layout_width="match_parent" android:layout_height="28dp"
                             android:gravity="center" android:maxLines="2" android:text="@string/seedling_metric_humidity"
-                            android:textColor="@color/textSecondary" android:textSize="10sp" />
+                            android:textColor="@color/textSecondary" android:textSize="11sp" />
                         <TextView android:id="@+id/txtSeedlingAirHumidity" android:layout_width="match_parent"
                             android:layout_height="wrap_content" android:gravity="center" android:text="@string/seedling_metric_empty"
-                            android:textColor="@color/textPrimary" android:textSize="15sp" android:textStyle="bold" />
+                            android:textColor="@color/textPrimary" android:textSize="18sp" android:textStyle="bold" />
+                        <TextView android:id="@+id/txtSeedlingAirHumidityTarget" android:layout_width="match_parent"
+                            android:layout_height="wrap_content" android:layout_marginTop="3dp" android:gravity="center"
+                            android:maxLines="1" android:textColor="@color/textSecondary" android:textSize="10sp" />
+                        <TextView android:id="@+id/txtSeedlingAirHumidityState" android:layout_width="match_parent"
+                            android:layout_height="wrap_content" android:layout_marginTop="3dp" android:gravity="center"
+                            android:maxLines="1" android:textColor="@color/primary" android:textSize="11sp" android:textStyle="bold" />
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
 
                 <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardSeedlingLight"
                     style="@style/Widget.AVORA.Seedling.Card.Metric"
                     android:layout_width="0dp"
-                    android:layout_height="112dp"
-                    android:layout_marginHorizontal="2dp"
+                    android:layout_height="146dp"
+                    android:layout_marginStart="4dp"
                     android:layout_weight="1">
                     <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent"
-                        android:gravity="center" android:orientation="vertical" android:paddingHorizontal="1dp">
-                        <ImageView android:layout_width="28dp" android:layout_height="28dp"
-                            android:contentDescription="@null" app:srcCompat="@drawable/ic_seedling_soil_moisture_24" />
-                        <TextView android:layout_width="match_parent" android:layout_height="32dp"
-                            android:gravity="center" android:maxLines="2" android:text="@string/seedling_metric_soil_moisture"
-                            android:textColor="@color/textSecondary" android:textSize="10sp" />
-                        <TextView android:id="@+id/txtSeedlingSoilMoisture" android:layout_width="match_parent"
-                            android:layout_height="wrap_content" android:gravity="center" android:text="@string/seedling_metric_empty"
-                            android:textColor="@color/textPrimary" android:textSize="15sp" android:textStyle="bold" />
-                    </LinearLayout>
-                </com.google.android.material.card.MaterialCardView>
-
-                <com.google.android.material.card.MaterialCardView
-                    style="@style/Widget.AVORA.Seedling.Card.Metric"
-                    android:layout_width="0dp"
-                    android:layout_height="112dp"
-                    android:layout_marginHorizontal="2dp"
-                    android:layout_weight="1">
-                    <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent"
-                        android:gravity="center" android:orientation="vertical" android:paddingHorizontal="1dp">
-                        <ImageView android:layout_width="28dp" android:layout_height="28dp"
-                            android:contentDescription="@null" app:srcCompat="@drawable/ic_seedling_soil_temperature_24" />
-                        <TextView android:layout_width="match_parent" android:layout_height="32dp"
-                            android:gravity="center" android:maxLines="2" android:text="@string/seedling_metric_soil_temperature"
-                            android:textColor="@color/textSecondary" android:textSize="10sp" />
-                        <TextView android:id="@+id/txtSeedlingRootTemp" android:layout_width="match_parent"
-                            android:layout_height="wrap_content" android:gravity="center" android:text="@string/seedling_metric_empty"
-                            android:textColor="@color/textPrimary" android:textSize="15sp" android:textStyle="bold" />
-                    </LinearLayout>
-                </com.google.android.material.card.MaterialCardView>
-
-                <com.google.android.material.card.MaterialCardView
-                    style="@style/Widget.AVORA.Seedling.Card.Metric"
-                    android:layout_width="0dp"
-                    android:layout_height="112dp"
-                    android:layout_marginStart="2dp"
-                    android:layout_weight="1">
-                    <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent"
-                        android:gravity="center" android:orientation="vertical" android:paddingHorizontal="1dp">
-                        <ImageView android:layout_width="28dp" android:layout_height="28dp"
+                        android:gravity="center" android:orientation="vertical" android:paddingHorizontal="4dp">
+                        <ImageView android:id="@+id/imgSeedlingLight" android:layout_width="26dp" android:layout_height="26dp"
                             android:contentDescription="@null" app:srcCompat="@drawable/ic_seedling_light_24" />
-                        <TextView android:layout_width="match_parent" android:layout_height="32dp"
+                        <TextView android:layout_width="match_parent" android:layout_height="28dp"
                             android:gravity="center" android:maxLines="2" android:text="@string/seedling_metric_light"
-                            android:textColor="@color/textSecondary" android:textSize="10sp" />
+                            android:textColor="@color/textSecondary" android:textSize="11sp" />
                         <TextView android:id="@+id/txtSeedlingLight" android:layout_width="match_parent"
                             android:layout_height="wrap_content" android:gravity="center" android:text="@string/seedling_metric_empty"
-                            android:textColor="@color/textPrimary" android:textSize="14sp" android:textStyle="bold" />
+                            android:textColor="@color/textPrimary" android:textSize="18sp" android:textStyle="bold" />
                         <TextView android:id="@+id/txtSeedlingLightUnit" android:layout_width="match_parent"
                             android:layout_height="wrap_content" android:gravity="center" android:text="@string/seedling_lux_unit"
                             android:textColor="@color/textSecondary" android:textSize="9sp" />
+                        <TextView android:id="@+id/txtSeedlingLightTarget" android:layout_width="match_parent"
+                            android:layout_height="wrap_content" android:layout_marginTop="1dp" android:gravity="center"
+                            android:maxLines="1" android:textColor="@color/textSecondary" android:textSize="10sp" />
+                        <TextView android:id="@+id/txtSeedlingLightState" android:layout_width="match_parent"
+                            android:layout_height="wrap_content" android:layout_marginTop="3dp" android:gravity="center"
+                            android:maxLines="1" android:textColor="@color/primary" android:textSize="11sp" android:textStyle="bold" />
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:baselineAligned="false"
+                    android:orientation="horizontal">
+
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardSeedlingRootTemp"
+                    style="@style/Widget.AVORA.Seedling.Card.Metric"
+                    android:layout_width="0dp"
+                    android:layout_height="146dp"
+                    android:layout_marginEnd="4dp"
+                    android:layout_weight="1">
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent"
+                        android:gravity="center" android:orientation="vertical" android:paddingHorizontal="4dp">
+                        <ImageView android:id="@+id/imgSeedlingRootTemp" android:layout_width="26dp" android:layout_height="26dp"
+                            android:contentDescription="@null" app:srcCompat="@drawable/ic_seedling_soil_temperature_24" />
+                        <TextView android:layout_width="match_parent" android:layout_height="28dp"
+                            android:gravity="center" android:maxLines="2" android:text="@string/seedling_metric_soil_temperature"
+                            android:textColor="@color/textSecondary" android:textSize="11sp" />
+                        <TextView android:id="@+id/txtSeedlingRootTemp" android:layout_width="match_parent"
+                            android:layout_height="wrap_content" android:gravity="center" android:text="@string/seedling_metric_empty"
+                            android:textColor="@color/textPrimary" android:textSize="18sp" android:textStyle="bold" />
+                        <TextView android:id="@+id/txtSeedlingRootTempTarget" android:layout_width="match_parent"
+                            android:layout_height="wrap_content" android:layout_marginTop="3dp" android:gravity="center"
+                            android:maxLines="1" android:textColor="@color/textSecondary" android:textSize="10sp" />
+                        <TextView android:id="@+id/txtSeedlingRootTempState" android:layout_width="match_parent"
+                            android:layout_height="wrap_content" android:layout_marginTop="3dp" android:gravity="center"
+                            android:maxLines="1" android:textColor="@color/primary" android:textSize="11sp" android:textStyle="bold" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardSeedlingSoilMoisture"
+                    style="@style/Widget.AVORA.Seedling.Card.Metric"
+                    android:layout_width="0dp"
+                    android:layout_height="146dp"
+                    android:layout_marginStart="4dp"
+                    android:layout_weight="1">
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent"
+                        android:gravity="center" android:orientation="vertical" android:paddingHorizontal="4dp">
+                        <ImageView android:id="@+id/imgSeedlingSoilMoisture" android:layout_width="26dp" android:layout_height="26dp"
+                            android:contentDescription="@null" app:srcCompat="@drawable/ic_seedling_soil_moisture_24" />
+                        <TextView android:layout_width="match_parent" android:layout_height="28dp"
+                            android:gravity="center" android:maxLines="2" android:text="@string/seedling_metric_soil_moisture"
+                            android:textColor="@color/textSecondary" android:textSize="11sp" />
+                        <TextView android:id="@+id/txtSeedlingSoilMoisture" android:layout_width="match_parent"
+                            android:layout_height="wrap_content" android:gravity="center" android:text="@string/seedling_metric_empty"
+                            android:textColor="@color/textPrimary" android:textSize="18sp" android:textStyle="bold" />
+                        <TextView android:id="@+id/txtSeedlingSoilMoistureTarget" android:layout_width="match_parent"
+                            android:layout_height="wrap_content" android:layout_marginTop="3dp" android:gravity="center"
+                            android:maxLines="1" android:textColor="@color/textSecondary" android:textSize="10sp" />
+                        <TextView android:id="@+id/txtSeedlingSoilMoistureState" android:layout_width="match_parent"
+                            android:layout_height="wrap_content" android:layout_marginTop="3dp" android:gravity="center"
+                            android:maxLines="1" android:textColor="@color/primary" android:textSize="11sp" android:textStyle="bold" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+                </LinearLayout>
             </LinearLayout>
 
             <TextView
@@ -423,6 +515,133 @@
                 <TextView android:id="@+id/txtSeedlingStageDate4" android:layout_width="0dp" android:layout_height="wrap_content"
                     android:layout_weight="1" android:gravity="center" android:textColor="@color/textPrimary" android:textSize="10sp" android:textStyle="bold" />
             </LinearLayout>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardSeedlingFertilizerGuide"
+                style="@style/Widget.AVORA.Seedling.Card.Status"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="14dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <ImageView
+                            android:layout_width="28dp"
+                            android:layout_height="28dp"
+                            android:contentDescription="@null"
+                            app:srcCompat="@drawable/ic_fertilization_24"
+                            app:tint="@color/primary" />
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="10dp"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="@string/seedling_fertilizer_title"
+                                android:textColor="@color/primary"
+                                android:textSize="15sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/txtSeedlingFertilizerContext"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:textColor="@color/textSecondary"
+                                android:textSize="12sp" />
+                        </LinearLayout>
+                    </LinearLayout>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="13dp"
+                        android:text="@string/seedling_fertilizer_type_label"
+                        android:textColor="@color/textPrimary"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/txtSeedlingFertilizerType"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:lineSpacingExtra="2dp"
+                        android:textColor="@color/textPrimary"
+                        android:textSize="13sp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="11dp"
+                        android:text="@string/seedling_fertilizer_application_label"
+                        android:textColor="@color/textPrimary"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/txtSeedlingFertilizerApplication"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:lineSpacingExtra="2dp"
+                        android:textColor="@color/textSecondary"
+                        android:textSize="12sp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="11dp"
+                        android:text="@string/seedling_fertilizer_crop_note_label"
+                        android:textColor="@color/textPrimary"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/txtSeedlingFertilizerCropNote"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:lineSpacingExtra="2dp"
+                        android:textColor="@color/textSecondary"
+                        android:textSize="12sp" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:background="@drawable/bg_seedling_target_chip"
+                        android:lineSpacingExtra="2dp"
+                        android:padding="10dp"
+                        android:text="@string/seedling_fertilizer_safety"
+                        android:textColor="@color/primary"
+                        android:textSize="11sp" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="7dp"
+                        android:gravity="end"
+                        android:text="@string/seedling_fertilizer_research_note"
+                        android:textColor="@color/textSecondary"
+                        android:textSize="10sp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/cardSeedlingOverallStatus"

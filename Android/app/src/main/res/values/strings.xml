@@ -13,7 +13,7 @@
     <string
         name="status_connecting">● BAĞLANIYOR</string>
     <string
-        name="status_offline">● OFFLINE</string>
+        name="status_offline">● ÇEVRİMDIŞI</string>
     <string
         name="fertilization_title">AI Gübre Asistanı</string>
     <string
@@ -1257,7 +1257,7 @@
     <string name="settings_quick_exact_count" tools:ignore="PluralsCandidate">Lütfen tam %1$d kısayol seçin.</string>
     <string name="settings_quick_max_count" tools:ignore="PluralsCandidate">En fazla %1$d kısayol seçebilirsiniz.</string>
     <string name="settings_quick_saved">Hızlı Ayarlar kaydedildi.</string>
-    <string name="settings_quick_restore_defaults">Varsayılana dön</string>
+    <string name="settings_quick_restore_defaults">Varsayılan</string>
     <string name="settings_quick_move_up">Yukarı taşı</string>
     <string name="settings_quick_move_down">Aşağı taşı</string>
     <string name="settings_quick_cancel">İptal</string>

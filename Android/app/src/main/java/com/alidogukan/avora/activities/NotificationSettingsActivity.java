@@ -55,6 +55,7 @@ public class NotificationSettingsActivity extends AppCompatActivity {
         bind(findViewById(R.id.switchNotificationIrrigation), "irrigation");
         bind(findViewById(R.id.switchNotificationFertilization), "fertilization");
         bind(findViewById(R.id.switchNotificationPlant), "plant");
+        bind(findViewById(R.id.switchNotificationSeedling), "seedling");
         bind(findViewById(R.id.switchNotificationWeather), "weather");
         bind(findViewById(R.id.switchNotificationDevice), "device");
         bind(findViewById(R.id.switchNotificationStock), "stock");
@@ -116,6 +117,8 @@ public class NotificationSettingsActivity extends AppCompatActivity {
                     .setChecked(viewModel.isCategoryEnabled("fertilization"));
             ((MaterialSwitch) findViewById(R.id.switchNotificationPlant))
                     .setChecked(viewModel.isCategoryEnabled("plant"));
+            ((MaterialSwitch) findViewById(R.id.switchNotificationSeedling))
+                    .setChecked(viewModel.isCategoryEnabled("seedling"));
             ((MaterialSwitch) findViewById(R.id.switchNotificationWeather))
                     .setChecked(viewModel.isCategoryEnabled("weather"));
             ((MaterialSwitch) findViewById(R.id.switchNotificationDevice))

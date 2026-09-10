@@ -21,6 +21,9 @@ public class GardenPhoto {
     private String growth_signals;
     private long growth_previous_captured_at_epoch;
     private long captured_at_epoch;
+    private int rotation_degrees;
+    private boolean flipped_horizontally;
+    private boolean flipped_vertically;
 
     public GardenPhoto() { }
 
@@ -72,4 +75,10 @@ public class GardenPhoto {
     }
     public long getCaptured_at_epoch() { return captured_at_epoch; }
     public void setCaptured_at_epoch(long value) { captured_at_epoch = value; }
+    public int getRotation_degrees() { return rotation_degrees; }
+    public void setRotation_degrees(int value) { rotation_degrees = value; }
+    public boolean getFlipped_horizontally() { return flipped_horizontally; }
+    public void setFlipped_horizontally(boolean value) { flipped_horizontally = value; }
+    public boolean getFlipped_vertically() { return flipped_vertically; }
+    public void setFlipped_vertically(boolean value) { flipped_vertically = value; }
 }

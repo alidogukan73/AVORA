@@ -10,6 +10,8 @@ public final class SeedlingDailyLog {
     private int healthy_count;
     private boolean watered;
     private String note = "";
+    private String photo_id = "";
+    private String photo_storage_path = "";
     private long created_at_epoch;
     public SeedlingDailyLog() { }
     public String getLog_id() { return log_id; }
@@ -26,6 +28,13 @@ public final class SeedlingDailyLog {
     public void setWatered(boolean v) { watered = v; }
     public String getNote() { return note; }
     public void setNote(String v) { note = safe(v); }
+    public String getPhoto_id() { return photo_id; }
+    public void setPhoto_id(String v) { photo_id = safe(v); }
+    public String getPhoto_storage_path() { return photo_storage_path; }
+    public void setPhoto_storage_path(String v) { photo_storage_path = safe(v); }
+    public boolean hasPhoto() {
+        return !photo_id.isBlank();
+    }
     public long getCreated_at_epoch() { return created_at_epoch; }
     public void setCreated_at_epoch(long v) { created_at_epoch = Math.max(0, v); }
     private static String safe(String v) { return v == null ? "" : v.trim(); }

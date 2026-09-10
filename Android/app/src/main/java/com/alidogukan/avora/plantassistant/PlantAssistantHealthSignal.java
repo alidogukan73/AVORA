@@ -32,9 +32,16 @@ public final class PlantAssistantHealthSignal {
 
     public boolean appliesTo(GardenZone zone, long nowEpoch) {
         if (zone == null || !isRecent(nowEpoch) || !zoneId.equals(zone.getZone_id())) return false;
-        // Old saved recommendations did not carry a season ID; keep them readable.
-        return seasonId.isEmpty() || (zone.getSeason() != null && zone.getSeason().isActive()
-                && zone.getSeason().isSeasonActive(seasonId));
+        if (!seasonId.isEmpty()) {
+            return zone.getSeason() != null && zone.getSeason().isActive()
+                    && zone.getSeason().isSeasonActive(seasonId);
+        }
+        // Old saved recommendations had no season ID. Keep one only when it was
+        // created during the current season, never carry it into a later crop.
+        if (zone.getSeason() == null || !zone.getSeason().isActive()) return false;
+        long seasonStartedAt = zone.getSeason() == null
+                ? 0L : zone.getSeason().getStarted_at_epoch();
+        return seasonStartedAt <= 0L || createdAtEpoch >= seasonStartedAt;
     }
 
     public boolean isRecent(long nowEpoch) {

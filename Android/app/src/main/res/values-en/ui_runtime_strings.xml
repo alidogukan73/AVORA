@@ -84,8 +84,13 @@ Up to 5 photos · tap to change</item></plurals>
     <string name="runtime_probability_urgency">Probability: %1$s · Urgency: %2$s</string>
     <string name="runtime_evaluated_context">Garden data evaluated: %1$s</string>
     <string name="runtime_visual_ai_preparing">Preparing visual AI analysis…</string>
+    <string name="runtime_plant_analysis_in_progress">The current analysis is still finishing. Please wait a moment.</string>
     <string name="runtime_visual_ai_unavailable">Visual AI service could not be reached: %1$s</string>
     <string name="runtime_visual_ai_retry">Check the Tailscale connection and try again. If the issue continues, share the error code above.</string>
+    <string name="runtime_visual_ai_not_configured_title">Visual AI is not configured yet</string>
+    <string name="runtime_visual_ai_not_configured_advice">Configure the visual-analysis key on the Raspberry Pi, then restart the AVORA visual-analysis service.</string>
+    <string name="runtime_photo_processing_failed_title">The photo could not be prepared for analysis</string>
+    <string name="runtime_photo_processing_failed_advice">Take the photo again or choose a different JPEG/PNG photo from the gallery and retry.</string>
     <string name="runtime_photo_quality_title">The photo does not show the plant clearly enough</string>
     <string name="runtime_visual_confidence_urgency">Visual confidence: %%%1$d · Urgency: %2$s</string>
     <string name="runtime_urgency_low">Low</string>
@@ -115,8 +120,12 @@ Wind
 %1$s</string>
     <string name="runtime_assistant_archive_note">Plant Assistant · %1$s</string>
     <string name="runtime_photo_analysis_archived">Photo and analysis added to the Plant Journal.</string>
+    <string name="runtime_analysis_archived">The analysis entry was updated in the Plant Journal.</string>
+    <string name="runtime_photo_archived_analysis_failed">The photo was added to the Plant Journal; the failed visual analysis was not saved.</string>
     <string name="runtime_photo_archive_failed">The photo was added to the analysis but could not be archived.</string>
+    <string name="runtime_photo_preview_failed">The photo could not be opened. Please choose another photo.</string>
     <string name="runtime_photo_metadata_sync_failed">The record is safe on this phone but could not be uploaded to Firebase. Check the connection and try the analysis again later.</string>
+    <string name="runtime_requested_plant_unavailable">The requested plant or season is no longer active. Select an active season from the list.</string>
 
     <string name="runtime_weather_updated">↻ Updated: %1$s</string>
     <string name="runtime_weather_raining">It is raining now — check soil moisture again before irrigation.</string>
@@ -171,6 +180,23 @@ Add photo</string>
     <string name="runtime_growth_photo">Growth photo</string>
     <string name="runtime_photo_swipe_position">%1$d / %2$d · Swipe left or right</string>
     <string name="runtime_photo_page_description">Photo %1$d of %2$d</string>
+    <string name="runtime_photo_transform_hint">Pinch to zoom · Double tap to reset</string>
+    <string name="runtime_photo_rotate_left">Rotate left</string>
+    <string name="runtime_photo_rotate_right">Rotate right</string>
+    <string name="runtime_photo_flip_horizontal">Flip horizontally</string>
+    <string name="runtime_photo_flip_vertical">Flip vertically</string>
+    <string name="runtime_photo_zoom_out">Zoom out</string>
+    <string name="runtime_photo_zoom_in">Zoom in</string>
+    <string name="runtime_photo_reset">Reset view</string>
+    <string name="runtime_open_photo">Open photo</string>
+    <string name="symbol_rotate_left" translatable="false">↶</string>
+    <string name="symbol_rotate_right" translatable="false">↷</string>
+    <string name="symbol_flip_horizontal" translatable="false">↔</string>
+    <string name="symbol_flip_vertical" translatable="false">↕</string>
+    <string name="symbol_zoom_out" translatable="false">−</string>
+    <string name="symbol_zoom_in" translatable="false">+</string>
+    <string name="symbol_photo_reset" translatable="false">1:1</string>
+    <string name="symbol_open_photo" translatable="false">⛶</string>
     <string name="runtime_open_photo_description">Open photo %1$d of %2$d</string>
     <string name="runtime_close">Close</string>
     <string name="runtime_plant_default">Plant</string>

@@ -17,6 +17,7 @@ public final class SeedlingBatch {
     private long estimated_transplant_epoch;
     private Long germination_date_epoch;
     private Long first_leaf_date_epoch;
+    private Long true_leaves_date_epoch;
     private Long hardening_date_epoch;
     private Long ready_date_epoch;
     private int seed_count;
@@ -52,6 +53,8 @@ public final class SeedlingBatch {
     public void setGermination_date_epoch(Long v) { germination_date_epoch = nullablePositive(v); }
     public Long getFirst_leaf_date_epoch() { return first_leaf_date_epoch; }
     public void setFirst_leaf_date_epoch(Long v) { first_leaf_date_epoch = nullablePositive(v); }
+    public Long getTrue_leaves_date_epoch() { return true_leaves_date_epoch; }
+    public void setTrue_leaves_date_epoch(Long v) { true_leaves_date_epoch = nullablePositive(v); }
     public Long getHardening_date_epoch() { return hardening_date_epoch; }
     public void setHardening_date_epoch(Long v) { hardening_date_epoch = nullablePositive(v); }
     public Long getReady_date_epoch() { return ready_date_epoch; }

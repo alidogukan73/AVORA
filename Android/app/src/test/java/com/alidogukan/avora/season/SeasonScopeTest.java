@@ -81,6 +81,20 @@ public class SeasonScopeTest {
     }
 
     @Test
+    public void emptySeasonCleanupProtectsRecordsAndLegacyArchives() {
+        GardenSeason active = activeSeason("active-empty");
+        GardenSeason closed = completedSeason(false);
+        GardenSeason legacy = completedSeason(true);
+
+        assertTrue(SeasonScope.canDeleteEmptySeason(active, true, false, false));
+        assertFalse(SeasonScope.canDeleteEmptySeason(active, false, false, false));
+        assertFalse(SeasonScope.canDeleteEmptySeason(active, true, false, true));
+        assertTrue(SeasonScope.canDeleteEmptySeason(closed, false, false, true));
+        assertFalse(SeasonScope.canDeleteEmptySeason(closed, false, true, false));
+        assertFalse(SeasonScope.canDeleteEmptySeason(legacy, false, false, false));
+    }
+
+    @Test
     public void closedEmptyStateMeansSeasonHasNotStarted() {
         ZoneSeasonState waiting = new ZoneSeasonState();
         waiting.setStatus(SeasonStatus.CLOSED);

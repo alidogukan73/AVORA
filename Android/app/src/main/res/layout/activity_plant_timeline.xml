@@ -35,15 +35,13 @@
                     android:text="@string/nav_plant_journal"
                     android:textAppearance="@style/TextAppearance.AVORA.CardTitle" />
                 <TextView
-                    android:layout_width="30dp"
-                    android:layout_height="wrap_content"
-                    android:gravity="center"
-                    android:text="@string/symbol_timeline_note"
-                    android:textColor="@color/textPrimary"
-                    android:textSize="17sp" />
-                <TextView
-                    android:layout_width="22dp"
-                    android:layout_height="wrap_content"
+                    android:id="@+id/btnTimelineMenu"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:clickable="true"
+                    android:contentDescription="@string/timeline_menu_description"
+                    android:focusable="true"
+                    android:foreground="?attr/selectableItemBackgroundBorderless"
                     android:gravity="center"
                     android:text="@string/symbol_more_options"
                     android:textColor="@color/textPrimary"

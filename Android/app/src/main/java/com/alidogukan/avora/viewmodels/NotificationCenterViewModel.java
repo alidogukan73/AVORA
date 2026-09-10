@@ -10,9 +10,11 @@ import androidx.lifecycle.MediatorLiveData;
 import com.alidogukan.avora.firebase.FirebaseRepository;
 import com.alidogukan.avora.models.GardenNotification;
 import com.alidogukan.avora.models.GardenZone;
+import com.alidogukan.avora.models.SeedlingBatch;
 import com.alidogukan.avora.notifications.GardenNotificationManager;
 import com.alidogukan.avora.notifications.NotificationSettingsStore;
 import com.alidogukan.avora.fertilization.FertilizerOutcomeFollowUpPolicy;
+import com.alidogukan.avora.seedling.SeedlingRepository;
 
 import java.util.List;
 import java.util.function.Consumer;
@@ -25,11 +27,13 @@ public final class NotificationCenterViewModel extends AndroidViewModel {
     private final MediatorLiveData<List<GardenNotification>> notifications =
             new MediatorLiveData<>();
     private final LiveData<List<GardenZone>> zones;
+    private final SeedlingRepository seedlingRepository;
 
     public NotificationCenterViewModel(@NonNull Application application) {
         super(application);
         manager = new GardenNotificationManager(application);
         FirebaseRepository repository = new FirebaseRepository();
+        seedlingRepository = new SeedlingRepository();
         zones = repository.observeGardenZones();
         notifications.setValue(manager.localNotifications());
         notifications.addSource(repository.observeGardenNotifications(), values -> {
@@ -44,6 +48,9 @@ public final class NotificationCenterViewModel extends AndroidViewModel {
 
     public LiveData<List<GardenNotification>> getNotifications() { return notifications; }
     public LiveData<List<GardenZone>> getZones() { return zones; }
+    public LiveData<SeedlingBatch> getSeedlingBatch(String batchId) {
+        return seedlingRepository.observeBatch(batchId);
+    }
     public void refresh() { notifications.setValue(manager.localNotifications()); }
     public GardenNotification find(String id) { return manager.findLocalById(id); }
     public String categoryFor(String type) { return NotificationSettingsStore.categoryFor(type); }

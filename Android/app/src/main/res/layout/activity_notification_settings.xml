@@ -176,6 +176,12 @@
                         android:text="@string/notification_category_plant" />
 
                     <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/switchNotificationSeedling"
+                        android:layout_width="match_parent"
+                        android:layout_height="52dp"
+                        android:text="@string/notification_category_seedling" />
+
+                    <com.google.android.material.materialswitch.MaterialSwitch
                         android:id="@+id/switchNotificationWeather"
                         android:layout_width="match_parent"
                         android:layout_height="52dp"

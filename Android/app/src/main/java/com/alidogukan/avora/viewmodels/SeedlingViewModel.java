@@ -1,7 +1,11 @@
 package com.alidogukan.avora.viewmodels;
 
+import android.app.Application;
+import android.net.Uri;
+
+import androidx.annotation.NonNull;
 import androidx.lifecycle.LiveData;
-import androidx.lifecycle.ViewModel;
+import androidx.lifecycle.AndroidViewModel;
 import com.alidogukan.avora.crop.CropCatalog;
 import com.alidogukan.avora.firebase.FirebaseRepository;
 import com.alidogukan.avora.models.CropCatalogItem;
@@ -9,23 +13,54 @@ import com.alidogukan.avora.models.SeedlingBatch;
 import com.alidogukan.avora.models.SeedlingDailyLog;
 import com.alidogukan.avora.models.SeedlingNodeState;
 import com.alidogukan.avora.models.SeedlingRecommendation;
+import com.alidogukan.avora.models.GardenPhoto;
+import com.alidogukan.avora.models.SeedlingPhotoUpload;
 import com.alidogukan.avora.seedling.SeedlingRecommendationTiming;
 import com.alidogukan.avora.seedling.SeedlingRepository;
 import com.alidogukan.avora.seedling.SeedlingStagePolicy;
+import com.alidogukan.avora.seedling.SeedlingCropCatalog;
+import com.alidogukan.avora.seedling.SeedlingDailyPhotoStore;
+import com.alidogukan.avora.seedling.SeedlingVarietyCatalog;
+import com.alidogukan.avora.seedling.SeedlingVarietyStore;
 import com.google.android.gms.tasks.Task;
 import java.util.List;
 
 /** Owns all seedling data operations; screens only validate and render input. */
-public final class SeedlingViewModel extends ViewModel {
+public final class SeedlingViewModel extends AndroidViewModel {
     private final SeedlingRepository repository = new SeedlingRepository();
+    private final SeedlingDailyPhotoStore photoStore;
     private final FirebaseRepository firebaseRepository = new FirebaseRepository();
+    private final SeedlingVarietyStore varietyStore;
     private final LiveData<List<SeedlingBatch>> batches = repository.observeBatches();
     private final LiveData<List<CropCatalogItem>> cropCatalogItems =
             firebaseRepository.observeCropCatalogItems();
+
+    public SeedlingViewModel(@NonNull Application application) {
+        super(application);
+        varietyStore = new SeedlingVarietyStore(application);
+        photoStore = new SeedlingDailyPhotoStore(application);
+    }
+
     public LiveData<List<SeedlingBatch>> getBatches() { return batches; }
     public LiveData<List<CropCatalogItem>> getCropCatalogItems() { return cropCatalogItems; }
     public List<CropCatalogItem> mergedCrops(List<CropCatalogItem> values) {
         return CropCatalog.merge(values);
+    }
+
+    public List<String> varietiesFor(CropCatalogItem crop) {
+        List<String> builtIns = SeedlingCropCatalog.profileFor(crop).getVarieties();
+        if (crop == null) return builtIns;
+        return SeedlingVarietyCatalog.merge(
+                builtIns, varietyStore.load(crop.getCrop_id()));
+    }
+
+    public String saveVariety(CropCatalogItem crop, String requested) {
+        String normalized = SeedlingVarietyCatalog.normalize(requested);
+        List<String> current = varietiesFor(crop);
+        String existing = SeedlingVarietyCatalog.find(current, normalized);
+        if (existing != null) return existing;
+        if (crop != null) varietyStore.add(crop.getCrop_id(), normalized);
+        return normalized;
     }
     public LiveData<SeedlingBatch> getBatch(String id) { return repository.observeBatch(id); }
     public LiveData<SeedlingNodeState> getNode(String id) { return repository.observeNode(id); }
@@ -60,7 +95,8 @@ public final class SeedlingViewModel extends ViewModel {
     }
 
     public Task<Void> saveDailyLog(String batchId, double height, int leaves,
-                                   int healthy, boolean watered, String note) {
+                                   int healthy, boolean watered, String note,
+                                   String photoId, String photoStoragePath) {
         SeedlingDailyLog log = new SeedlingDailyLog();
         log.setBatch_id(batchId);
         log.setHeight_cm(height);
@@ -68,12 +104,15 @@ public final class SeedlingViewModel extends ViewModel {
         log.setHealthy_count(healthy);
         log.setWatered(watered);
         log.setNote(note);
+        log.setPhoto_id(photoId);
+        log.setPhoto_storage_path(photoStoragePath);
         log.setCreated_at_epoch(System.currentTimeMillis() / 1000L);
         return repository.saveLog(log);
     }
 
     public Task<Void> updateDailyLog(SeedlingDailyLog existing, double height, int leaves,
-                                     int healthy, boolean watered, String note) {
+                                     int healthy, boolean watered, String note,
+                                     String photoId, String photoStoragePath) {
         if (existing == null) {
             return com.google.android.gms.tasks.Tasks.forException(
                     new IllegalArgumentException("Günlük kaydı gerekli."));
@@ -86,12 +125,30 @@ public final class SeedlingViewModel extends ViewModel {
         log.setHealthy_count(healthy);
         log.setWatered(watered);
         log.setNote(note);
+        log.setPhoto_id(photoId);
+        log.setPhoto_storage_path(photoStoragePath);
         log.setCreated_at_epoch(existing.getCreated_at_epoch());
         return repository.updateLog(log);
     }
 
     public Task<Void> deleteDailyLog(String batchId, String logId) {
         return repository.deleteLog(batchId, logId);
+    }
+
+    public Task<SeedlingPhotoUpload> saveDailyPhoto(Uri source, String batchId) {
+        return photoStore.save(source, batchId);
+    }
+
+    public Task<GardenPhoto> loadDailyPhoto(SeedlingDailyLog log) {
+        return photoStore.load(log);
+    }
+
+    public void deleteDailyPhoto(SeedlingDailyLog log) {
+        photoStore.delete(log);
+    }
+
+    public void deleteDailyPhoto(SeedlingPhotoUpload uploaded) {
+        photoStore.delete(uploaded);
     }
 
     public Task<Void> advanceStage(SeedlingBatch batch) {
@@ -147,6 +204,11 @@ public final class SeedlingViewModel extends ViewModel {
 
     public int progress(SeedlingBatch batch) {
         return batch == null ? 1 : SeedlingStagePolicy.progress(batch.getStage());
+    }
+
+    @Override protected void onCleared() {
+        photoStore.close();
+        super.onCleared();
     }
 
     public String stageLabel(String stage) {

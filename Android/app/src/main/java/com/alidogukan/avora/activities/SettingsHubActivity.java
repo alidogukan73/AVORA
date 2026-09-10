@@ -25,6 +25,7 @@ import androidx.lifecycle.ViewModelProvider;
 import com.alidogukan.avora.R;
 import com.alidogukan.avora.ui.PrimaryBottomNavigation;
 import com.alidogukan.avora.viewmodels.GardenSettingsViewModel;
+import com.google.android.material.button.MaterialButton;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.util.ArrayList;
@@ -101,14 +102,15 @@ public class SettingsHubActivity extends AppCompatActivity {
                 .inflate(R.layout.dialog_quick_settings_content, null, false);
         LinearLayout editorItems = content.findViewById(R.id.layoutQuickSettingsEditorItems);
         TextView selectionCount = content.findViewById(R.id.txtQuickSettingsSelectionCount);
+        MaterialButton restoreDefaults = content.findViewById(
+                R.id.btnQuickSettingsRestoreDefaults);
+        MaterialButton cancel = content.findViewById(R.id.btnQuickSettingsCancel);
+        MaterialButton save = content.findViewById(R.id.btnQuickSettingsSave);
 
         AlertDialog dialog = new MaterialAlertDialogBuilder(this)
                 .setTitle(R.string.settings_quick_editor_title)
                 .setMessage(R.string.settings_quick_editor_message)
                 .setView(content)
-                .setNegativeButton(R.string.settings_quick_cancel, null)
-                .setNeutralButton(R.string.settings_quick_restore_defaults, null)
-                .setPositiveButton(R.string.settings_quick_save, null)
                 .create();
 
         Runnable refresh = () -> renderQuickSettingsEditor(
@@ -116,34 +118,33 @@ public class SettingsHubActivity extends AppCompatActivity {
         content.setTag(R.id.layoutQuickSettingsEditorItems, refresh);
         refresh.run();
 
-        dialog.setOnShowListener(ignored -> {
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(view -> {
-                if (selected.size() != QUICK_ACTION_COUNT) {
-                    Toast.makeText(this,
-                            getString(R.string.settings_quick_exact_count, QUICK_ACTION_COUNT),
-                            Toast.LENGTH_SHORT).show();
-                    return;
+        save.setOnClickListener(view -> {
+            if (selected.size() != QUICK_ACTION_COUNT) {
+                Toast.makeText(this,
+                        getString(R.string.settings_quick_exact_count, QUICK_ACTION_COUNT),
+                        Toast.LENGTH_SHORT).show();
+                return;
+            }
+            List<String> savedOrder = new ArrayList<>();
+            for (String id : workingOrder) {
+                if (selected.contains(id)) {
+                    savedOrder.add(id);
                 }
-                List<String> savedOrder = new ArrayList<>();
-                for (String id : workingOrder) {
-                    if (selected.contains(id)) {
-                        savedOrder.add(id);
-                    }
-                }
-                saveQuickActionIds(savedOrder);
-                buildQuickActions();
-                Toast.makeText(this, R.string.settings_quick_saved, Toast.LENGTH_SHORT).show();
-                dialog.dismiss();
-            });
-            dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(view -> {
-                workingOrder.clear();
-                workingOrder.addAll(allQuickActionIds());
-                selected.clear();
-                selected.addAll(DEFAULT_QUICK_ACTIONS);
-                normalizeEditorOrder(workingOrder, selected);
-                refresh.run();
-            });
+            }
+            saveQuickActionIds(savedOrder);
+            buildQuickActions();
+            Toast.makeText(this, R.string.settings_quick_saved, Toast.LENGTH_SHORT).show();
+            dialog.dismiss();
         });
+        restoreDefaults.setOnClickListener(view -> {
+            workingOrder.clear();
+            workingOrder.addAll(allQuickActionIds());
+            selected.clear();
+            selected.addAll(DEFAULT_QUICK_ACTIONS);
+            normalizeEditorOrder(workingOrder, selected);
+            refresh.run();
+        });
+        cancel.setOnClickListener(view -> dialog.dismiss());
         dialog.show();
     }
 

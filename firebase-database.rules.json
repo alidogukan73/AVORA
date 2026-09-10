@@ -210,8 +210,11 @@
               "first_leaf_date_epoch": {
                 ".validate": "newData.isNumber() && newData.val() >= newData.parent().child('sowing_date_epoch').val() && (!newData.parent().child('germination_date_epoch').exists() || newData.val() >= newData.parent().child('germination_date_epoch').val()) && newData.val() <= 4102444800 && newData.val() % 1 == 0"
               },
-              "hardening_date_epoch": {
+              "true_leaves_date_epoch": {
                 ".validate": "newData.isNumber() && newData.val() >= newData.parent().child('sowing_date_epoch').val() && (!newData.parent().child('first_leaf_date_epoch').exists() || newData.val() >= newData.parent().child('first_leaf_date_epoch').val()) && newData.val() <= 4102444800 && newData.val() % 1 == 0"
+              },
+              "hardening_date_epoch": {
+                ".validate": "newData.isNumber() && newData.val() >= newData.parent().child('sowing_date_epoch').val() && (!newData.parent().child('true_leaves_date_epoch').exists() || newData.val() >= newData.parent().child('true_leaves_date_epoch').val()) && newData.val() <= 4102444800 && newData.val() % 1 == 0"
               },
               "ready_date_epoch": {
                 ".validate": "newData.isNumber() && newData.val() >= newData.parent().child('sowing_date_epoch').val() && (!newData.parent().child('hardening_date_epoch').exists() || newData.val() >= newData.parent().child('hardening_date_epoch').val()) && newData.val() <= 4102444800 && newData.val() % 1 == 0"
@@ -260,6 +263,12 @@
                 },
                 "note": {
                   ".validate": "newData.isString() && newData.val().length <= 1000"
+                },
+                "photo_id": {
+                  ".validate": "newData.isString() && ((newData.val() == '' && newData.parent().child('photo_storage_path').val() == '') || (newData.val().matches(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/) && (newData.parent().child('photo_storage_path').val() == '' || newData.parent().child('photo_storage_path').val() == 'devices/' + $deviceId + '/seedling/daily_logs/' + $batchId + '/' + newData.val() + '.jpg')))"
+                },
+                "photo_storage_path": {
+                  ".validate": "newData.isString() && (newData.val() == '' || (newData.parent().child('photo_id').val().matches(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/) && newData.val() == 'devices/' + $deviceId + '/seedling/daily_logs/' + $batchId + '/' + newData.parent().child('photo_id').val() + '.jpg'))"
                 },
                 "created_at_epoch": {
                   ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= 4102444800 && newData.val() % 1 == 0"

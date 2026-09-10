@@ -14,13 +14,10 @@ import androidx.annotation.Nullable;
 import com.alidogukan.avora.R;
 import com.alidogukan.avora.activities.AIAssistantActivity;
 import com.alidogukan.avora.activities.AboutActivity;
-import com.alidogukan.avora.activities.DeviceHealthActivity;
 import com.alidogukan.avora.activities.FertilizationCalendarActivity;
 import com.alidogukan.avora.activities.PlantAssistantActivity;
-import com.alidogukan.avora.activities.PlantListActivity;
 import com.alidogukan.avora.activities.SeasonManagementActivity;
 import com.alidogukan.avora.activities.SeedlingAssistantActivity;
-import com.alidogukan.avora.activities.SettingsHubActivity;
 import com.alidogukan.avora.activities.StatisticsActivity;
 import com.alidogukan.avora.activities.WateringHistoryActivity;
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
@@ -49,10 +46,7 @@ public class MainMenuBottomSheet extends BottomSheetDialogFragment {
         bind(view, R.id.menuCardAIAssistant, AIAssistantActivity.class);
         bind(view, R.id.menuCardStatistics, StatisticsActivity.class);
         bind(view, R.id.menuCardHistory, WateringHistoryActivity.class);
-        bind(view, R.id.menuCardPlantJournal, PlantListActivity.class);
         bind(view, R.id.menuCardSeasonManagement, SeasonManagementActivity.class);
-        bind(view, R.id.menuCardHealth, DeviceHealthActivity.class);
-        bind(view, R.id.menuCardSettings, SettingsHubActivity.class);
         bind(view, R.id.menuCardAbout, AboutActivity.class);
 
     }

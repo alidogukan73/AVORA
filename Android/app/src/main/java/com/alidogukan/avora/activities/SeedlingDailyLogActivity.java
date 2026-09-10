@@ -1,23 +1,32 @@
 package com.alidogukan.avora.activities;
 
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.PickVisualMediaRequest;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.ViewModelProvider;
 
 import com.alidogukan.avora.R;
+import com.alidogukan.avora.models.GardenPhoto;
 import com.alidogukan.avora.models.SeedlingBatch;
 import com.alidogukan.avora.models.SeedlingDailyLog;
 import com.alidogukan.avora.models.SeedlingNodeState;
 import com.alidogukan.avora.models.SeedlingRecommendation;
 import com.alidogukan.avora.models.SeedlingTelemetry;
+import com.alidogukan.avora.models.SeedlingPhotoUpload;
+import com.alidogukan.avora.photos.GardenPhotoCapture;
+import com.alidogukan.avora.ui.GardenPhotoViewerDialog;
 import com.alidogukan.avora.viewmodels.SeedlingViewModel;
 import com.google.android.gms.tasks.Task;
 import com.google.android.material.button.MaterialButton;
@@ -25,6 +34,7 @@ import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -32,6 +42,11 @@ import java.util.Locale;
 /** Records a daily manual observation alongside live, traceable sensor guidance. */
 public final class SeedlingDailyLogActivity extends EdgeToEdgeActivity {
     public static final String EXTRA_LOG_ID = "seedling_log_id";
+    private static final String STATE_SELECTED_PHOTO = "seedling_selected_photo";
+    private static final String STATE_PENDING_CAPTURE = "seedling_pending_capture";
+    private static final String STATE_SELECTED_CAPTURE = "seedling_selected_capture";
+    private static final String STATE_PHOTO_CHANGED = "seedling_photo_changed";
+    private static final String STATE_REMOVE_PHOTO = "seedling_remove_photo";
 
     private SeedlingViewModel viewModel;
     private SeedlingBatch batch;
@@ -42,6 +57,13 @@ public final class SeedlingDailyLogActivity extends EdgeToEdgeActivity {
     private LiveData<SeedlingNodeState> nodeSource;
     private boolean watered;
     private boolean seededFromLatestLog;
+    private boolean photoChanged;
+    private boolean removeExistingPhoto;
+    private boolean saveCompleted;
+    private Uri selectedPhotoUri;
+    private GardenPhoto currentPhoto;
+    private GardenPhotoCapture.Target pendingCameraPhoto;
+    private GardenPhotoCapture.Target selectedCameraPhoto;
 
     private EditText height;
     private EditText leaves;
@@ -60,6 +82,30 @@ public final class SeedlingDailyLogActivity extends EdgeToEdgeActivity {
     private MaterialCardView adviceCard;
     private MaterialCardView seasonTransferCard;
     private MaterialButton save;
+    private ImageView photoPreview;
+    private View photoFrame;
+    private View photoHint;
+    private View photoActions;
+
+    private final ActivityResultLauncher<Uri> camera =
+            registerForActivityResult(new ActivityResultContracts.TakePicture(), saved -> {
+                GardenPhotoCapture.Target target = pendingCameraPhoto;
+                pendingCameraPhoto = null;
+                if (!saved || target == null) {
+                    if (target != null) target.delete();
+                    return;
+                }
+                discardSelectedCameraPhoto();
+                selectedCameraPhoto = target;
+                selectPhoto(target.getUri());
+            });
+
+    private final ActivityResultLauncher<PickVisualMediaRequest> photoPicker =
+            registerForActivityResult(new ActivityResultContracts.PickVisualMedia(), uri -> {
+                if (uri == null) return;
+                discardSelectedCameraPhoto();
+                selectPhoto(uri);
+            });
 
     @Override protected void onCreate(@Nullable Bundle state) {
         super.onCreate(state);
@@ -74,6 +120,7 @@ public final class SeedlingDailyLogActivity extends EdgeToEdgeActivity {
 
         viewModel = new ViewModelProvider(this).get(SeedlingViewModel.class);
         bindViews();
+        if (state != null) restorePhotoState(state);
         if (!editingLogId.isBlank()) {
             toolbarTitle.setText(R.string.seedling_log_edit_title);
             save.setText(R.string.seedling_log_update);
@@ -87,6 +134,11 @@ public final class SeedlingDailyLogActivity extends EdgeToEdgeActivity {
                 .setOnClickListener(view -> showWateringPicker());
         seasonTransferCard.setOnClickListener(view ->
                 startActivity(new Intent(this, SeasonManagementActivity.class)));
+        photoFrame.setOnClickListener(view -> openPhotoOrPicker());
+        findViewById(R.id.btnSeedlingDailyPhotoChange)
+                .setOnClickListener(view -> showPhotoSourceDialog());
+        findViewById(R.id.btnSeedlingDailyPhotoDelete)
+                .setOnClickListener(view -> removePhoto());
         save.setOnClickListener(view -> submit());
 
         viewModel.getBatch(batchId).observe(this, value -> {
@@ -115,6 +167,10 @@ public final class SeedlingDailyLogActivity extends EdgeToEdgeActivity {
         targetSeason = findViewById(R.id.txtSeedlingTargetSeason);
         toolbarTitle = findViewById(R.id.txtSeedlingDailyToolbarTitle);
         save = findViewById(R.id.btnSaveSeedlingLog);
+        photoPreview = findViewById(R.id.imgSeedlingDailyPhoto);
+        photoFrame = findViewById(R.id.frameSeedlingDailyPhoto);
+        photoHint = findViewById(R.id.layoutSeedlingDailyPhotoHint);
+        photoActions = findViewById(R.id.layoutSeedlingDailyPhotoActions);
     }
 
     private void renderBatch() {
@@ -162,6 +218,7 @@ public final class SeedlingDailyLogActivity extends EdgeToEdgeActivity {
             note.setText(editingLog.getNote());
             watered = editingLog.isWatered();
             renderWateringStatus();
+            if (!photoChanged && !removeExistingPhoto) loadExistingPhoto(editingLog);
             save.setEnabled(true);
             return;
         }
@@ -276,25 +333,201 @@ public final class SeedlingDailyLogActivity extends EdgeToEdgeActivity {
             return;
         }
         save.setEnabled(false);
+        if (photoChanged && selectedPhotoUri != null) {
+            Toast.makeText(this, R.string.seedling_daily_photo_uploading,
+                    Toast.LENGTH_SHORT).show();
+            viewModel.saveDailyPhoto(selectedPhotoUri, batchId)
+                    .addOnSuccessListener(uploaded -> persistLog(heightValue, leavesValue,
+                            healthyValue, uploaded))
+                    .addOnFailureListener(error -> {
+                        save.setEnabled(true);
+                        Toast.makeText(this, R.string.runtime_photo_add_failed,
+                                Toast.LENGTH_LONG).show();
+                    });
+            return;
+        }
+        persistLog(heightValue, leavesValue, healthyValue, null);
+    }
+
+    private void persistLog(double heightValue, int leavesValue, int healthyValue,
+                            @Nullable SeedlingPhotoUpload uploaded) {
+        String photoId = uploaded == null ? retainedPhotoId() : uploaded.getPhotoId();
+        String storagePath = uploaded == null
+                ? retainedPhotoStoragePath() : uploaded.getStoragePath();
         Task<Void> operation = editingLog == null
                 ? viewModel.saveDailyLog(batchId, heightValue, leavesValue, healthyValue,
-                        watered, note.getText().toString().trim())
+                        watered, note.getText().toString().trim(), photoId, storagePath)
                 : viewModel.updateDailyLog(editingLog, heightValue, leavesValue, healthyValue,
-                        watered, note.getText().toString().trim());
+                        watered, note.getText().toString().trim(), photoId, storagePath);
         operation
                 .addOnSuccessListener(unused -> {
+                    if (editingLog != null && editingLog.hasPhoto()
+                            && (removeExistingPhoto || uploaded != null)) {
+                        viewModel.deleteDailyPhoto(editingLog);
+                    }
+                    saveCompleted = true;
+                    discardSelectedCameraPhoto();
                     Toast.makeText(this, editingLog == null
                                     ? R.string.seedling_log_saved : R.string.seedling_log_updated,
                             Toast.LENGTH_SHORT).show();
                     finish();
                 })
                 .addOnFailureListener(error -> {
+                    if (uploaded != null) viewModel.deleteDailyPhoto(uploaded);
                     save.setEnabled(true);
                     Toast.makeText(this, editingLog == null
                                     ? R.string.seedling_log_failed
                                     : R.string.seedling_log_update_failed,
                             Toast.LENGTH_LONG).show();
                 });
+    }
+
+    private String retainedPhotoId() {
+        return editingLog != null && editingLog.hasPhoto() && !removeExistingPhoto
+                ? editingLog.getPhoto_id() : "";
+    }
+
+    private String retainedPhotoStoragePath() {
+        return editingLog != null && editingLog.hasPhoto() && !removeExistingPhoto
+                ? editingLog.getPhoto_storage_path() : "";
+    }
+
+    private void showPhotoSourceDialog() {
+        new MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.runtime_add_photo)
+                .setItems(new String[]{
+                        getString(R.string.runtime_take_photo),
+                        getString(R.string.runtime_choose_gallery)
+                }, (dialog, which) -> {
+                    if (which == 0) launchCamera();
+                    else photoPicker.launch(new PickVisualMediaRequest.Builder()
+                            .setMediaType(ActivityResultContracts.PickVisualMedia.ImageOnly.INSTANCE)
+                            .build());
+                })
+                .show();
+    }
+
+    private void launchCamera() {
+        try {
+            pendingCameraPhoto = GardenPhotoCapture.create(this);
+            camera.launch(pendingCameraPhoto.getUri());
+        } catch (Exception error) {
+            if (pendingCameraPhoto != null) pendingCameraPhoto.delete();
+            pendingCameraPhoto = null;
+            Toast.makeText(this, R.string.runtime_photo_add_failed,
+                    Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void selectPhoto(Uri uri) {
+        selectedPhotoUri = uri;
+        photoChanged = true;
+        removeExistingPhoto = false;
+        currentPhoto = null;
+        photoPreview.setImageURI(null);
+        photoPreview.setImageURI(uri);
+        photoPreview.setVisibility(View.VISIBLE);
+        photoHint.setVisibility(View.GONE);
+        photoActions.setVisibility(View.VISIBLE);
+    }
+
+    private void removePhoto() {
+        discardSelectedCameraPhoto();
+        selectedPhotoUri = null;
+        currentPhoto = null;
+        photoChanged = true;
+        removeExistingPhoto = editingLog != null && editingLog.hasPhoto();
+        renderEmptyPhoto();
+    }
+
+    private void openPhotoOrPicker() {
+        if (currentPhoto != null && selectedPhotoUri == null && !removeExistingPhoto) {
+            GardenPhotoViewerDialog.show(this,
+                    Collections.singletonList(currentPhoto), currentPhoto.getId());
+        } else if (selectedPhotoUri != null) {
+            Toast.makeText(this, R.string.seedling_daily_photo_required_for_view,
+                    Toast.LENGTH_SHORT).show();
+        } else {
+            showPhotoSourceDialog();
+        }
+    }
+
+    private void loadExistingPhoto(SeedlingDailyLog log) {
+        if (log == null || !log.hasPhoto()) {
+            renderEmptyPhoto();
+            return;
+        }
+        viewModel.loadDailyPhoto(log)
+                .addOnSuccessListener(photo -> {
+                    if (photoChanged || removeExistingPhoto || isFinishing()) return;
+                    currentPhoto = photo;
+                    photoPreview.setImageURI(Uri.fromFile(
+                            new java.io.File(photo.getLocal_path())));
+                    photoPreview.setVisibility(View.VISIBLE);
+                    photoHint.setVisibility(View.GONE);
+                    photoActions.setVisibility(View.VISIBLE);
+                })
+                .addOnFailureListener(error -> {
+                    if (!photoChanged && !isFinishing()) {
+                        Toast.makeText(this, R.string.seedling_daily_photo_load_failed,
+                                Toast.LENGTH_LONG).show();
+                    }
+                });
+    }
+
+    private void renderEmptyPhoto() {
+        photoPreview.setImageDrawable(null);
+        photoPreview.setVisibility(View.GONE);
+        photoHint.setVisibility(View.VISIBLE);
+        photoActions.setVisibility(View.GONE);
+    }
+
+    private void discardSelectedCameraPhoto() {
+        if (selectedCameraPhoto != null) selectedCameraPhoto.delete();
+        selectedCameraPhoto = null;
+    }
+
+    private void restorePhotoState(Bundle state) {
+        photoChanged = state.getBoolean(STATE_PHOTO_CHANGED, false);
+        removeExistingPhoto = state.getBoolean(STATE_REMOVE_PHOTO, false);
+        pendingCameraPhoto = restoreCapture(state.getString(STATE_PENDING_CAPTURE));
+        selectedCameraPhoto = restoreCapture(state.getString(STATE_SELECTED_CAPTURE));
+        String selected = state.getString(STATE_SELECTED_PHOTO, "");
+        if (!selected.isBlank()) {
+            selectedPhotoUri = selectedCameraPhoto == null
+                    ? Uri.parse(selected) : selectedCameraPhoto.getUri();
+            selectPhoto(selectedPhotoUri);
+        } else if (removeExistingPhoto) {
+            renderEmptyPhoto();
+        }
+    }
+
+    @Nullable private GardenPhotoCapture.Target restoreCapture(String path) {
+        try {
+            return GardenPhotoCapture.restore(this, path);
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    @Override protected void onSaveInstanceState(Bundle state) {
+        super.onSaveInstanceState(state);
+        state.putBoolean(STATE_PHOTO_CHANGED, photoChanged);
+        state.putBoolean(STATE_REMOVE_PHOTO, removeExistingPhoto);
+        state.putString(STATE_SELECTED_PHOTO,
+                selectedPhotoUri == null ? "" : selectedPhotoUri.toString());
+        state.putString(STATE_PENDING_CAPTURE, pendingCameraPhoto == null
+                ? "" : pendingCameraPhoto.getAbsolutePath());
+        state.putString(STATE_SELECTED_CAPTURE, selectedCameraPhoto == null
+                ? "" : selectedCameraPhoto.getAbsolutePath());
+    }
+
+    @Override protected void onDestroy() {
+        if (isFinishing() && !saveCompleted) {
+            if (pendingCameraPhoto != null) pendingCameraPhoto.delete();
+            discardSelectedCameraPhoto();
+        }
+        super.onDestroy();
     }
 
     private static int integer(EditText input) {

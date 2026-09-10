@@ -13,6 +13,8 @@
     <string name="about_settings_app_version_label">App version</string>
     <string name="about_settings_version_format">v%1$s</string>
     <string name="about_settings_backend_version_label">Raspberry Pi backend version</string>
+    <string name="about_settings_esp32_version_label">ESP32 version</string>
+    <string name="about_settings_nodemcu_version_label">NodeMCU version</string>
     <string name="about_settings_device_label">Connected device</string>
     <string name="about_settings_backend_waiting">Waiting for connection</string>
     <string name="about_settings_backend_unavailable">Information unavailable</string>

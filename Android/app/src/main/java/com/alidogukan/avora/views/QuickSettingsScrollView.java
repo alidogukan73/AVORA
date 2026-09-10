@@ -10,9 +10,12 @@ import androidx.annotation.Nullable;
 /** Keeps the quick-settings dialog actions visible on short phone screens. */
 public final class QuickSettingsScrollView extends ScrollView {
 
-    private static final int MAX_CONTENT_HEIGHT_DP = 360;
+    // MaterialAlertDialog adds its title, message, content padding and window insets
+    // outside this view. Keeping the list compact prevents the whole dialog from
+    // being vertically centred beyond the visible window on high-density phones.
+    private static final int MAX_CONTENT_HEIGHT_DP = 260;
     private static final int MIN_CONTENT_HEIGHT_DP = 96;
-    private static final int RESERVED_DIALOG_HEIGHT_DP = 280;
+    private static final int RESERVED_DIALOG_HEIGHT_DP = 360;
 
     public QuickSettingsScrollView(Context context) {
         super(context);

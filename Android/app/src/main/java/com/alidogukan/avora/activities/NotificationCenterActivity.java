@@ -328,6 +328,7 @@ public class NotificationCenterActivity extends EdgeToEdgeActivity {
                 getString(R.string.notification_center_category_irrigation),
                 getString(R.string.notification_center_category_fertilization),
                 getString(R.string.notification_center_category_plant_assistant),
+                getString(R.string.notification_center_category_seedling),
                 getString(R.string.notification_center_category_weather),
                 getString(R.string.notification_center_category_device),
                 getString(R.string.notification_center_category_stock)
@@ -337,6 +338,7 @@ public class NotificationCenterActivity extends EdgeToEdgeActivity {
                 "irrigation",
                 "fertilization",
                 "plant",
+                "seedling",
                 "weather",
                 "device",
                 "stock"
@@ -486,14 +488,6 @@ public class NotificationCenterActivity extends EdgeToEdgeActivity {
     }
 
     private void openDetail(GardenNotification value) {
-        String applicationId = viewModel.fertilizerApplicationId(value.getSource_key());
-        if (!applicationId.isBlank()) {
-            viewModel.setState(value, true, value.isSaved());
-            startActivity(new Intent(this, FertilizerHistoryActivity.class)
-                    .putExtra("outcome_application_id", applicationId)
-                    .putExtra("zone_id", value.getZone_id()));
-            return;
-        }
         Intent intent = new Intent(this, NotificationDetailActivity.class);
         intent.putExtra("id", value.getId()).putExtra("type", value.getType()).putExtra("priority", value.getPriority())
                 .putExtra("zone_id", value.getZone_id()).putExtra("title", value.getTitle()).putExtra("description", value.getDescription())

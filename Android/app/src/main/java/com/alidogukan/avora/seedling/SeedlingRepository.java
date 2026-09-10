@@ -251,6 +251,9 @@ public final class SeedlingRepository {
         if (progress < SeedlingStagePolicy.progress(SeedlingStagePolicy.HARDENING)) {
             values.put("hardening_date_epoch", null);
         }
+        if (progress < SeedlingStagePolicy.progress(SeedlingStagePolicy.TRUE_LEAVES)) {
+            values.put("true_leaves_date_epoch", null);
+        }
         if (progress < SeedlingStagePolicy.progress(SeedlingStagePolicy.COTYLEDON)) {
             values.put("first_leaf_date_epoch", null);
         }
@@ -263,6 +266,8 @@ public final class SeedlingRepository {
                 values.put("germination_date_epoch", nowEpoch);
             } else if (SeedlingStagePolicy.COTYLEDON.equals(normalized)) {
                 values.put("first_leaf_date_epoch", nowEpoch);
+            } else if (SeedlingStagePolicy.TRUE_LEAVES.equals(normalized)) {
+                values.put("true_leaves_date_epoch", nowEpoch);
             } else if (SeedlingStagePolicy.HARDENING.equals(normalized)) {
                 values.put("hardening_date_epoch", nowEpoch);
             } else if (SeedlingStagePolicy.READY.equals(normalized)) {
@@ -299,6 +304,19 @@ public final class SeedlingRepository {
         }
         Long firstLeaf = batch.getFirst_leaf_date_epoch();
         if (firstLeaf != null) previous = firstLeaf;
+
+        int progress = SeedlingStagePolicy.progress(batch.getStage());
+        if (progress >= SeedlingStagePolicy.progress(SeedlingStagePolicy.TRUE_LEAVES)
+                && batch.getTrue_leaves_date_epoch() == null) {
+            long estimate = previous + SeedlingCropCatalog
+                    .profileForPlant(batch.getPlant_type())
+                    .getTrueLeavesAfterFirstLeafDays() * 86_400L;
+            long reachedAt = reachedDate(estimate, changedAt, previous);
+            batch.setTrue_leaves_date_epoch(reachedAt);
+            values.put("true_leaves_date_epoch", reachedAt);
+        }
+        Long trueLeaves = batch.getTrue_leaves_date_epoch();
+        if (trueLeaves != null) previous = trueLeaves;
 
         if (completed >= 4 && batch.getHardening_date_epoch() == null) {
             long reachedAt = reachedDate(batch.getEstimated_transplant_epoch(), changedAt, previous);

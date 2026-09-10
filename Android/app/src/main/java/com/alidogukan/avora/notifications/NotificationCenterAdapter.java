@@ -639,6 +639,9 @@ public class NotificationCenterAdapter
         if ("STOCK".equals(type)) return R.drawable.ic_stock_warning_24;
         if ("PHOTO_FOLLOW_UP".equals(type)) return R.drawable.ic_photo_follow_up_24;
         if ("PLANT".equals(type) || "PLANT_ASSISTANT".equals(type)) return R.drawable.ic_plant_assistant_24;
+        if ("SEEDLING".equals(type) || "SEEDLING_ASSISTANT".equals(type)) {
+            return R.drawable.ic_seedling_plant_type_24;
+        }
         if ("WEATHER".equals(type)) {
             return sourceKey.startsWith("WEATHER:HEAT:")
                     ? R.drawable.ic_weather_sunny_24
@@ -658,6 +661,8 @@ public class NotificationCenterAdapter
             if (sourceKey.startsWith("DEVICE-ERROR:")) return R.color.warning;
         }
         if ("STOCK".equals(type)) return R.color.warning;
+        if (("SEEDLING".equals(type) || "SEEDLING_ASSISTANT".equals(type))
+                && "HIGH".equals(normalized(value.getPriority()))) return R.color.error;
         if ("WEATHER".equals(type) && sourceKey.startsWith("WEATHER:RAIN:")) {
             return R.color.warning;
         }

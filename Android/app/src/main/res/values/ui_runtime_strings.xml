@@ -84,8 +84,13 @@ En fazla 5 fotoğraf · değiştirmek için dokunun</item></plurals>
     <string name="runtime_probability_urgency">Olasılık: %1$s · Aciliyet: %2$s</string>
     <string name="runtime_evaluated_context">Değerlendirilen bahçe verisi: %1$s</string>
     <string name="runtime_visual_ai_preparing">Görsel AI analizi hazırlanıyor…</string>
+    <string name="runtime_plant_analysis_in_progress">Mevcut analiz tamamlanıyor. Lütfen kısa bir süre bekleyin.</string>
     <string name="runtime_visual_ai_unavailable">Görsel AI servisine ulaşılamadı: %1$s</string>
     <string name="runtime_visual_ai_retry">Tailscale bağlantısını kontrol edip tekrar deneyin. Sorun sürerse yukarıdaki hata kodunu paylaşın.</string>
+    <string name="runtime_visual_ai_not_configured_title">Görsel AI henüz yapılandırılmamış</string>
+    <string name="runtime_visual_ai_not_configured_advice">Raspberry Pi’de görsel analiz anahtarını yapılandırıp AVORA görsel analiz servisini yeniden başlatın.</string>
+    <string name="runtime_photo_processing_failed_title">Fotoğraf analize hazırlanamadı</string>
+    <string name="runtime_photo_processing_failed_advice">Fotoğrafı yeniden çekin veya galeriden farklı bir JPEG/PNG fotoğraf seçip tekrar deneyin.</string>
     <string name="runtime_photo_quality_title">Fotoğraf bitkiyi yeterince göstermiyor</string>
     <string name="runtime_visual_confidence_urgency">Görsel güven: %%%1$d · Aciliyet: %2$s</string>
     <string name="runtime_urgency_low">Düşük</string>
@@ -115,8 +120,12 @@ Rüzgâr
 %1$s</string>
     <string name="runtime_assistant_archive_note">Bitki Asistanı · %1$s</string>
     <string name="runtime_photo_analysis_archived">Fotoğraf ve analiz kaydı Bitki Günlüğü’ne eklendi.</string>
+    <string name="runtime_analysis_archived">Analiz kaydı Bitki Günlüğü’nde güncellendi.</string>
+    <string name="runtime_photo_archived_analysis_failed">Fotoğraf Bitki Günlüğü’ne eklendi; başarısız görsel analiz kaydedilmedi.</string>
     <string name="runtime_photo_archive_failed">Fotoğraf analize eklendi, ancak arşive kaydedilemedi.</string>
+    <string name="runtime_photo_preview_failed">Fotoğraf açılamadı. Lütfen farklı bir fotoğraf seçin.</string>
     <string name="runtime_photo_metadata_sync_failed">Kayıt bu telefonda saklandı ancak Firebase’e aktarılamadı. Bağlantıyı kontrol edip analizi daha sonra yeniden deneyin.</string>
+    <string name="runtime_requested_plant_unavailable">İstenen bitki veya sezon artık etkin değil. Lütfen listeden etkin bir sezon seçin.</string>
 
     <string name="runtime_weather_updated">↻ Güncellendi: %1$s</string>
     <string name="runtime_weather_raining">Şu an yağış görünüyor — sulama öncesi toprak nemini yeniden kontrol edin.</string>
@@ -171,6 +180,23 @@ Fotoğraf ekle</string>
     <string name="runtime_growth_photo">Gelişim fotoğrafı</string>
     <string name="runtime_photo_swipe_position">%1$d / %2$d · Sağa/sola kaydırın</string>
     <string name="runtime_photo_page_description">Fotoğraf %1$d / %2$d</string>
+    <string name="runtime_photo_transform_hint">İki parmakla büyütün · Çift dokunarak sıfırlayın</string>
+    <string name="runtime_photo_rotate_left">Sola döndür</string>
+    <string name="runtime_photo_rotate_right">Sağa döndür</string>
+    <string name="runtime_photo_flip_horizontal">Yatay çevir</string>
+    <string name="runtime_photo_flip_vertical">Dikey çevir</string>
+    <string name="runtime_photo_zoom_out">Küçült</string>
+    <string name="runtime_photo_zoom_in">Büyüt</string>
+    <string name="runtime_photo_reset">Görünümü sıfırla</string>
+    <string name="runtime_open_photo">Fotoğrafı aç</string>
+    <string name="symbol_rotate_left" translatable="false">↶</string>
+    <string name="symbol_rotate_right" translatable="false">↷</string>
+    <string name="symbol_flip_horizontal" translatable="false">↔</string>
+    <string name="symbol_flip_vertical" translatable="false">↕</string>
+    <string name="symbol_zoom_out" translatable="false">−</string>
+    <string name="symbol_zoom_in" translatable="false">+</string>
+    <string name="symbol_photo_reset" translatable="false">1:1</string>
+    <string name="symbol_open_photo" translatable="false">⛶</string>
     <string name="runtime_open_photo_description">%1$d / %2$d fotoğrafı aç</string>
     <string name="runtime_close">Kapat</string>
     <string name="runtime_plant_default">Bitki</string>

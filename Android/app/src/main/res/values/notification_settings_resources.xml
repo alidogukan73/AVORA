@@ -2,7 +2,7 @@
 <resources>
     <string name="notification_settings_title">Bildirim Tercihleri</string>
     <string name="notification_settings_intro_title">Hangi gelişmelerden haberdar olmak istersiniz?</string>
-    <string name="notification_settings_intro_message">Sulama, gübreleme, Bitki Asistanı, hava, cihaz ve stok bildirimlerinin her birini yönetin.</string>
+    <string name="notification_settings_intro_message">Sulama, gübreleme, Bitki Asistanı, Fide Asistanı, hava, cihaz ve stok bildirimlerini ayrı ayrı yönetin.</string>
     <string name="notification_settings_save_failed">Bildirim tercihleri yedeklenemedi. Yerel ayarlar korunuyor.</string>
     <string name="notification_phone_section">Telefon bildirimleri</string>
     <string name="notification_phone_title">Telefon bildirimi izni</string>
@@ -11,13 +11,14 @@
     <string name="notification_system_settings">Sistem ayarları</string>
     <string name="notification_allow">İzin ver</string>
     <string name="notification_startup_permission_title">Bildirimlere izin verin</string>
-    <string name="notification_startup_permission_message">AVORA; sulama, cihaz durumu ve bakım zamanı gibi önemli gelişmeleri size bildirebilmek için izin istiyor.</string>
+    <string name="notification_startup_permission_message">AVORA; sulama, fide gelişimi, cihaz durumu ve bakım zamanı gibi önemli gelişmeleri size bildirebilmek için izin istiyor.</string>
     <string name="notification_startup_settings_message">Bildirim izni daha önce kapatıldı. Uyarıları telefonda almak için AVORA bildirimlerini sistem ayarlarından açabilirsiniz.</string>
     <string name="notification_permission_later">Daha sonra</string>
     <string name="notification_categories_section">Bildirim kategorileri</string>
     <string name="notification_category_irrigation">Sulama</string>
     <string name="notification_category_fertilization">Gübreleme</string>
     <string name="notification_category_plant">Bitki Asistanı ve takip</string>
+    <string name="notification_category_seedling">Fide Asistanı</string>
     <string name="notification_category_weather">Hava durumu</string>
     <string name="notification_category_device">Cihaz ve sistem</string>
     <string name="notification_category_stock">Gübre stoğu</string>
@@ -33,6 +34,8 @@
     <string name="reminder_fertilization_subtitle">Uygulama günü ve geciken gübre kayıtlarını hatırlatın.</string>
     <string name="reminder_plant_title">Bitki Asistanı takibi</string>
     <string name="reminder_plant_subtitle">Analizden 3 gün sonra karşılaştırma fotoğrafını hatırlatın.</string>
+    <string name="reminder_seedling_title">Fide gelişim takibi</string>
+    <string name="reminder_seedling_subtitle">Aşama zamanı gelen partileri ve eksik günlük kontrollerini hatırlatın.</string>
     <string name="reminder_quiet_section">Rahatsız etmeyin</string>
     <string name="reminder_quiet_title">Sessiz saatler</string>
     <string name="reminder_quiet_subtitle">Telefon uyarıları bu aralıkta durur; Bildirim Merkezi kayıtları korunur.</string>

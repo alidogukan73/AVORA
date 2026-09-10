@@ -15,6 +15,8 @@ import android.widget.Toast;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.PickVisualMediaRequest;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.activity.OnBackPressedCallback;
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
@@ -32,6 +34,7 @@ import com.alidogukan.avora.plantassistant.PlantGrowthAssessment;
 import com.alidogukan.avora.season.SeasonDisplayIdentity;
 import com.alidogukan.avora.ui.PrimaryBottomNavigation;
 import com.alidogukan.avora.viewmodels.PlantAssistantViewModel;
+import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
@@ -48,6 +51,14 @@ import org.json.JSONObject;
 /** AI Bitki Asistanı: fotoğraf, belirtiler, sensör ve hava bağlamıyla güvenli ön değerlendirme. */
 public class PlantAssistantActivity extends EdgeToEdgeActivity {
     private static final String LOG_TAG = "AVORA-PlantAssistant";
+    private static final String STATE_SELECTED_PLANT = "plant_selected_key";
+    private static final String STATE_REQUESTED_ZONE = "plant_requested_zone";
+    private static final String STATE_REQUESTED_SEASON = "plant_requested_season";
+    private static final String STATE_SELECTED_PHOTO = "plant_selected_photo";
+    private static final String STATE_PHOTO_ARCHIVED = "plant_photo_archived";
+    private static final String STATE_ARCHIVED_PHOTO_ID = "plant_archived_photo_id";
+    private static final String STATE_PENDING_CAPTURE = "plant_pending_capture";
+    private static final String STATE_CAPTURED_PHOTO = "plant_captured_photo";
     private PlantAssistantViewModel viewModel;
     private final Map<String, PlantSelection> plants = new HashMap<>();
     private final List<GardenZone> latestZones = new ArrayList<>();
@@ -55,6 +66,8 @@ public class PlantAssistantActivity extends EdgeToEdgeActivity {
 
     private MaterialAutoCompleteTextView zoneDropdown;
     private MaterialCardView resultCard;
+    private View photoPickerCard;
+    private MaterialButton analyzeButton;
     private TextView title, meta, context, advice;
     private TextView growthScore, growthStage, growthTrend, growthComparison, growthSignals;
     private TextView soilData, weatherTemperatureData, sunData, windData, humidityData;
@@ -69,8 +82,13 @@ public class PlantAssistantActivity extends EdgeToEdgeActivity {
     private WeatherForecast currentWeather;
     private boolean selectedPhotoArchived;
     private String archivedPhotoId = "";
-    private AnalysisSnapshot pendingAnalysis;
-    private boolean awaitingVisionResult;
+    private String selectedPlantKey = "";
+    private boolean zonesLoaded;
+    private boolean seasonsLoaded;
+    private AnalysisRequest activeAnalysis;
+    private long analysisSequence;
+    private long photoPreviewSequence;
+    private boolean destroyed;
     private GardenPhotoCapture.Target pendingCameraPhoto;
     private GardenPhotoCapture.Target capturedCameraPhoto;
 
@@ -112,18 +130,24 @@ public class PlantAssistantActivity extends EdgeToEdgeActivity {
         setContentView(R.layout.activity_plant_assistant);
         viewModel = new ViewModelProvider(this).get(PlantAssistantViewModel.class);
         PrimaryBottomNavigation.bind(this, PrimaryBottomNavigation.ASSISTANT);
-        requestedZoneId = getIntent().getStringExtra("zone_id");
-        requestedSeasonId = getIntent().getStringExtra("season_id");
+        requestedZoneId = safe(getIntent().getStringExtra("zone_id"));
+        requestedSeasonId = safe(getIntent().getStringExtra("season_id"));
         bindViews();
         bindActions();
+        if (state != null) restoreInstanceState(state);
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override public void handleOnBackPressed() { requestExit(); }
+        });
         viewModel.getZones().observe(this, items -> {
             latestZones.clear();
             if (items != null) latestZones.addAll(viewModel.activeZones(items));
+            zonesLoaded = true;
             renderPlantSelections();
         });
         viewModel.getSeasons().observe(this, items -> {
             latestSeasons.clear();
             if (items != null) latestSeasons.addAll(items);
+            seasonsLoaded = true;
             renderPlantSelections();
         });
         viewModel.getWeather().observe(this, weather -> {
@@ -131,11 +155,15 @@ public class PlantAssistantActivity extends EdgeToEdgeActivity {
             renderLiveData(selectedZone());
         });
         viewModel.getPhotoMetadata().observe(this, ignored -> { });
+        viewModel.getAnalysisInProgress().observe(this, running ->
+                setAnalysisControlsEnabled(!Boolean.TRUE.equals(running)));
     }
 
     private void bindViews() {
         zoneDropdown = findViewById(R.id.dropdownDoctorZone);
         resultCard = findViewById(R.id.cardDoctorResult);
+        photoPickerCard = findViewById(R.id.cardDoctorPhotoPicker);
+        analyzeButton = findViewById(R.id.btnAnalyzePlant);
         title = findViewById(R.id.txtDoctorTitle);
         meta = findViewById(R.id.txtDoctorMeta);
         context = findViewById(R.id.txtDoctorContext);
@@ -166,9 +194,9 @@ public class PlantAssistantActivity extends EdgeToEdgeActivity {
     }
 
     private void bindActions() {
-        findViewById(R.id.btnDoctorBack).setOnClickListener(view -> finish());
-        findViewById(R.id.cardDoctorPhotoPicker).setOnClickListener(view -> showPhotoSourceDialog());
-        findViewById(R.id.btnAnalyzePlant).setOnClickListener(view -> analyze());
+        findViewById(R.id.btnDoctorBack).setOnClickListener(view -> requestExit());
+        photoPickerCard.setOnClickListener(view -> showPhotoSourceDialog());
+        analyzeButton.setOnClickListener(view -> analyze());
         findViewById(R.id.btnPlantGrowthHistory).setOnClickListener(
                 view -> openGrowthHistory());
         other.setOnCheckedChangeListener((button, checked) -> {
@@ -221,13 +249,17 @@ public class PlantAssistantActivity extends EdgeToEdgeActivity {
     }
 
     private void renderPlantSelections() {
+        if (!zonesLoaded || !seasonsLoaded) return;
+        if (activeAnalysis != null) return;
+        String previousSelectionKey = selectedPlantKey;
         plants.clear();
         List<String> labels = new ArrayList<>();
         PlantSelection requested = null;
+        PlantSelection requestedZoneFallback = null;
+        PlantSelection retained = null;
         for (GardenZone zone : latestZones) {
             List<GardenSeason> active = SeasonDisplayIdentity.activeSeasons(
                     zone, latestSeasons);
-            if (active.isEmpty()) active.add(null);
             for (GardenSeason season : active) {
                 PlantSelection selection = new PlantSelection(zone, season, "");
                 String label = labelFor(selection);
@@ -237,16 +269,31 @@ public class PlantAssistantActivity extends EdgeToEdgeActivity {
                             : DateFormat.getDateInstance(DateFormat.SHORT)
                             .format(new Date(started * 1000L)));
                 }
+                if (plants.containsKey(label)) {
+                    String suffix = selection.seasonId().isBlank()
+                            ? safe(zone.getZone_id()) : selection.seasonId();
+                    label += " · " + suffix;
+                }
+                String uniqueLabel = label;
+                int duplicateIndex = 2;
+                while (plants.containsKey(uniqueLabel)) {
+                    uniqueLabel = label + " (" + duplicateIndex++ + ")";
+                }
+                label = uniqueLabel;
                 selection = new PlantSelection(zone, season, label);
                 labels.add(label);
                 plants.put(label, selection);
-                boolean zoneRequested = zone.getZone_id().equals(requestedZoneId);
-                boolean seasonRequested = requestedSeasonId != null
-                        && !requestedSeasonId.isBlank()
+                if (selectionKey(selection).equals(previousSelectionKey)) {
+                    retained = selection;
+                }
+                boolean zoneRequested = safe(zone.getZone_id()).equals(requestedZoneId);
+                boolean seasonRequested = !requestedSeasonId.isBlank()
                         && requestedSeasonId.equals(selection.seasonId());
+                if (zoneRequested && requestedZoneFallback == null) {
+                    requestedZoneFallback = selection;
+                }
                 if (zoneRequested && (seasonRequested
-                        || ((requestedSeasonId == null || requestedSeasonId.isBlank())
-                        && requested == null))) {
+                        || (requestedSeasonId.isBlank() && requested == null))) {
                     requested = selection;
                 }
             }
@@ -256,24 +303,60 @@ public class PlantAssistantActivity extends EdgeToEdgeActivity {
                 ? getString(R.string.runtime_no_active_season_zones)
                 : null);
         zoneDropdown.setOnItemClickListener((parent, view, position, id) -> {
+            PlantSelection selection = position >= 0 && position < labels.size()
+                    ? plants.get(labels.get(position)) : selectedPlant();
+            String newKey = selectionKey(selection);
+            boolean changed = !selectedPlantKey.isBlank()
+                    && !selectedPlantKey.equals(newKey);
+            selectedPlantKey = newKey;
             requestedZoneId = "";
             requestedSeasonId = "";
             resultCard.setVisibility(View.GONE);
-            renderLiveData(selectedZone());
+            if (changed) clearSelectedPhoto();
+            renderLiveData(selection == null ? null : selection.zone);
         });
-        if (requested != null) {
-            zoneDropdown.setText(requested.label, false);
-            renderLiveData(requested.zone);
-        } else if (labels.isEmpty()) {
+        boolean requestedSelectionUnavailable = !requestedZoneId.isBlank()
+                && requested == null
+                && (!requestedSeasonId.isBlank() || requestedZoneFallback == null);
+        if (requestedSelectionUnavailable) {
+            requestedZoneId = "";
+            requestedSeasonId = "";
+            if (!previousSelectionKey.isBlank()) clearSelectedPhoto();
+            resultCard.setVisibility(View.GONE);
+            clearLiveData();
             zoneDropdown.setText("", false);
-        } else if (selectedZone() == null) {
-            zoneDropdown.setText(labels.get(0), false);
-            renderLiveData(plants.get(labels.get(0)).zone);
+            selectedPlantKey = "";
+            toast(getString(R.string.runtime_requested_plant_unavailable));
+            return;
         }
+        PlantSelection target = requested != null
+                ? requested : requestedZoneFallback != null ? requestedZoneFallback : retained;
+        if (target == null && !labels.isEmpty()) target = plants.get(labels.get(0));
+        if (target == null) {
+            if (!previousSelectionKey.isBlank()) clearSelectedPhoto();
+            resultCard.setVisibility(View.GONE);
+            clearLiveData();
+            zoneDropdown.setText("", false);
+            selectedPlantKey = "";
+            return;
+        }
+        String targetKey = selectionKey(target);
+        if (!previousSelectionKey.isBlank() && !previousSelectionKey.equals(targetKey)) {
+            clearSelectedPhoto();
+            resultCard.setVisibility(View.GONE);
+        }
+        zoneDropdown.setText(target.label, false);
+        selectedPlantKey = targetKey;
+        renderLiveData(target.zone);
     }
 
     private void analyze() {
-        GardenZone zone = selectedZone();
+        if (activeAnalysis != null) {
+            toast(getString(R.string.runtime_plant_analysis_in_progress));
+            return;
+        }
+        PlantSelection selection = selectedPlant();
+        GardenZone zone = selection == null ? null : selection.zone;
         List<String> symptoms = selectedSymptoms();
         boolean growthStatusRequested = growthStatus.isChecked();
         if (zone == null) {
@@ -291,16 +374,38 @@ public class PlantAssistantActivity extends EdgeToEdgeActivity {
             return;
         }
         String note = text(generalNote);
+        AnalysisRequest request = new AnalysisRequest(
+                ++analysisSequence,
+                zone,
+                selection == null ? "" : selection.seasonId(),
+                selection == null ? "" : SeasonDisplayIdentity.name(selection.season, zone),
+                symptoms,
+                note,
+                currentWeather,
+                selectedPhotoUri,
+                selectedPhotoBitmap,
+                selectedPhotoArchived ? archivedPhotoId : "",
+                growthStatusRequested
+        );
         PlantAssistantResult result = viewModel.assess(
-                zone, symptoms, note, currentWeather, hasPhoto(), growthStatusRequested);
-        awaitingVisionResult = hasPhoto();
-        renderHeuristicResult(result, growthStatusRequested);
-        if (hasPhoto()) requestVisionAnalysis(zone, symptoms, note, growthStatusRequested);
-        savePhotoToArchive(zone, symptoms, note, growthStatusRequested);
+                zone, symptoms, note, currentWeather, request.hasPhoto(), growthStatusRequested);
+        if (request.hasPhoto()) {
+            int operationCount = request.archiveComplete ? 2 : 3;
+            if (!viewModel.tryBeginAnalysis(operationCount)) {
+                toast(getString(R.string.runtime_plant_analysis_in_progress));
+                return;
+            }
+            activeAnalysis = request;
+            setAnalysisControlsEnabled(false);
+        }
+        renderHeuristicResult(request, result);
+        if (!request.hasPhoto()) return;
+        requestVisionAnalysis(request);
+        if (!request.archiveComplete) savePhotoToArchive(request);
     }
 
-    private void renderHeuristicResult(PlantAssistantResult result,
-                                       boolean growthStatusRequested) {
+    private void renderHeuristicResult(AnalysisRequest request,
+                                       PlantAssistantResult result) {
         title.setText(result.getTitle());
         meta.setText(getString(R.string.runtime_probability_urgency,
                 result.getProbability(), result.getUrgency()));
@@ -308,42 +413,61 @@ public class PlantAssistantActivity extends EdgeToEdgeActivity {
                 result.getContext()));
         advice.setText(result.getAdvice());
         findViewById(R.id.layoutDoctorGrowthSummary).setVisibility(View.GONE);
-        GardenZone zone = selectedZone();
-        viewModel.saveRecommendation(
-                zone == null ? "" : zone.getZone_id(),
-                selectedSeasonId(),
-                result.getUrgency(),
-                result.getTitle(),
-                result.getAdvice()
-        );
+        if (!request.hasPhoto()) {
+            viewModel.saveRecommendation(
+                    request.zoneId,
+                    request.seasonId,
+                    result.getUrgency(),
+                    result.getTitle(),
+                    result.getAdvice()
+            );
+        }
         resultCard.setVisibility(View.VISIBLE);
-        archiveAnalysis(
+        archiveAnalysis(request,
                 result.getTitle(),
                 getString(R.string.runtime_probability_urgency,
                         result.getProbability(), result.getUrgency()),
                 result.getContext(),
                 result.getAdvice(),
-                growthStatusRequested ? "growth_status" : "health_screening",
-                0, null
+                request.growthStatusRequested ? "growth_status" : "health_screening",
+                result.getUrgency(), 0, null
         );
     }
 
-    private void requestVisionAnalysis(GardenZone zone, List<String> symptoms, String note,
-                                       boolean growthStatusRequested) {
+    private void requestVisionAnalysis(AnalysisRequest request) {
         toast(getString(R.string.runtime_visual_ai_preparing));
-        viewModel.analyzeVisionAsync(selectedPhotoBitmap, selectedPhotoUri,
-                zone, selectedPlantName(), symptoms, note, currentWeather,
-                growthStatusRequested,
-                visual -> runOnUiThread(() -> renderVisionResult(visual, growthStatusRequested)),
-                error -> runOnUiThread(() -> renderVisionFailure(error)));
+        viewModel.analyzeVisionAsync(request.photoBitmap, request.photoUri,
+                request.zone, request.plantName, request.symptoms, request.note, request.weather,
+                request.growthStatusRequested,
+                visual -> runOnUiThread(() -> {
+                    if (activeAnalysis != request) return;
+                    if (destroyed) {
+                        request.visionComplete = true;
+                        request.pendingAnalysis = null;
+                        finishAnalysisWhenReady(request);
+                    } else {
+                        renderVisionResult(request, visual);
+                    }
+                }),
+                error -> runOnUiThread(() -> {
+                    if (activeAnalysis != request) return;
+                    if (destroyed) {
+                        request.visionComplete = true;
+                        request.pendingAnalysis = null;
+                        finishAnalysisWhenReady(request);
+                    } else {
+                        renderVisionFailure(request, error);
+                    }
+                }));
     }
 
-    private void renderVisionFailure(Throwable error) {
-        awaitingVisionResult = false;
+    private void renderVisionFailure(AnalysisRequest request, Throwable error) {
+        request.visionComplete = true;
         String detail = error.getMessage();
         if (detail == null || detail.isBlank()) detail = error.getClass().getSimpleName();
         Log.e(LOG_TAG, "Plant vision analysis failed: " + detail, error);
-        if (AppCheckVerificationException.isAppCheckFailure(error)) {
+        if (AppCheckVerificationException.isAppCheckFailure(error)
+                || "UNAUTHORIZED".equals(detail)) {
             title.setText(R.string.runtime_visual_ai_app_check_title);
             meta.setText(getString(R.string.runtime_visual_ai_app_check_meta,
                     BuildConfig.VERSION_NAME + " / " + BuildConfig.BUILD_TYPE));
@@ -352,9 +476,21 @@ public class PlantAssistantActivity extends EdgeToEdgeActivity {
                     : R.string.runtime_visual_ai_app_check_test);
         } else if ("VISION_API_KEY_INVALID".equals(detail)) {
             title.setText(R.string.runtime_visual_ai_key_invalid);
-            meta.setText("VISION_API_KEY_INVALID");
+            meta.setText(detail);
             advice.setText(R.string.runtime_visual_ai_key_invalid_advice);
-        } else if (detail.startsWith("VISION_PROVIDER_ERROR:")) {
+        } else if ("VISION_NOT_CONFIGURED".equals(detail)) {
+            title.setText(R.string.runtime_visual_ai_not_configured_title);
+            meta.setText(detail);
+            advice.setText(R.string.runtime_visual_ai_not_configured_advice);
+        } else if (isPhotoInputError(detail)) {
+            title.setText(R.string.runtime_photo_processing_failed_title);
+            meta.setText(detail);
+            advice.setText(R.string.runtime_photo_processing_failed_advice);
+        } else if (detail.startsWith("VISION_PROVIDER_ERROR:")
+                || "VISION_TIMEOUT".equals(detail)
+                || "VISION_PROVIDER_TIMEOUT".equals(detail)
+                || "VISION_PROVIDER_UNAVAILABLE".equals(detail)
+                || "VISION_INVALID_RESPONSE".equals(detail)) {
             title.setText(R.string.runtime_visual_ai_provider_failed);
             meta.setText(detail);
             advice.setText(R.string.runtime_visual_ai_provider_advice);
@@ -364,11 +500,21 @@ public class PlantAssistantActivity extends EdgeToEdgeActivity {
             advice.setText(R.string.runtime_visual_ai_retry);
         }
         resultCard.setVisibility(View.VISIBLE);
-        applyPendingAnalysis();
+        request.pendingAnalysis = null;
+        finishAnalysisWhenReady(request);
     }
 
-    private void renderVisionResult(JSONObject visual, boolean growthStatusRequested) {
-        awaitingVisionResult = false;
+    private static boolean isPhotoInputError(String detail) {
+        return "PHOTO_DECODE_FAILED".equals(detail)
+                || "PHOTO_ENCODE_FAILED".equals(detail)
+                || "INVALID_IMAGE".equals(detail)
+                || "IMAGE_TOO_LARGE".equals(detail)
+                || "REQUEST_TOO_LARGE".equals(detail)
+                || "UNSUPPORTED_IMAGE_TYPE".equals(detail);
+    }
+
+    private void renderVisionResult(AnalysisRequest request, JSONObject visual) {
+        request.visionComplete = true;
         if (!visual.optBoolean("is_plant_photo", true)) {
             title.setText(R.string.runtime_photo_quality_title);
             meta.setText(getString(R.string.runtime_visual_confidence_urgency,
@@ -377,26 +523,23 @@ public class PlantAssistantActivity extends EdgeToEdgeActivity {
             advice.setText(R.string.runtime_photo_quality_advice);
             resultCard.setVisibility(View.VISIBLE);
             findViewById(R.id.layoutDoctorGrowthSummary).setVisibility(View.GONE);
-            archiveAnalysis(String.valueOf(title.getText()), String.valueOf(meta.getText()),
+            archiveAnalysis(request,
+                    String.valueOf(title.getText()), String.valueOf(meta.getText()),
                     String.valueOf(context.getText()), String.valueOf(advice.getText()),
-                    "", visual.optInt("confidence", 0), null);
+                    "", getString(R.string.runtime_urgency_low),
+                    visual.optInt("confidence", 0), null);
             return;
         }
         String findings = visual.optString("visual_findings", getString(R.string.runtime_no_visual_findings));
         String causes = viewModel.list(visual.optJSONArray("possible_causes"));
         String steps = viewModel.list(visual.optJSONArray("next_steps"));
         String redFlags = viewModel.list(visual.optJSONArray("red_flags"));
-        viewModel.saveRecommendation(
-                selectedZone() == null ? "" : selectedZone().getZone_id(),
-                selectedSeasonId(),
-                visual.optString("urgency", getString(R.string.runtime_urgency_low)),
-                visual.optString("title", getString(R.string.runtime_visual_preassessment)),
-                steps.isEmpty() ? findings : steps
-        );
+        String urgency = visual.optString(
+                "urgency", getString(R.string.runtime_urgency_low));
         title.setText(visual.optString("title", getString(R.string.runtime_visual_preassessment)));
         meta.setText(getString(R.string.runtime_visual_confidence_urgency,
                 visual.optInt("confidence", 0),
-                visual.optString("urgency", getString(R.string.runtime_urgency_low))));
+                urgency));
         context.setText(causes.isEmpty()
                 ? findings
                 : getString(
@@ -404,7 +547,7 @@ public class PlantAssistantActivity extends EdgeToEdgeActivity {
                         findings,
                         getString(
                                 R.string.runtime_two_lines,
-                                getString(growthStatusRequested
+                                getString(request.growthStatusRequested
                                         ? R.string.runtime_growth_factors
                                         : R.string.runtime_possible_causes),
                                 causes)));
@@ -412,7 +555,7 @@ public class PlantAssistantActivity extends EdgeToEdgeActivity {
         if (!steps.isEmpty()) {
             adviceSections.add(getString(
                     R.string.runtime_two_lines,
-                    getString(growthStatusRequested
+                    getString(request.growthStatusRequested
                             ? R.string.runtime_growth_follow_up
                             : R.string.runtime_recommended_observation),
                     steps));
@@ -429,12 +572,11 @@ public class PlantAssistantActivity extends EdgeToEdgeActivity {
         advice.setText(String.join("\n\n", adviceSections));
         int confidence = visual.optInt("confidence", 0);
         PlantGrowthAssessment growth = null;
-        if (growthStatusRequested) {
+        if (request.growthStatusRequested) {
             int score = visual.optInt("growth_score", -1);
             if (score >= 0 && score <= 100) {
-                GardenZone zone = selectedZone();
                 growth = viewModel.evaluateGrowth(
-                        zone == null ? "" : zone.getZone_id(), selectedSeasonId(), archivedPhotoId,
+                        request.zoneId, request.seasonId, request.archiveId,
                         score, confidence, visual.optString("growth_stage"),
                         viewModel.list(visual.optJSONArray("growth_signals")));
                 renderGrowthSummary(growth);
@@ -445,10 +587,11 @@ public class PlantAssistantActivity extends EdgeToEdgeActivity {
             findViewById(R.id.layoutDoctorGrowthSummary).setVisibility(View.GONE);
         }
         resultCard.setVisibility(View.VISIBLE);
-        archiveAnalysis(String.valueOf(title.getText()), String.valueOf(meta.getText()),
+        archiveAnalysis(request,
+                String.valueOf(title.getText()), String.valueOf(meta.getText()),
                 String.valueOf(context.getText()), String.valueOf(advice.getText()),
-                growthStatusRequested ? "growth_status" : "health_screening",
-                confidence, growth);
+                request.growthStatusRequested ? "growth_status" : "health_screening",
+                urgency, confidence, growth);
     }
 
     private List<String> selectedSymptoms() {
@@ -464,87 +607,194 @@ public class PlantAssistantActivity extends EdgeToEdgeActivity {
     }
 
     private void renderLiveData(GardenZone zone) {
-        if (zone == null) return;
-        soilData.setText(getString(R.string.format_assistant_soil_data, "%" + zone.getMoisture()));
+        if (zone == null) {
+            clearLiveData();
+            return;
+        }
+        boolean sensorCurrent = viewModel.isSensorDataCurrent(zone);
+        WeatherForecast currentForecast = viewModel.currentWeatherOrNull(currentWeather);
+        soilData.setText(getString(R.string.format_assistant_soil_data,
+                sensorCurrent ? "%" + zone.getMoisture() : "—"));
         weatherTemperatureData.setText(getString(
                 R.string.runtime_two_lines,
                 getString(R.string.weather_temperature_label),
-                number(currentWeather == null
+                number(currentForecast == null
                         ? null
-                        : currentWeather.getCurrentTemperature(), "°C")));
-        sunData.setText(getString(R.string.format_assistant_sun_data, sunLabel(currentWeather)));
+                        : currentForecast.getCurrentTemperature(), "°C")));
+        sunData.setText(getString(R.string.format_assistant_sun_data, sunLabel(currentForecast)));
         windData.setText(getString(R.string.runtime_wind_format,
-                number(currentWeather == null ? null : currentWeather.getCurrentWind(), " km/sa")));
-        humidityData.setText(getString(R.string.format_assistant_humidity_data, number(currentWeather == null ? null : currentWeather.getCurrentHumidity(), "%")));
+                number(currentForecast == null ? null : currentForecast.getCurrentWind(), " km/sa")));
+        humidityData.setText(getString(R.string.format_assistant_humidity_data,
+                number(currentForecast == null ? null : currentForecast.getCurrentHumidity(), "%")));
     }
 
-    private void savePhotoToArchive(GardenZone zone, List<String> symptoms, String note,
-                                    boolean growthStatusRequested) {
-        if (!hasPhoto() || selectedPhotoArchived) return;
-        selectedPhotoArchived = true;
-        List<String> selections = new ArrayList<>(symptoms);
-        if (growthStatusRequested) {
+    private void clearLiveData() {
+        soilData.setText(getString(R.string.format_assistant_soil_data, "—"));
+        weatherTemperatureData.setText(getString(
+                R.string.runtime_two_lines,
+                getString(R.string.weather_temperature_label), "—"));
+        sunData.setText(getString(R.string.format_assistant_sun_data, "—"));
+        windData.setText(getString(R.string.runtime_wind_format, "—"));
+        humidityData.setText(getString(R.string.format_assistant_humidity_data, "—"));
+    }
+
+    private void savePhotoToArchive(AnalysisRequest request) {
+        List<String> selections = new ArrayList<>(request.symptoms);
+        if (request.growthStatusRequested) {
             selections.add(0, getString(R.string.runtime_growth_status_selection));
         }
         String archiveNote = getString(R.string.runtime_assistant_archive_note, String.join(", ", selections))
-                + (note.isEmpty() ? "" : " · " + note);
-        Uri uri = selectedPhotoUri;
-        Bitmap bitmap = selectedPhotoBitmap;
-        viewModel.archivePhotoAsync(uri, bitmap, zone.getZone_id(), selectedSeasonId(), archiveNote,
+                + (request.note.isEmpty() ? "" : " · " + request.note);
+        viewModel.archivePhotoAsync(
+                request.photoUri,
+                request.photoBitmap,
+                request.zoneId,
+                request.seasonId,
+                archiveNote,
                 saved -> runOnUiThread(() -> {
-                    if (saved != null) {
-                        archivedPhotoId = saved.getId();
-                        applyPendingAnalysis();
+                    if (activeAnalysis != request) return;
+                    if (saved == null || safe(saved.getId()).isBlank()) {
+                        request.archiveFailed = true;
+                        if (!destroyed) {
+                            selectedPhotoArchived = false;
+                            toast(getString(R.string.runtime_photo_archive_failed));
+                        }
+                    } else {
+                        request.archiveId = saved.getId();
+                        request.archiveComplete = true;
+                        if (!destroyed) {
+                            archivedPhotoId = saved.getId();
+                            selectedPhotoArchived = true;
+                        }
                     }
-                    toast(getString(R.string.runtime_photo_analysis_archived));
-                }), error -> {
-                    selectedPhotoArchived = false;
-                    runOnUiThread(() -> toast(getString(R.string.runtime_photo_archive_failed)));
-                });
-    }
-
-    private void archiveAnalysis(String analysisTitle, String analysisMeta,
-                                 String analysisContext, String analysisAdvice,
-                                 String analysisGoal, int confidence,
-                                 PlantGrowthAssessment growth) {
-        if (!hasPhoto()) return;
-        GardenZone zone = selectedZone();
-        pendingAnalysis = new AnalysisSnapshot(analysisTitle, analysisMeta, analysisContext,
-                analysisAdvice, zone == null ? "" : zone.getZone_id(), selectedSeasonId(), analysisGoal,
-                confidence, growth);
-        applyPendingAnalysis();
-    }
-
-    private void applyPendingAnalysis() {
-        if (awaitingVisionResult || pendingAnalysis == null || archivedPhotoId.isBlank()) return;
-        AnalysisSnapshot snapshot = pendingAnalysis;
-        pendingAnalysis = null;
-        viewModel.finalizeAnalysisAsync(archivedPhotoId, snapshot.zoneId, snapshot.seasonId, snapshot.title,
-                snapshot.meta, snapshot.context, snapshot.advice, snapshot.analysisGoal,
-                snapshot.confidence, snapshot.growth,
-                error -> runOnUiThread(() -> {
-                    Log.w(LOG_TAG, "Plant analysis metadata sync failed", error);
-                    toast(getString(R.string.runtime_photo_metadata_sync_failed));
+                    finishAnalysisWhenReady(request);
+                }), error -> runOnUiThread(() -> {
+                    if (activeAnalysis != request) return;
+                    request.archiveFailed = true;
+                    Log.w(LOG_TAG, "Plant photo archive failed", error);
+                    if (!destroyed) {
+                        selectedPhotoArchived = false;
+                        toast(getString(R.string.runtime_photo_archive_failed));
+                    }
+                    finishAnalysisWhenReady(request);
                 }));
     }
 
+    private void archiveAnalysis(AnalysisRequest request,
+                                 String analysisTitle, String analysisMeta,
+                                 String analysisContext, String analysisAdvice,
+                                 String analysisGoal, String urgency, int confidence,
+                                 PlantGrowthAssessment growth) {
+        if (!request.hasPhoto()) return;
+        request.pendingAnalysis = new AnalysisSnapshot(
+                analysisTitle, analysisMeta, analysisContext, analysisAdvice,
+                analysisGoal, urgency, confidence, growth);
+        finishAnalysisWhenReady(request);
+    }
+
+    private void finishAnalysisWhenReady(AnalysisRequest request) {
+        if (activeAnalysis != request || !request.visionComplete
+                || request.completionStarted) return;
+        if (request.archiveFailed) {
+            request.completionStarted = true;
+            request.pendingAnalysis = null;
+            viewModel.skipAnalysisFinalization();
+            completeAnalysis(request, false);
+            return;
+        }
+        if (!request.archiveComplete || request.archiveId.isBlank()) return;
+        AnalysisSnapshot snapshot = request.pendingAnalysis;
+        request.pendingAnalysis = null;
+        request.completionStarted = true;
+        if (snapshot == null) {
+            viewModel.skipAnalysisFinalization();
+            if (!request.startedArchived && !destroyed) {
+                toast(getString(R.string.runtime_photo_archived_analysis_failed));
+            }
+            completeAnalysis(request, false);
+            return;
+        }
+        viewModel.finalizeAnalysisAsync(
+                request.archiveId, request.zoneId, request.seasonId, snapshot.title,
+                snapshot.meta, snapshot.context, snapshot.advice, snapshot.analysisGoal,
+                snapshot.confidence, snapshot.urgency, snapshot.growth,
+                saved -> runOnUiThread(() -> completeAnalysis(request, saved)),
+                error -> runOnUiThread(() -> {
+                    Log.w(LOG_TAG, "Plant analysis metadata sync failed", error);
+                    if (!destroyed) toast(getString(R.string.runtime_photo_metadata_sync_failed));
+                }));
+    }
+
+    private void completeAnalysis(AnalysisRequest request, boolean analysisSaved) {
+        if (activeAnalysis != request) return;
+        activeAnalysis = null;
+        if (destroyed) return;
+        setAnalysisControlsEnabled(true);
+        if (analysisSaved) {
+            toast(getString(request.startedArchived
+                    ? R.string.runtime_analysis_archived
+                    : R.string.runtime_photo_analysis_archived));
+        }
+    }
+
     private static final class AnalysisSnapshot {
-        final String title, meta, context, advice, zoneId, seasonId, analysisGoal;
+        final String title, meta, context, advice, analysisGoal, urgency;
         final int confidence;
         final PlantGrowthAssessment growth;
 
         AnalysisSnapshot(String title, String meta, String context, String advice,
-                         String zoneId, String seasonId, String analysisGoal, int confidence,
+                         String analysisGoal, String urgency, int confidence,
                          PlantGrowthAssessment growth) {
             this.title = title;
             this.meta = meta;
             this.context = context;
             this.advice = advice;
-            this.zoneId = zoneId;
-            this.seasonId = seasonId;
             this.analysisGoal = analysisGoal;
+            this.urgency = urgency;
             this.confidence = confidence;
             this.growth = growth;
+        }
+    }
+
+    private static final class AnalysisRequest {
+        final long id;
+        final GardenZone zone;
+        final String zoneId, seasonId, plantName, note;
+        final List<String> symptoms;
+        final WeatherForecast weather;
+        final Uri photoUri;
+        final Bitmap photoBitmap;
+        final boolean growthStatusRequested;
+        boolean visionComplete;
+        boolean archiveComplete;
+        boolean archiveFailed;
+        boolean completionStarted;
+        final boolean startedArchived;
+        String archiveId;
+        AnalysisSnapshot pendingAnalysis;
+
+        AnalysisRequest(long id, GardenZone zone, String seasonId, String plantName,
+                        List<String> symptoms, String note, WeatherForecast weather,
+                        Uri photoUri, Bitmap photoBitmap, String archiveId,
+                        boolean growthStatusRequested) {
+            this.id = id;
+            this.zone = zone;
+            this.zoneId = safe(zone == null ? "" : zone.getZone_id());
+            this.seasonId = safe(seasonId);
+            this.plantName = safe(plantName);
+            this.symptoms = new ArrayList<>(symptoms);
+            this.note = safe(note);
+            this.weather = weather;
+            this.photoUri = photoUri;
+            this.photoBitmap = photoBitmap;
+            this.archiveId = safe(archiveId);
+            this.archiveComplete = !this.archiveId.isBlank();
+            this.startedArchived = this.archiveComplete;
+            this.growthStatusRequested = growthStatusRequested;
+        }
+
+        boolean hasPhoto() {
+            return photoUri != null || photoBitmap != null;
         }
     }
 
@@ -617,10 +867,6 @@ public class PlantAssistantActivity extends EdgeToEdgeActivity {
         PlantSelection selected = selectedPlant();
         return selected == null ? "" : selected.seasonId();
     }
-    private String selectedPlantName() {
-        PlantSelection selected = selectedPlant();
-        return selected == null ? "" : SeasonDisplayIdentity.name(selected.season, selected.zone);
-    }
     private boolean hasPhoto() { return selectedPhotoUri != null || selectedPhotoBitmap != null; }
     private String labelFor(PlantSelection plant) {
         return plant == null ? ""
@@ -637,28 +883,173 @@ public class PlantAssistantActivity extends EdgeToEdgeActivity {
     }
 
     private void showPhoto(Uri uri) {
+        final long previewSequence = ++photoPreviewSequence;
+        releaseSelectedPhotoBitmap();
         selectedPhotoArchived = false;
         archivedPhotoId = "";
-        pendingAnalysis = null;
-        awaitingVisionResult = false;
         selectedPhotoUri = uri;
         selectedPhotoBitmap = null;
-        photoPreview.setImageURI(uri);
-        photoPreview.setVisibility(View.VISIBLE);
-        photoHintLayout.setVisibility(View.GONE);
+        photoPreview.setImageDrawable(null);
+        photoPreview.setVisibility(View.GONE);
+        photoHintLayout.setVisibility(View.VISIBLE);
+        viewModel.loadPhotoPreviewAsync(uri,
+                bitmap -> runOnUiThread(() -> {
+                    if (destroyed || previewSequence != photoPreviewSequence
+                            || !uri.equals(selectedPhotoUri)) {
+                        if (bitmap != null && !bitmap.isRecycled()) bitmap.recycle();
+                        return;
+                    }
+                    selectedPhotoBitmap = bitmap;
+                    photoPreview.setImageBitmap(bitmap);
+                    photoPreview.setVisibility(View.VISIBLE);
+                    photoHintLayout.setVisibility(View.GONE);
+                }),
+                error -> runOnUiThread(() -> {
+                    if (destroyed || previewSequence != photoPreviewSequence
+                            || !uri.equals(selectedPhotoUri)) return;
+                    Log.w(LOG_TAG, "Plant photo preview failed", error);
+                    clearSelectedPhoto();
+                    toast(getString(R.string.runtime_photo_preview_failed));
+                }));
     }
 
     private void showPhoto(Bitmap bitmap) {
+        releaseSelectedPhotoBitmap();
         selectedPhotoArchived = false;
         archivedPhotoId = "";
-
-        pendingAnalysis = null;
-        awaitingVisionResult = false;
         selectedPhotoBitmap = bitmap;
         selectedPhotoUri = null;
         photoPreview.setImageBitmap(bitmap);
         photoPreview.setVisibility(View.VISIBLE);
         photoHintLayout.setVisibility(View.GONE);
+    }
+
+    private void clearSelectedPhoto() {
+        if (activeAnalysis != null) return;
+        photoPreviewSequence++;
+        discardCapturedCameraPhoto();
+        releaseSelectedPhotoBitmap();
+        selectedPhotoUri = null;
+        selectedPhotoArchived = false;
+        archivedPhotoId = "";
+        photoPreview.setImageDrawable(null);
+        photoPreview.setVisibility(View.GONE);
+        photoHintLayout.setVisibility(View.VISIBLE);
+    }
+
+    private void releaseSelectedPhotoBitmap() {
+        if (selectedPhotoBitmap != null && !selectedPhotoBitmap.isRecycled()) {
+            selectedPhotoBitmap.recycle();
+        }
+        selectedPhotoBitmap = null;
+    }
+
+    private void setAnalysisControlsEnabled(boolean enabled) {
+        zoneDropdown.setEnabled(enabled);
+        photoPickerCard.setEnabled(enabled);
+        analyzeButton.setEnabled(enabled);
+        generalNote.setEnabled(enabled);
+        otherNote.setEnabled(enabled);
+        growthStatus.setEnabled(enabled);
+        yellowing.setEnabled(enabled);
+        drying.setEnabled(enabled);
+        spot.setEnabled(enabled);
+        wilt.setEnabled(enabled);
+        pest.setEnabled(enabled);
+        flowerDrop.setEnabled(enabled);
+        other.setEnabled(enabled);
+        findViewById(R.id.btnPlantGrowthHistory).setEnabled(enabled);
+        findViewById(R.id.navPrimaryHome).setEnabled(enabled);
+        findViewById(R.id.navPrimaryPlants).setEnabled(enabled);
+        findViewById(R.id.navPrimaryAssistant).setEnabled(enabled);
+        findViewById(R.id.navPrimaryNotifications).setEnabled(enabled);
+        findViewById(R.id.navPrimarySettings).setEnabled(enabled);
+        if (enabled) renderPlantSelections();
+    }
+
+    private void restoreInstanceState(Bundle state) {
+        selectedPlantKey = safe(state.getString(STATE_SELECTED_PLANT));
+        if (selectedPlantKey.isBlank()) {
+            requestedZoneId = safe(state.getString(STATE_REQUESTED_ZONE, requestedZoneId));
+            requestedSeasonId = safe(state.getString(STATE_REQUESTED_SEASON, requestedSeasonId));
+        } else {
+            requestedZoneId = "";
+            requestedSeasonId = "";
+        }
+        pendingCameraPhoto = restoreCapture(state.getString(STATE_PENDING_CAPTURE));
+        capturedCameraPhoto = restoreCapture(state.getString(STATE_CAPTURED_PHOTO));
+        String photo = safe(state.getString(STATE_SELECTED_PHOTO));
+        if (!photo.isBlank()) {
+            try {
+                showPhoto(Uri.parse(photo));
+                selectedPhotoArchived = state.getBoolean(STATE_PHOTO_ARCHIVED, false);
+                archivedPhotoId = safe(state.getString(STATE_ARCHIVED_PHOTO_ID));
+            } catch (Exception error) {
+                Log.w(LOG_TAG, "Saved plant photo could not be restored", error);
+                clearSelectedPhoto();
+            }
+        }
+    }
+
+    private GardenPhotoCapture.Target restoreCapture(String path) {
+        try {
+            return GardenPhotoCapture.restore(this, path);
+        } catch (Exception error) {
+            Log.w(LOG_TAG, "Camera capture could not be restored", error);
+            return null;
+        }
+    }
+
+    @Override
+    protected void onSaveInstanceState(@NonNull Bundle outState) {
+        outState.putString(STATE_SELECTED_PLANT, selectedPlantKey);
+        outState.putString(STATE_REQUESTED_ZONE, requestedZoneId);
+        outState.putString(STATE_REQUESTED_SEASON, requestedSeasonId);
+        outState.putString(STATE_SELECTED_PHOTO,
+                selectedPhotoUri == null ? "" : selectedPhotoUri.toString());
+        outState.putBoolean(STATE_PHOTO_ARCHIVED, selectedPhotoArchived);
+        outState.putString(STATE_ARCHIVED_PHOTO_ID, archivedPhotoId);
+        outState.putString(STATE_PENDING_CAPTURE, pendingCameraPhoto == null
+                ? "" : pendingCameraPhoto.getAbsolutePath());
+        outState.putString(STATE_CAPTURED_PHOTO, capturedCameraPhoto == null
+                ? "" : capturedCameraPhoto.getAbsolutePath());
+        super.onSaveInstanceState(outState);
+    }
+
+    private void requestExit() {
+        if (activeAnalysis != null
+                || Boolean.TRUE.equals(viewModel.getAnalysisInProgress().getValue())) {
+            toast(getString(R.string.runtime_plant_analysis_in_progress));
+            return;
+        }
+        finish();
+    }
+
+    private static String selectionKey(PlantSelection selection) {
+        if (selection == null) return "";
+        return safe(selection.zone == null ? "" : selection.zone.getZone_id())
+                + "\n" + safe(selection.seasonId());
+    }
+
+    private static String safe(String value) {
+        return value == null ? "" : value.trim();
+    }
+
+    @Override
+    protected void onDestroy() {
+        destroyed = true;
+        photoPreviewSequence++;
+        boolean hadActiveAnalysis = activeAnalysis != null;
+        if (hadActiveAnalysis && !isChangingConfigurations()) {
+            activeAnalysis = null;
+        }
+        if (isFinishing() && !hadActiveAnalysis) {
+            if (pendingCameraPhoto != null) pendingCameraPhoto.delete();
+            pendingCameraPhoto = null;
+            discardCapturedCameraPhoto();
+            releaseSelectedPhotoBitmap();
+        }
+        super.onDestroy();
     }
     private static final class PlantSelection {
         final GardenZone zone;

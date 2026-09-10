@@ -49,6 +49,9 @@ public final class NotificationPolicy {
                 return "fertilization";
             case "STOCK":
                 return "stock";
+            case "SEEDLING":
+            case "SEEDLING_ASSISTANT":
+                return "seedling";
             case "WEATHER":
                 return "weather";
             case "DEVICE":

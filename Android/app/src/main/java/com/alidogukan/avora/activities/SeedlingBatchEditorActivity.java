@@ -2,6 +2,7 @@ package com.alidogukan.avora.activities;
 
 import android.app.DatePickerDialog;
 import android.os.Bundle;
+import android.text.InputFilter;
 import android.text.InputType;
 import android.view.View;
 import android.widget.EditText;
@@ -9,11 +10,14 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.lifecycle.ViewModelProvider;
 
 import com.alidogukan.avora.R;
 import com.alidogukan.avora.models.CropCatalogItem;
 import com.alidogukan.avora.seedling.SeedlingCropCatalog;
+import com.alidogukan.avora.seedling.SeedlingPlantingGuide;
+import com.alidogukan.avora.seedling.SeedlingVarietyCatalog;
 import com.alidogukan.avora.viewmodels.SeedlingViewModel;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
@@ -38,6 +42,10 @@ public final class SeedlingBatchEditorActivity extends EdgeToEdgeActivity {
     private TextView areaValue;
     private TextView emergenceDateValue;
     private TextView transplantDateValue;
+    private TextView trayLabel;
+    private TextView guideCrop;
+    private TextView guideSoil;
+    private TextView guideTray;
     private EditText seedCount;
     private EditText trayCells;
     private MaterialButton create;
@@ -45,6 +53,7 @@ public final class SeedlingBatchEditorActivity extends EdgeToEdgeActivity {
     private String selectedVariety = "";
     private String selectedArea = "";
     private LocalDate sowingDate = LocalDate.now();
+    private int preservedTrayCellCount = 100;
 
     @Override protected void onCreate(@Nullable Bundle state) {
         super.onCreate(state);
@@ -57,6 +66,10 @@ public final class SeedlingBatchEditorActivity extends EdgeToEdgeActivity {
         areaValue = findViewById(R.id.txtSeedlingAreaValue);
         emergenceDateValue = findViewById(R.id.txtSeedlingEmergenceDateValue);
         transplantDateValue = findViewById(R.id.txtSeedlingTransplantDateValue);
+        trayLabel = findViewById(R.id.txtSeedlingTrayLabel);
+        guideCrop = findViewById(R.id.txtSeedlingGuideCrop);
+        guideSoil = findViewById(R.id.txtSeedlingGuideSoil);
+        guideTray = findViewById(R.id.txtSeedlingGuideTray);
         seedCount = findViewById(R.id.inputSeedlingSeedCount);
         trayCells = findViewById(R.id.inputSeedlingTrayCells);
         create = findViewById(R.id.btnCreateSeedlingBatch);
@@ -79,16 +92,18 @@ public final class SeedlingBatchEditorActivity extends EdgeToEdgeActivity {
 
     private void updateCrops(List<CropCatalogItem> values, boolean preserveSelection) {
         String selectedId = preserveSelection && selectedCrop != null
-                ? selectedCrop.getCrop_id() : "tomato";
+                ? selectedCrop.getCrop_id() : null;
         crops.clear();
         if (values != null) crops.addAll(values);
         selectedCrop = findCrop(selectedId);
-        if (selectedCrop == null) selectedCrop = findCrop("tomato");
         if (selectedCrop == null && !crops.isEmpty()) selectedCrop = crops.get(0);
 
-        List<String> varieties = SeedlingCropCatalog.profileFor(selectedCrop).getVarieties();
-        if (!preserveSelection || selectedVariety.isBlank()) {
+        List<String> varieties = varietiesForSelectedCrop();
+        String preservedVariety = SeedlingVarietyCatalog.find(varieties, selectedVariety);
+        if (!preserveSelection || preservedVariety == null) {
             selectedVariety = varieties.get(0);
+        } else {
+            selectedVariety = preservedVariety;
         }
         renderSelection();
     }
@@ -117,8 +132,7 @@ public final class SeedlingBatchEditorActivity extends EdgeToEdgeActivity {
                 .setTitle(R.string.seedling_plant_type)
                 .setSingleChoiceItems(labels, selectedIndex, (dialog, which) -> {
                     selectedCrop = crops.get(which);
-                    List<String> varieties =
-                            SeedlingCropCatalog.profileFor(selectedCrop).getVarieties();
+                    List<String> varieties = varietiesForSelectedCrop();
                     selectedVariety = varieties.get(0);
                     renderSelection();
                     dialog.dismiss();
@@ -129,21 +143,21 @@ public final class SeedlingBatchEditorActivity extends EdgeToEdgeActivity {
 
     private void showVarietyPicker() {
         if (selectedCrop == null) return;
-        List<String> profileVarieties = SeedlingCropCatalog
-                .profileFor(selectedCrop).getVarieties();
-        List<String> options = new ArrayList<>(profileVarieties);
+        List<String> varieties = varietiesForSelectedCrop();
+        List<String> options = new ArrayList<>(varieties);
         options.add(getString(R.string.seedling_variety_custom));
-        int checked = profileVarieties.indexOf(selectedVariety);
+        String current = SeedlingVarietyCatalog.find(varieties, selectedVariety);
+        int checked = current == null ? -1 : varieties.indexOf(current);
 
         new MaterialAlertDialogBuilder(this)
                 .setTitle(R.string.seedling_variety)
                 .setSingleChoiceItems(options.toArray(new String[0]), checked,
                         (dialog, which) -> {
                             dialog.dismiss();
-                            if (which == profileVarieties.size()) {
+                            if (which == varieties.size()) {
                                 showCustomVarietyDialog();
                             } else {
-                                selectedVariety = profileVarieties.get(which);
+                                selectedVariety = varieties.get(which);
                                 varietyValue.setText(selectedVariety);
                             }
                         })
@@ -156,24 +170,50 @@ public final class SeedlingBatchEditorActivity extends EdgeToEdgeActivity {
         input.setSingleLine(true);
         input.setInputType(InputType.TYPE_CLASS_TEXT
                 | InputType.TYPE_TEXT_FLAG_CAP_WORDS);
+        input.setFilters(new InputFilter[]{
+                new InputFilter.LengthFilter(SeedlingVarietyCatalog.MAX_NAME_LENGTH)
+        });
         input.setHint(R.string.seedling_variety_custom_hint);
-        if (!SeedlingCropCatalog.profileFor(selectedCrop)
-                .getVarieties().contains(selectedVariety)) {
+        if (SeedlingVarietyCatalog.find(
+                SeedlingCropCatalog.profileFor(selectedCrop).getVarieties(),
+                selectedVariety) == null) {
             input.setText(selectedVariety);
             input.setSelection(input.length());
         }
-        new MaterialAlertDialogBuilder(this)
+        AlertDialog dialog = new MaterialAlertDialogBuilder(this)
                 .setTitle(R.string.seedling_variety_custom_title)
                 .setView(input)
                 .setNegativeButton(R.string.settings_cancel, null)
-                .setPositiveButton(R.string.settings_save, (dialog, which) -> {
-                    String value = input.getText().toString().trim();
-                    if (!value.isBlank()) {
-                        selectedVariety = value;
-                        varietyValue.setText(value);
+                .setPositiveButton(R.string.settings_save, null)
+                .create();
+        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                .setOnClickListener(view -> {
+                    String value = SeedlingVarietyCatalog.normalize(
+                            input.getText().toString());
+                    if (value.isBlank()) {
+                        input.setError(getString(R.string.seedling_variety_required));
+                        return;
                     }
-                })
-                .show();
+                    List<String> currentOptions = varietiesForSelectedCrop();
+                    String existing = SeedlingVarietyCatalog.find(currentOptions, value);
+                    if (existing != null) {
+                        selectedVariety = existing;
+                        varietyValue.setText(existing);
+                        Toast.makeText(this, R.string.seedling_variety_already_exists,
+                                Toast.LENGTH_SHORT).show();
+                    } else {
+                        selectedVariety = viewModel.saveVariety(selectedCrop, value);
+                        varietyValue.setText(selectedVariety);
+                        Toast.makeText(this, R.string.seedling_variety_saved,
+                                Toast.LENGTH_SHORT).show();
+                    }
+                    dialog.dismiss();
+                }));
+        dialog.show();
+    }
+
+    private List<String> varietiesForSelectedCrop() {
+        return new ArrayList<>(viewModel.varietiesFor(selectedCrop));
     }
 
     private void showAreaPicker() {
@@ -205,7 +245,32 @@ public final class SeedlingBatchEditorActivity extends EdgeToEdgeActivity {
         plantValue.setText(selectedCrop == null ? "—" : selectedCrop.getName());
         varietyValue.setText(selectedVariety);
         areaValue.setText(selectedArea);
+        renderPlantingGuide();
         renderDates();
+    }
+
+    private void renderPlantingGuide() {
+        SeedlingPlantingGuide.Guide guide = SeedlingPlantingGuide.forCrop(selectedCrop);
+        String cropLabel = selectedCrop == null ? "—" : selectedCrop.toString();
+        guideCrop.setText(getString(R.string.seedling_guide_for_crop, cropLabel));
+        guideSoil.setText(guide.getSoilText());
+        guideTray.setText(guide.getTrayText());
+
+        if (guide.isTrayCountRequired()) {
+            trayLabel.setText(R.string.seedling_tray_cells);
+            trayCells.setVisibility(View.VISIBLE);
+            trayCells.setEnabled(true);
+            if (integer(trayCells) <= 0) {
+                trayCells.setText(String.valueOf(Math.max(1, preservedTrayCellCount)));
+            }
+        } else {
+            int current = integer(trayCells);
+            if (current > 0) preservedTrayCellCount = current;
+            trayLabel.setText(R.string.seedling_tray_not_needed);
+            trayCells.setText("0");
+            trayCells.setEnabled(false);
+            trayCells.setVisibility(View.GONE);
+        }
     }
 
     private void renderDates() {
@@ -221,9 +286,15 @@ public final class SeedlingBatchEditorActivity extends EdgeToEdgeActivity {
     private void submit() {
         int seedValue = integer(seedCount);
         int trayValue = integer(trayCells);
+        SeedlingPlantingGuide.Guide plantingGuide =
+                SeedlingPlantingGuide.forCrop(selectedCrop);
         if (selectedCrop == null || selectedVariety.isBlank()
-                || seedValue <= 0 || trayValue <= 0) {
-            Toast.makeText(this, R.string.seedling_required_fields, Toast.LENGTH_LONG).show();
+                || seedValue <= 0
+                || (plantingGuide.isTrayCountRequired() && trayValue <= 0)) {
+            Toast.makeText(this, plantingGuide.isTrayCountRequired()
+                            ? R.string.seedling_required_fields
+                            : R.string.seedling_required_fields_no_tray,
+                    Toast.LENGTH_LONG).show();
             return;
         }
 

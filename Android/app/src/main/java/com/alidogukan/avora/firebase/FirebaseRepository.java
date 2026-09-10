@@ -6,6 +6,7 @@ import android.content.Context;
 import android.provider.Settings;
 import androidx.annotation.NonNull;
 import androidx.lifecycle.LiveData;
+import androidx.lifecycle.MediatorLiveData;
 import com.alidogukan.avora.fertilization.FertilizerOutcomeFollowUpPolicy;
 import com.alidogukan.avora.models.AdaptiveRecommendation;
 import com.alidogukan.avora.models.AIDecision;
@@ -168,9 +169,10 @@ public class FirebaseRepository {
             liveData.setValue(zones);
          }
 
-         public void onCancelled(@NonNull DatabaseError error) {
-            Log.e("FirebaseRepository", "Garden zones read failed", error.toException());
-         }
+          public void onCancelled(@NonNull DatabaseError error) {
+             Log.e("FirebaseRepository", "Garden zones read failed", error.toException());
+             liveData.setValue(new ArrayList<>());
+          }
       });
       return liveData;
    }
@@ -270,21 +272,82 @@ public class FirebaseRepository {
    public LiveData<DeviceInfoSnapshot> observeDeviceInfoSnapshot(
          Consumer<DatabaseError> errorHandler
    ) {
-      final FirebaseLiveData<DeviceInfoSnapshot> liveData =
-            new FirebaseLiveData<>(this.deviceRef);
-      liveData.setEventListener(new ValueEventListener() {
+      final MediatorLiveData<DeviceInfoSnapshot> liveData = new MediatorLiveData<>();
+      final LiveData<Status> statusSource = observeModel(
+            statusRef, Status.class, "Device status", errorHandler);
+      final LiveData<Health> healthSource = observeModel(
+            healthRef, Health.class, "Device health", errorHandler);
+      final FirebaseLiveData<DataSnapshot> zonesSource =
+            new FirebaseLiveData<>(zonesRef);
+      final FirebaseLiveData<DataSnapshot> networkSource =
+            new FirebaseLiveData<>(deviceRef.child("network"));
+
+      zonesSource.setEventListener(new ValueEventListener() {
          @Override
          public void onDataChange(@NonNull DataSnapshot snapshot) {
-            Status status = snapshot.child("status").getValue(Status.class);
-            Health health = snapshot.child("health").getValue(Health.class);
-            DataSnapshot network = snapshot.child("network");
-            DeviceNetworkStatus networkStatus =
-                  network.child("status").getValue(DeviceNetworkStatus.class);
-            NetworkConfigurationResult networkResult = network.child("configuration_result")
-                  .getValue(NetworkConfigurationResult.class);
-            List<GardenZone> zones = new ArrayList<>();
-            Set<String> firmwareVersions = new LinkedHashSet<>();
-            for (DataSnapshot child : snapshot.child("zones").getChildren()) {
+            zonesSource.setValue(snapshot);
+         }
+
+         @Override
+         public void onCancelled(@NonNull DatabaseError error) {
+            Log.e(TAG, "Device zones read failed", error.toException());
+            if (errorHandler != null) errorHandler.accept(error);
+         }
+      });
+
+      networkSource.setEventListener(new ValueEventListener() {
+         @Override
+         public void onDataChange(@NonNull DataSnapshot snapshot) {
+            networkSource.setValue(snapshot);
+         }
+
+         @Override
+         public void onCancelled(@NonNull DatabaseError error) {
+            Log.e(TAG, "Device network read failed", error.toException());
+            if (errorHandler != null) errorHandler.accept(error);
+         }
+      });
+
+      final class SnapshotState {
+         Status status;
+         Health health;
+         List<GardenZone> zones = new ArrayList<>();
+         Set<String> firmwareVersions = new LinkedHashSet<>();
+         DeviceNetworkStatus networkStatus;
+         NetworkConfigurationResult networkResult;
+         boolean statusLoaded;
+         boolean healthLoaded;
+         boolean zonesLoaded;
+         boolean networkLoaded;
+
+         void publishIfReady() {
+            if (!statusLoaded || !healthLoaded || !zonesLoaded || !networkLoaded) return;
+            liveData.setValue(new DeviceInfoSnapshot(
+                  status,
+                  health,
+                  zones,
+                  firmwareVersions,
+                  networkStatus,
+                  networkResult));
+         }
+      }
+
+      SnapshotState state = new SnapshotState();
+      liveData.addSource(statusSource, value -> {
+         state.status = value;
+         state.statusLoaded = true;
+         state.publishIfReady();
+      });
+      liveData.addSource(healthSource, value -> {
+         state.health = value;
+         state.healthLoaded = true;
+         state.publishIfReady();
+      });
+      liveData.addSource(zonesSource, snapshot -> {
+         List<GardenZone> zones = new ArrayList<>();
+         Set<String> firmwareVersions = new LinkedHashSet<>();
+         if (snapshot != null) {
+            for (DataSnapshot child : snapshot.getChildren()) {
                GardenZone zone = configuredZoneFromSnapshot(child);
                if (zone == null) continue;
                zones.add(zone);
@@ -293,16 +356,25 @@ public class FirebaseRepository {
                   firmwareVersions.add(firmware.trim());
                }
             }
-            liveData.setValue(new DeviceInfoSnapshot(
-                  status, health, zones, firmwareVersions,
-                  networkStatus, networkResult));
          }
-
-         @Override
-         public void onCancelled(@NonNull DatabaseError error) {
-            Log.e(TAG, "Device snapshot read failed", error.toException());
-            if (errorHandler != null) errorHandler.accept(error);
+         zones.sort(Comparator.comparingInt(GardenZone::getOrder));
+         state.zones = zones;
+         state.firmwareVersions = firmwareVersions;
+         state.zonesLoaded = true;
+         state.publishIfReady();
+      });
+      liveData.addSource(networkSource, snapshot -> {
+         if (snapshot == null) {
+            state.networkStatus = null;
+            state.networkResult = null;
+         } else {
+            state.networkStatus = snapshot.child("status")
+                  .getValue(DeviceNetworkStatus.class);
+            state.networkResult = snapshot.child("configuration_result")
+                  .getValue(NetworkConfigurationResult.class);
          }
+         state.networkLoaded = true;
+         state.publishIfReady();
       });
       return liveData;
    }

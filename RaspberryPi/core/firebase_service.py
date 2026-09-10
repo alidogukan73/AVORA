@@ -74,6 +74,7 @@ class FirebaseService:
         self._command_lock = threading.Lock()
 
         self._sync_thread: threading.Thread | None = None
+        self._command_listener = None
         self._running = False
         self._stop_event = threading.Event()
 
@@ -96,6 +97,11 @@ class FirebaseService:
             str,
             tuple[int, int],
         ] = {}
+        self._published_zone_sensor_signatures: dict[
+            str,
+            tuple[int, float, int, str, int, int],
+        ] = {}
+        self._zone_sensor_published_at: dict[str, float] = {}
         self._last_push_sent_at: dict[str, float] = {}
         self._active_error_incident_id = ""
         self._sensor_config_publisher = (
@@ -212,7 +218,7 @@ class FirebaseService:
 
     def start_command_sync(self) -> None:
         """
-        Start background synchronization.
+        Start realtime synchronization with a safe polling fallback.
         """
 
         if self._running:
@@ -221,10 +227,28 @@ class FirebaseService:
         self._running = True
         self._stop_event.clear()
 
+        try:
+            self._command_listener = (
+                self._device_ref()
+                .child("commands")
+                .listen(self._handle_command_event)
+            )
+            self._logger.info(
+                "Realtime Firebase command synchronization started.",
+            )
+            return
+        except Exception as exc:
+            self._command_listener = None
+            self._logger.warning(
+                "Realtime Firebase command listener unavailable; "
+                "using low-frequency fallback polling. error=%s",
+                exc,
+            )
+
         self._sync_thread = threading.Thread(
             target=self._sync_commands,
             daemon=True,
-            name="FirebaseSync",
+            name="FirebaseSyncFallback",
         )
 
         self._sync_thread.start()
@@ -237,20 +261,28 @@ class FirebaseService:
         self._running = False
         self._stop_event.set()
 
-        if self._sync_thread is None:
-            return
+        listener = self._command_listener
+        self._command_listener = None
+        if listener is not None:
+            try:
+                listener.close()
+            except Exception as exc:
+                self._logger.debug(
+                    "Firebase command listener close failed: %s",
+                    exc,
+                )
 
-        self._sync_thread.join(
-            timeout=2,
-        )
-
-        if self._sync_thread.is_alive():
-
-            self._logger.warning(
-                "Command synchronization thread did not stop gracefully.",
+        sync_thread = self._sync_thread
+        self._sync_thread = None
+        if sync_thread is not None:
+            sync_thread.join(
+                timeout=2,
             )
 
-        self._sync_thread = None
+            if sync_thread.is_alive():
+                self._logger.warning(
+                    "Command synchronization thread did not stop gracefully.",
+                )
 
         self._sensor_config_publisher.stop()
 
@@ -652,7 +684,36 @@ class FirebaseService:
         update_sensor() for the primary irrigation sensor.
         """
 
+        if not readings:
+            return
+
         current_time = time.monotonic()
+        publishable_readings: dict[str, SensorReading] = {}
+        publishable_signatures: dict[
+            str,
+            tuple[int, float, int, str, int, int],
+        ] = {}
+
+        for sensor_id, reading in readings.items():
+            signature = self._sensor_reading_signature(reading)
+            last_signature = self._published_zone_sensor_signatures.get(
+                sensor_id,
+            )
+            last_published_at = self._zone_sensor_published_at.get(
+                sensor_id,
+                0.0,
+            )
+            heartbeat_due = (
+                current_time - last_published_at
+                >= SensorConfig.MQTT_STALE_AFTER_SECONDS
+            )
+            if signature == last_signature and not heartbeat_due:
+                continue
+            publishable_readings[sensor_id] = reading
+            publishable_signatures[sensor_id] = signature
+
+        if not publishable_readings:
+            return
 
         if (
             not self._zone_by_sensor_id
@@ -664,20 +725,20 @@ class FirebaseService:
         ):
             self._refresh_zone_sensor_map()
 
-        if not readings:
-            return
-
         updates: dict[str, object] = {}
+        published_sensor_ids: list[str] = []
         updated_at = datetime.now().isoformat()
         updated_at_epoch = int(time.time())
 
-        for sensor_id, reading in readings.items():
+        for sensor_id, reading in publishable_readings.items():
             zone_id = self._zone_by_sensor_id.get(
                 sensor_id,
             )
 
             if zone_id is None:
                 continue
+
+            published_sensor_ids.append(sensor_id)
 
             prefix = f"zones/{zone_id}"
             # sensor_id is configuration owned by the app. Telemetry must
@@ -705,6 +766,26 @@ class FirebaseService:
             self._device_ref().update(
                 updates,
             )
+            for sensor_id in published_sensor_ids:
+                self._published_zone_sensor_signatures[sensor_id] = (
+                    publishable_signatures[sensor_id]
+                )
+                self._zone_sensor_published_at[sensor_id] = current_time
+
+    @staticmethod
+    def _sensor_reading_signature(
+        reading: SensorReading,
+    ) -> tuple[int, float, int, str, int, int]:
+        """Identify one MQTT sample without changing sensor cadence."""
+
+        return (
+            reading.raw,
+            round(reading.voltage, 4),
+            reading.moisture,
+            reading.firmware,
+            reading.rssi,
+            reading.uptime_seconds,
+        )
 
     def _refresh_zone_sensor_map(self) -> None:
         """
@@ -1991,6 +2072,14 @@ class FirebaseService:
             .get()
         )
 
+        return self._parse_commands(commands)
+
+    def _parse_commands(
+        self,
+        commands: object,
+    ) -> CommandState:
+        """Validate an already received Firebase command payload."""
+
         if commands is None:
 
             return CommandState(
@@ -2507,13 +2596,43 @@ class FirebaseService:
 
         self.device_control.restart_device()
 
+    def _handle_command_event(self, event) -> None:
+        """Apply one realtime command event without periodic REST reads."""
+
+        if not self._running or self._stop_event.is_set():
+            return
+
+        try:
+            if (
+                getattr(event, "event_type", "") == "put"
+                and getattr(event, "path", "") == "/"
+            ):
+                new_state = self._parse_commands(
+                    getattr(event, "data", None),
+                )
+            else:
+                # Partial put/patch events do not contain the complete command
+                # object. One scoped read on a real command change preserves
+                # correctness without continuous polling.
+                new_state = self.get_commands()
+
+            with self._command_lock:
+                self._command_state = new_state
+
+            self.check_restart_command(new_state)
+        except Exception as exc:
+            self._logger.warning(
+                "Realtime Firebase command event could not be applied: %s",
+                exc,
+            )
+
     def _sync_commands(self) -> None:
         """
-        Background command synchronization.
+        Low-frequency command synchronization used only as a fallback.
         """
 
         self._logger.info(
-            "Command synchronization started.",
+            "Fallback Firebase command synchronization started.",
         )
 
         while (
@@ -2560,12 +2679,12 @@ class FirebaseService:
                 continue
 
             if self._stop_event.wait(
-                FirebaseConfig.COMMAND_SYNC_INTERVAL_SECONDS,
+                FirebaseConfig.COMMAND_SYNC_FALLBACK_INTERVAL_SECONDS,
             ):
                 break
 
         self._logger.info(
-            "Command synchronization stopped.",
+            "Fallback Firebase command synchronization stopped.",
         )
 
     def update_network_status(self, status: dict) -> None:

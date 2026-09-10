@@ -32,6 +32,7 @@
     <string name="notification_center_category_irrigation">Watering</string>
     <string name="notification_center_category_fertilization">Fertilization</string>
     <string name="notification_center_category_plant_assistant">Plant Assistant</string>
+    <string name="notification_center_category_seedling">Seedling Assistant</string>
     <string name="notification_center_category_weather">Weather</string>
     <string name="notification_center_category_device">Device and system</string>
     <string name="notification_center_category_stock">Stock</string>

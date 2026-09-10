@@ -17,11 +17,13 @@ import androidx.lifecycle.ViewModelProvider;
 
 import com.alidogukan.avora.R;
 import com.alidogukan.avora.models.CropCatalogItem;
+import com.alidogukan.avora.seedling.SeedlingVarietyCatalog;
 import com.alidogukan.avora.viewmodels.CropCatalogViewModel;
 import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.text.NumberFormat;
+import java.util.Collections;
 import java.util.List;
 
 /** Manages reusable products without mutating any already archived season snapshot. */
@@ -30,6 +32,7 @@ public final class CropCatalogActivity extends EdgeToEdgeActivity {
     private LinearLayout systemContainer;
     private LinearLayout userContainer;
     private TextView userEmpty;
+    private List<CropCatalogItem> latestUserItems = Collections.emptyList();
 
     @Override
     protected void onCreate(@Nullable Bundle state) {
@@ -45,6 +48,7 @@ public final class CropCatalogActivity extends EdgeToEdgeActivity {
     }
 
     private void render(List<CropCatalogItem> userItems) {
+        latestUserItems = userItems == null ? Collections.emptyList() : userItems;
         systemContainer.removeAllViews();
         userContainer.removeAllViews();
         for (CropCatalogItem item : viewModel.getBuiltInItems()) addCard(systemContainer, item);
@@ -87,9 +91,12 @@ public final class CropCatalogActivity extends EdgeToEdgeActivity {
         TextView detail = text(getString(R.string.crop_catalog_card_detail,
                 item.getIdeal_moisture_min(), item.getIdeal_moisture_max()),
                 12, R.color.textSecondary, Typeface.NORMAL);
-        TextView source = text(item.isSystemItem()
-                        ? getString(R.string.crop_catalog_system_badge)
-                        : getString(R.string.crop_catalog_user_badge),
+        String sourceLabel = item.isSystemItem()
+                ? getString(R.string.crop_catalog_system_badge)
+                : getString(R.string.crop_catalog_user_badge);
+        int varietyCount = viewModel.varietiesFor(item).size();
+        TextView source = text(getString(R.string.crop_catalog_card_source_varieties,
+                        sourceLabel, varietyCount),
                 11, R.color.primary, Typeface.BOLD);
         copy.addView(title);
         copy.addView(detail);
@@ -98,11 +105,97 @@ public final class CropCatalogActivity extends EdgeToEdgeActivity {
         if (!item.isSystemItem()) {
             TextView edit = text(getString(R.string.crop_catalog_edit), 12,
                     R.color.primary, Typeface.BOLD);
+            edit.setGravity(android.view.Gravity.CENTER);
+            edit.setPadding(dp(10), dp(10), dp(2), dp(10));
+            edit.setOnClickListener(view -> showEditor(item));
             row.addView(edit);
-            card.setOnClickListener(view -> showEditor(item));
+        } else {
+            TextView arrow = text("›", 28, R.color.textSecondary, Typeface.NORMAL);
+            arrow.setGravity(android.view.Gravity.CENTER);
+            row.addView(arrow, new LinearLayout.LayoutParams(dp(28), dp(48)));
         }
+        card.setClickable(true);
+        card.setFocusable(true);
+        card.setOnClickListener(view -> showVarieties(item));
         card.addView(row);
         parent.addView(card);
+    }
+
+    private void showVarieties(CropCatalogItem crop) {
+        LinearLayout form = new LinearLayout(this);
+        form.setOrientation(LinearLayout.VERTICAL);
+        form.setPadding(dp(6), dp(4), dp(6), 0);
+
+        TextView explanation = text(getString(R.string.crop_catalog_varieties_explanation),
+                13, R.color.textSecondary, Typeface.NORMAL);
+        LinearLayout.LayoutParams explanationParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        explanationParams.bottomMargin = dp(12);
+        form.addView(explanation, explanationParams);
+
+        LinearLayout list = new LinearLayout(this);
+        list.setOrientation(LinearLayout.VERTICAL);
+        form.addView(list);
+
+        EditText input = field(R.string.crop_catalog_variety_hint,
+                InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_WORDS);
+        LinearLayout.LayoutParams inputParams =
+                (LinearLayout.LayoutParams) input.getLayoutParams();
+        inputParams.topMargin = dp(10);
+        form.addView(input, inputParams);
+        renderVarieties(list, viewModel.varietiesFor(crop));
+
+        AlertDialog dialog = new MaterialAlertDialogBuilder(this)
+                .setTitle(getString(R.string.crop_catalog_varieties_title, crop.getName()))
+                .setView(form)
+                .setNegativeButton(R.string.crop_catalog_close, null)
+                .setPositiveButton(R.string.crop_catalog_variety_add, null)
+                .create();
+        dialog.setOnShowListener(ignored ->
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(view -> {
+                    String requested = SeedlingVarietyCatalog.normalize(value(input));
+                    if (requested.isBlank()) {
+                        input.setError(getString(R.string.crop_catalog_variety_required));
+                        return;
+                    }
+                    if (requested.length() > SeedlingVarietyCatalog.MAX_NAME_LENGTH) {
+                        input.setError(getString(R.string.crop_catalog_variety_too_long,
+                                SeedlingVarietyCatalog.MAX_NAME_LENGTH));
+                        return;
+                    }
+                    String existing = SeedlingVarietyCatalog.find(
+                            viewModel.varietiesFor(crop), requested);
+                    if (existing != null) {
+                        input.setText(existing);
+                        input.setSelection(existing.length());
+                        Toast.makeText(this, R.string.crop_catalog_variety_exists,
+                                Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    viewModel.saveVariety(crop, requested);
+                    renderVarieties(list, viewModel.varietiesFor(crop));
+                    input.setText("");
+                    render(latestUserItems);
+                    Toast.makeText(this, R.string.crop_catalog_variety_saved,
+                            Toast.LENGTH_SHORT).show();
+                }));
+        dialog.show();
+    }
+
+    private void renderVarieties(LinearLayout parent, List<String> varieties) {
+        parent.removeAllViews();
+        for (String variety : varieties) {
+            TextView row = text("✓  " + variety, 14,
+                    R.color.textPrimary, Typeface.NORMAL);
+            row.setPadding(dp(12), dp(10), dp(12), dp(10));
+            row.setBackgroundResource(R.drawable.bg_seedling_target_chip);
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT);
+            params.bottomMargin = dp(6);
+            parent.addView(row, params);
+        }
     }
 
     private void showEditor(@Nullable CropCatalogItem existing) {

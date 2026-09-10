@@ -58,7 +58,7 @@
     <string name="settings_quick_exact_count" tools:ignore="PluralsCandidate">Please select exactly %1$d shortcuts.</string>
     <string name="settings_quick_max_count" tools:ignore="PluralsCandidate">You can select up to %1$d shortcuts.</string>
     <string name="settings_quick_saved">Quick Settings saved.</string>
-    <string name="settings_quick_restore_defaults">Restore defaults</string>
+    <string name="settings_quick_restore_defaults">Default</string>
     <string name="settings_quick_move_up">Move up</string>
     <string name="settings_quick_move_down">Move down</string>
     <string name="settings_quick_cancel">Cancel</string>

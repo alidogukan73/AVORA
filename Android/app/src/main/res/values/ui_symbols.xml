@@ -75,7 +75,6 @@
     <string name="garden_photo_content_description">Bahçe fotoğrafı</string>
     <string name="archive_photo_content_description">Arşiv fotoğrafı</string>
     <string name="symbol_edit_pencil" translatable="false">✎</string>
-    <string name="symbol_timeline_note" translatable="false">▣</string>
     <string name="symbol_add" translatable="false">+</string>
     <string name="default_quiet_hours_start" translatable="false">22:00</string>
     <string name="default_quiet_hours_end" translatable="false">07:00</string>
