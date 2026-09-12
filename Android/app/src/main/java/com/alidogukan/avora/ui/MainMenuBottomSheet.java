@@ -1,5 +1,6 @@
 package com.alidogukan.avora.ui;
 
+import android.app.Activity;
 import android.app.Dialog;
 import android.content.Intent;
 import android.os.Bundle;
@@ -13,7 +14,6 @@ import androidx.annotation.Nullable;
 
 import com.alidogukan.avora.R;
 import com.alidogukan.avora.activities.AIAssistantActivity;
-import com.alidogukan.avora.activities.AboutActivity;
 import com.alidogukan.avora.activities.FertilizationCalendarActivity;
 import com.alidogukan.avora.activities.PlantAssistantActivity;
 import com.alidogukan.avora.activities.SeasonManagementActivity;
@@ -24,6 +24,7 @@ import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 import com.google.android.material.card.MaterialCardView;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 /** Compact navigation dashboard shown from the three-dot menu. */
 public class MainMenuBottomSheet extends BottomSheetDialogFragment {
@@ -47,8 +48,8 @@ public class MainMenuBottomSheet extends BottomSheetDialogFragment {
         bind(view, R.id.menuCardStatistics, StatisticsActivity.class);
         bind(view, R.id.menuCardHistory, WateringHistoryActivity.class);
         bind(view, R.id.menuCardSeasonManagement, SeasonManagementActivity.class);
-        bind(view, R.id.menuCardAbout, AboutActivity.class);
-
+        view.findViewById(R.id.menuCardSecureExit)
+                .setOnClickListener(ignored -> confirmSecureExit());
     }
 
     private void bind(View root, int id, Class<?> screen) {
@@ -81,5 +82,22 @@ public class MainMenuBottomSheet extends BottomSheetDialogFragment {
         navigationInProgress = true;
         startActivity(new Intent(requireContext(), screen));
         dismissAllowingStateLoss();
+    }
+
+    private void confirmSecureExit() {
+        if (navigationInProgress) return;
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.app_secure_exit_confirm_title)
+                .setMessage(R.string.app_secure_exit_confirm_message)
+                .setNegativeButton(R.string.app_secure_exit_cancel, null)
+                .setPositiveButton(R.string.app_secure_exit_confirm, (dialog, which) -> {
+                    navigationInProgress = true;
+                    Activity host = getActivity();
+                    dismissAllowingStateLoss();
+                    if (host != null) {
+                        host.finishAndRemoveTask();
+                    }
+                })
+                .show();
     }
 }

@@ -720,7 +720,7 @@ public final class SeedlingBatchDetailActivity extends EdgeToEdgeActivity {
     }
 
     private View logRow(SeedlingDailyLog value) {
-        HorizontalScrollView swipe = new HorizontalScrollView(this);
+        HorizontalScrollView swipe = new SwipeActionsView();
         swipe.setHorizontalScrollBarEnabled(false);
         swipe.setOverScrollMode(View.OVER_SCROLL_NEVER);
         LinearLayout.LayoutParams swipeParams = new LinearLayout.LayoutParams(-1, -2);
@@ -792,6 +792,7 @@ public final class SeedlingBatchDetailActivity extends EdgeToEdgeActivity {
                     || event.getActionMasked() == MotionEvent.ACTION_CANCEL) {
                 swipe.post(() -> swipe.smoothScrollTo(
                         swipe.getScrollX() >= revealWidth / 3 ? revealWidth : 0, 0));
+                if (event.getActionMasked() == MotionEvent.ACTION_UP) view.performClick();
             }
             return false;
         });
@@ -890,5 +891,16 @@ public final class SeedlingBatchDetailActivity extends EdgeToEdgeActivity {
 
     private int dp(int value) {
         return Math.round(value * getResources().getDisplayMetrics().density);
+    }
+
+    private final class SwipeActionsView extends HorizontalScrollView {
+        SwipeActionsView() {
+            super(SeedlingBatchDetailActivity.this);
+        }
+
+        @Override public boolean performClick() {
+            super.performClick();
+            return true;
+        }
     }
 }

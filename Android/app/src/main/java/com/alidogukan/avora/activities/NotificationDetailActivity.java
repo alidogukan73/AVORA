@@ -171,7 +171,8 @@ public class NotificationDetailActivity extends EdgeToEdgeActivity {
                     return;
                 }
                 String emoji = batch.getEmoji().isBlank() ? "🌱" : batch.getEmoji();
-                zoneView.setText((emoji + " " + batch.displayName()).trim());
+                zoneView.setText(getString(R.string.notification_detail_named_item,
+                        emoji, batch.displayName()));
             });
             return;
         }

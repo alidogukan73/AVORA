@@ -379,7 +379,7 @@ class IrrigationService:
 
         if (
             current_time - self._last_health_update
-            >= FirebaseConfig.STATUS_UPDATE_INTERVAL_SECONDS
+            >= FirebaseConfig.HEALTH_UPDATE_INTERVAL_SECONDS
         ):
 
             health = self._system_monitor.read()

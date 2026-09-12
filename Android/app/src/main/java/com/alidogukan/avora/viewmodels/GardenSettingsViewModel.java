@@ -128,6 +128,7 @@ public final class GardenSettingsViewModel extends AndroidViewModel {
         boolean applied = notificationSettings.applyBackup(values);
         if (applied) {
             FertilizerReminderScheduler.schedule(getApplication());
+            FertilizerReminderScheduler.runNow(getApplication());
             NotificationSignalScheduler.schedule(getApplication());
         }
         return applied;
@@ -139,11 +140,14 @@ public final class GardenSettingsViewModel extends AndroidViewModel {
         return repository.saveNotificationSettings(notificationSettings.snapshot());
     }
     public Task<Void> saveCategorySettings() {
+        FertilizerReminderScheduler.schedule(getApplication());
+        FertilizerReminderScheduler.runNow(getApplication());
         NotificationSignalScheduler.schedule(getApplication());
         return saveNotificationSettings();
     }
     public Task<Void> saveReminderSettings() {
         FertilizerReminderScheduler.schedule(getApplication());
+        FertilizerReminderScheduler.runNow(getApplication());
         NotificationSignalScheduler.schedule(getApplication());
         return saveNotificationSettings();
     }

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="nas_security_title">NAS Güvenlik Merkezi</string>
+    <string name="nas_security_intro">Hesabınızı, aile erişimini ve açık NAS oturumlarını tek yerden güvenle yönetin.</string>
+    <string name="nas_security_safe">Güvenli</string>
+    <string name="nas_security_connection">AVORA NAS bağlantısı</string>
+    <string name="nas_security_connected">Bağlı · Şifreli</string>
+    <string name="nas_security_role_administrator">Yönetici hesap</string>
+    <string name="nas_security_role_family">Aile üyesi hesabı</string>
+    <string name="nas_security_sessions_section">OTURUMLAR</string>
+    <string name="nas_security_this_device">Bu cihaz</string>
+    <string name="nas_security_this_device_detail">Mevcut güvenli NAS oturumu</string>
+    <string name="nas_security_active">Şimdi aktif</string>
+    <string name="nas_security_family_section">AİLE VE ERİŞİM</string>
+    <string name="nas_security_family_accounts">Aile hesapları</string>
+    <string name="nas_security_family_detail">Davetleri ve bahçe erişimlerini yönetin</string>
+    <string name="nas_security_pending_label">Bekleyen istekler</string>
+    <string name="nas_security_pending_checking">Kontrol ediliyor…</string>
+    <string name="nas_security_pending_unavailable">Şu an alınamadı</string>
+    <string name="nas_security_pending_none">İstek yok</string>
+    <string name="nas_security_pending_count">%1$d istek</string>
+    <string name="nas_security_create_invite_short">Yeni aile daveti oluştur</string>
+    <string name="nas_security_manage_requests">Erişim isteklerini yönet</string>
+    <string name="nas_security_garden_access">Bahçe erişimi</string>
+    <string name="nas_security_access_explanation">Bu telefon için bahçe erişimi isteyebilir veya mevcut onayı doğrulayabilirsiniz.</string>
+    <string name="nas_security_access_pending">Yönetici onayı bekleniyor.</string>
+    <string name="nas_security_access_approved">Bu telefonun bahçe erişimi onaylı.</string>
+    <string name="nas_security_account_section">HESAP GÜVENLİĞİ</string>
+    <string name="nas_security_password_detail">Yalnızca bu hesabın diğer oturumlarını güvenle kapatır</string>
+    <string name="nas_security_details_row">Güvenlik ayrıntıları</string>
+    <string name="nas_security_details_row_subtitle">Şifreleme, rol ve oturum süresini görüntüleyin</string>
+    <string name="nas_security_details_title">NAS güvenlik ayrıntıları</string>
+    <string name="nas_security_details_message">Hesap: %1$s\nRol: %2$s\nBağlantı: Şifreli HTTPS\nOturum sonu: %3$s\n\nParolanız telefonda saklanmaz. Yalnızca süreli oturum anahtarı Android güvenli alanında şifreli olarak tutulur.</string>
+    <string name="nas_security_last_checked">Son güvenlik kontrolü: %1$s</string>
+    <string name="nas_security_password_changing">Parola güvenli biçimde değiştiriliyor…</string>
+    <string name="nas_security_sessions_closing">Diğer NAS oturumları kapatılıyor…</string>
+    <string name="nas_security_disconnecting">NAS bağlantısı güvenli biçimde kesiliyor…</string>
+    <string name="nas_security_disconnected">Bu telefonun NAS bağlantısı kesildi.</string>
+    <string name="nas_security_not_connected">Etkin NAS hesabı bulunamadı.</string>
+    <string name="nas_security_ok">Tamam</string>
+</resources>

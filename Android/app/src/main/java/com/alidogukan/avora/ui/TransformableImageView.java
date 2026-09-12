@@ -107,9 +107,17 @@ public final class TransformableImageView extends AppCompatImageView {
                 || transformState.scale() > PhotoTransformState.MIN_SCALE) {
             disallowParentIntercept(true);
         }
+        if (action == MotionEvent.ACTION_UP) {
+            performClick();
+        }
         if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
             disallowParentIntercept(false);
         }
+        return true;
+    }
+
+    @Override public boolean performClick() {
+        super.performClick();
         return true;
     }
 

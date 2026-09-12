@@ -4,9 +4,11 @@ import android.content.Context;
 import android.content.SharedPreferences;
 
 import com.alidogukan.avora.config.AppInfo;
+import com.alidogukan.avora.firebase.FirebaseRepository;
 import com.alidogukan.avora.language.AvoraLanguageManager;
 import com.alidogukan.avora.theme.AvoraThemeManager;
 import com.google.android.gms.tasks.Task;
+import com.google.android.gms.tasks.Tasks;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
@@ -54,8 +56,13 @@ public final class AvoraBackupManager {
 
     private static final List<String> RECORD_ROOTS = Arrays.asList(
             "fertilizer_products", "fertilizer_plans", "fertilizer_history",
-            "watering_history", "garden_journal", "notifications", "notification_settings"
+            "watering_history", "notifications", "notification_settings"
     );
+    // Photo files are intentionally outside the portable JSON backup. Restoring their metadata
+    // alone can create broken references and can also fail newer Firebase validation rules when
+    // the source contains legacy photo records.
+    private static final List<String> GARDEN_JOURNAL_ROOTS =
+            Arrays.asList("events", "season_outcomes");
 
     private static final List<String> LOCAL_PREFERENCE_FILES = Arrays.asList(
             "avora_garden_profile", "avora_display_units", "avora_notification_settings",
@@ -114,9 +121,9 @@ public final class AvoraBackupManager {
                 + countObject(firebase.optJSONObject("notifications"));
         JSONObject journal = firebase.optJSONObject("garden_journal");
         if (journal != null) {
-            recordCount += countObject(journal.optJSONObject("events"));
-            recordCount += countObject(journal.optJSONObject("season_outcomes"));
-            recordCount += countObject(journal.optJSONObject("photo_metadata"));
+            for (String section : GARDEN_JOURNAL_ROOTS) {
+                recordCount += countObject(journal.optJSONObject(section));
+            }
         }
         return ValidationResult.valid(
                 backup.optLong("created_at_epoch_ms", 0L),
@@ -140,6 +147,7 @@ public final class AvoraBackupManager {
             for (String root : RECORD_ROOTS) {
                 addObject(firebase.optJSONObject(root), root, updates);
             }
+            restoreGardenJournal(firebase.optJSONObject("garden_journal"), updates);
 
             // A restored configuration must never execute an old actuator request.
             updates.put("commands/relay", false);
@@ -151,7 +159,22 @@ public final class AvoraBackupManager {
             return com.google.android.gms.tasks.Tasks.forException(error);
         }
 
-        return deviceRef.updateChildren(updates).continueWith(task -> {
+        // Data Sync can be opened after the cached Firebase token has aged. Refresh and verify
+        // the device-owner claim before attempting the single atomic restore update.
+        Task<Boolean> authorization = new FirebaseRepository().authenticateAnonymously();
+        return authorization.continueWithTask(task -> {
+            if (!task.isSuccessful()) {
+                Exception error = task.getException();
+                return Tasks.forException(error == null
+                        ? new IllegalStateException("Firebase cihaz yetkisi doğrulanamadı.")
+                        : error);
+            }
+            if (!Boolean.TRUE.equals(task.getResult())) {
+                return Tasks.forException(new SecurityException(
+                        "Bu telefonun AVORA cihaz yetkisi bulunmuyor."));
+            }
+            return deviceRef.updateChildren(updates);
+        }).continueWith(task -> {
             if (!task.isSuccessful()) {
                 throw task.getException() == null
                         ? new IllegalStateException("Firebase geri yükleme işlemi tamamlanamadı.")
@@ -173,6 +196,7 @@ public final class AvoraBackupManager {
         for (String root : RECORD_ROOTS) {
             copySnapshot(device.child(root), firebase, root);
         }
+        copyGardenJournal(device.child("garden_journal"), firebase);
 
         int zoneCount = firebase.optJSONObject("zones") == null
                 ? 0 : firebase.optJSONObject("zones").length();
@@ -239,6 +263,17 @@ public final class AvoraBackupManager {
         }
         if (result.length() > 0) {
             firebase.put("zones", result);
+        }
+    }
+
+    private void copyGardenJournal(DataSnapshot source, JSONObject firebase)
+            throws JSONException {
+        JSONObject journal = new JSONObject();
+        for (String section : GARDEN_JOURNAL_ROOTS) {
+            copySnapshot(source.child(section), journal, section);
+        }
+        if (journal.length() > 0) {
+            firebase.put("garden_journal", journal);
         }
     }
 
@@ -397,6 +432,20 @@ public final class AvoraBackupManager {
                 }
             }
         }
+    }
+
+    private void restoreGardenJournal(JSONObject journal, Map<String, Object> updates)
+            throws JSONException {
+        if (journal == null) {
+            return;
+        }
+        for (String section : GARDEN_JOURNAL_ROOTS) {
+            addObject(journal.optJSONObject(section), "garden_journal/" + section, updates);
+        }
+    }
+
+    static boolean isRestorableGardenJournalSection(String section) {
+        return GARDEN_JOURNAL_ROOTS.contains(section);
     }
 
     private void addObject(JSONObject object, String prefix, Map<String, Object> updates)

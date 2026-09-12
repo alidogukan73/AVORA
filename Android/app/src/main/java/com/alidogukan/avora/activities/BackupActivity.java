@@ -33,17 +33,23 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 
-/** Creates and safely restores portable AVORA backup files. */
+/** Creates and safely restores portable AVORA backup files and photo ZIP archives. */
 public class BackupActivity extends AppCompatActivity {
     private ActivityResultLauncher<String> createDocumentLauncher;
     private ActivityResultLauncher<String[]> openDocumentLauncher;
+    private ActivityResultLauncher<String> createPhotoArchiveLauncher;
+    private ActivityResultLauncher<String[]> openPhotoArchiveLauncher;
     private BackupViewModel viewModel;
     private MaterialButton createButton;
     private MaterialButton restoreButton;
+    private MaterialButton exportPhotosButton;
+    private MaterialButton restorePhotosButton;
     private LinearProgressIndicator progress;
     private TextView operationStatus;
     private TextView lastBackupValue;
     private TextView lastRestoreValue;
+    private TextView lastPhotoExportValue;
+    private TextView lastPhotoRestoreValue;
 
     @Override
     protected void onCreate(@Nullable Bundle state) {
@@ -66,16 +72,27 @@ public class BackupActivity extends AppCompatActivity {
                 this::writeBackupFile);
         openDocumentLauncher = registerForActivityResult(
                 new ActivityResultContracts.OpenDocument(), this::readBackupFile);
+        createPhotoArchiveLauncher = registerForActivityResult(
+                new ActivityResultContracts.CreateDocument("application/zip"),
+                this::writePhotoArchive);
+        openPhotoArchiveLauncher = registerForActivityResult(
+                new ActivityResultContracts.OpenDocument(), this::inspectPhotoArchive);
     }
 
     private void bindViews() {
         createButton = findViewById(R.id.btnCreateBackup);
         restoreButton = findViewById(R.id.btnRestoreBackup);
+        exportPhotosButton = findViewById(R.id.btnExportPhotos);
+        restorePhotosButton = findViewById(R.id.btnRestorePhotos);
         progress = findViewById(R.id.progressBackup);
         operationStatus = findViewById(R.id.txtBackupOperationStatus);
         LinearLayout values = findViewById(R.id.layoutBackupValues);
         lastBackupValue = addValueRow(values, R.string.backup_last_created_label, false);
         lastRestoreValue = addValueRow(values, R.string.backup_last_restored_label, true);
+        lastPhotoExportValue = addValueRow(
+                values, R.string.backup_last_photo_export_label, true);
+        lastPhotoRestoreValue = addValueRow(
+                values, R.string.backup_last_photo_restore_label, true);
         addValueRow(values, R.string.backup_device_label, true).setText(AppInfo.DEVICE_ID);
         addValueRow(values, R.string.backup_format_label, true)
                 .setText(R.string.backup_format_value);
@@ -106,6 +123,9 @@ public class BackupActivity extends AppCompatActivity {
         createButton.setOnClickListener(view -> prepareBackup());
         restoreButton.setOnClickListener(view -> openDocumentLauncher.launch(
                 new String[]{"application/json", "text/plain", "application/octet-stream"}));
+        exportPhotosButton.setOnClickListener(view -> beginPhotoExport());
+        restorePhotosButton.setOnClickListener(view -> openPhotoArchiveLauncher.launch(
+                new String[]{"application/zip", "application/octet-stream"}));
     }
 
     private void prepareBackup() {
@@ -134,9 +154,9 @@ public class BackupActivity extends AppCompatActivity {
             if (result.successful) {
                 onBackupWritten(result.displayName);
             } else {
-                    setBusy(false);
-                    showError(getString(R.string.backup_write_error,
-                            safeMessage(result.error)));
+                setBusy(false);
+                showError(getString(R.string.backup_write_error,
+                        safeMessage(result.error)));
             }
         }));
     }
@@ -159,9 +179,9 @@ public class BackupActivity extends AppCompatActivity {
             if (result.successful) {
                 validateAndConfirm(result.backup, result.displayName);
             } else {
-                    setBusy(false);
-                    showError(getString(R.string.backup_read_error,
-                            safeMessage(result.error)));
+                setBusy(false);
+                showError(getString(R.string.backup_read_error,
+                        safeMessage(result.error)));
             }
         }));
     }
@@ -206,10 +226,104 @@ public class BackupActivity extends AppCompatActivity {
                 });
     }
 
+    private void beginPhotoExport() {
+        if (viewModel.availablePhotoCount() <= 0) {
+            showError(getString(R.string.backup_photo_none_to_export));
+            return;
+        }
+        createPhotoArchiveLauncher.launch(viewModel.photoArchiveFileName());
+    }
+
+    private void writePhotoArchive(@Nullable Uri uri) {
+        if (uri == null) {
+            showOperation(R.string.backup_file_cancelled, R.color.textSecondary);
+            return;
+        }
+        setBusy(true);
+        showOperation(R.string.backup_photo_exporting, R.color.textSecondary);
+        viewModel.exportPhotos(uri, result -> runOnUiThread(() -> {
+            setBusy(false);
+            if (!result.successful || result.result == null) {
+                showError(getString(R.string.backup_photo_export_error,
+                        safeMessage(result.error)));
+                return;
+            }
+            renderStoredState();
+            String message = getString(R.string.backup_photo_export_success,
+                    result.result.photoCount, result.displayName);
+            if (result.result.skippedCount > 0) {
+                message += getString(R.string.backup_photo_export_skipped,
+                        result.result.skippedCount);
+            }
+            showOperation(message, R.color.online);
+            Toast.makeText(this, R.string.backup_photo_export_success_short,
+                    Toast.LENGTH_LONG).show();
+        }));
+    }
+
+    private void inspectPhotoArchive(@Nullable Uri uri) {
+        if (uri == null) {
+            showOperation(R.string.backup_file_cancelled, R.color.textSecondary);
+            return;
+        }
+        setBusy(true);
+        showOperation(R.string.backup_photo_reading, R.color.textSecondary);
+        viewModel.inspectPhotoArchive(uri, result -> runOnUiThread(() -> {
+            setBusy(false);
+            if (!result.successful || result.inspection == null) {
+                showError(getString(R.string.backup_photo_read_error,
+                        safeMessage(result.error)));
+                return;
+            }
+            confirmPhotoRestore(uri, result.displayName, result.inspection);
+        }));
+    }
+
+    private void confirmPhotoRestore(Uri uri, String displayName,
+                                     BackupViewModel.PhotoArchiveInspection inspection) {
+        String date = inspection.createdAtEpochMs > 0L
+                ? formatDateTime(inspection.createdAtEpochMs)
+                : getString(R.string.backup_unknown_date);
+        String sourceDevice = inspection.sourceDeviceId.isBlank()
+                ? getString(R.string.backup_unknown_device) : inspection.sourceDeviceId;
+        String message = getString(R.string.backup_photo_restore_confirmation,
+                displayName, date, sourceDevice, inspection.photoCount,
+                formatFileSize(inspection.totalPhotoBytes));
+        new MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.backup_photo_restore_dialog_title)
+                .setMessage(message)
+                .setNegativeButton(R.string.backup_cancel, null)
+                .setPositiveButton(R.string.backup_photo_restore_confirm,
+                        (dialog, which) -> restorePhotoArchive(uri, displayName))
+                .show();
+    }
+
+    private void restorePhotoArchive(Uri uri, String displayName) {
+        setBusy(true);
+        showOperation(R.string.backup_photo_restoring, R.color.textSecondary);
+        viewModel.restorePhotos(uri, displayName, result -> runOnUiThread(() -> {
+            setBusy(false);
+            if (!result.successful || result.result == null) {
+                showError(getString(R.string.backup_photo_restore_error,
+                        safeMessage(result.error)));
+                return;
+            }
+            renderStoredState();
+            String message = getString(R.string.backup_photo_restore_success,
+                    result.result.photoCount, result.result.skippedCount);
+            showOperation(message, R.color.online);
+            Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+        }));
+    }
+
     private void renderStoredState() {
         BackupViewModel.StoredState state = viewModel.storedState();
         lastBackupValue.setText(formatStoredOperation(state.backupTime, state.backupName));
         lastRestoreValue.setText(formatStoredOperation(state.restoreTime, state.restoreName));
+        lastPhotoExportValue.setText(formatStoredOperation(
+                state.photoExportTime, state.photoExportName));
+        lastPhotoRestoreValue.setText(formatStoredOperation(
+                state.photoRestoreTime, state.photoRestoreName));
     }
 
     private String formatStoredOperation(long epoch, String name) {
@@ -223,6 +337,8 @@ public class BackupActivity extends AppCompatActivity {
     private void setBusy(boolean busy) {
         createButton.setEnabled(!busy);
         restoreButton.setEnabled(!busy);
+        exportPhotosButton.setEnabled(!busy);
+        restorePhotosButton.setEnabled(!busy);
         progress.setVisibility(busy ? View.VISIBLE : View.GONE);
     }
 
@@ -246,6 +362,14 @@ public class BackupActivity extends AppCompatActivity {
                 .format(new Date(epochMillis));
     }
 
+    private String formatFileSize(long bytes) {
+        if (bytes < 1024L * 1024L) {
+            return getString(R.string.backup_photo_size_kb,
+                    Math.max(1L, Math.round(bytes / 1024.0)));
+        }
+        return getString(R.string.backup_photo_size_mb, bytes / (1024.0 * 1024.0));
+    }
+
     private String safeMessage(Throwable error) {
         String message = error == null ? null : error.getMessage();
         return message == null || message.isBlank()
@@ -259,10 +383,10 @@ public class BackupActivity extends AppCompatActivity {
     private void applyWindowInsets() {
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.backupRoot),
                 (view, insets) -> {
-                    Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
+                    Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars()
+                            | WindowInsetsCompat.Type.displayCutout());
                     view.setPadding(bars.left, bars.top, bars.right, bars.bottom);
                     return insets;
                 });
     }
-
 }

@@ -28,8 +28,8 @@ android {
         applicationId = "com.alidogukan.avora"
         minSdk = 26
         targetSdk = 36
-        versionCode = 53
-        versionName = "3.5.3"
+        versionCode = 54
+        versionName = "3.6.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -100,6 +100,7 @@ dependencies {
     implementation(libs.cardview)
     implementation(libs.recyclerview)
     implementation(libs.work.runtime)
+    implementation(libs.exifinterface)
 
     implementation(libs.activity.ktx)
     implementation(libs.appcompat)

@@ -51,6 +51,7 @@ public class MainViewModel extends AndroidViewModel {
 
     private final FirebaseRepository repository;
     private final MutableLiveData<String> errorLiveData = new MutableLiveData<>();
+    private boolean authenticationInProgress;
     private final LiveData<Sensor> sensorLiveData;
     private final LiveData<Status> statusLiveData;
     private final LiveData<Command> commandLiveData;
@@ -76,14 +77,18 @@ public class MainViewModel extends AndroidViewModel {
         repository = new FirebaseRepository();
         notifications = new GardenNotificationManager(application);
         notificationPermissionPrompts = new NotificationPermissionPromptStore(application);
-        sensorLiveData = repository.observeSensor(error -> handleFirebaseError());
-        statusLiveData = repository.observeStatus(error -> handleFirebaseError());
-        commandLiveData = repository.observeCommands(error -> handleFirebaseError());
-        adaptiveRecommendation = repository.observeAdaptiveRecommendationData(
-                error -> handleFirebaseError());
-        aiDecisionLiveData = repository.observeAIDecision(error -> handleFirebaseError());
-        aiExplanationLiveData = repository.observeAIExplanation(
-                error -> handleFirebaseError());
+        sensorLiveData = repository.observeSensor(error -> handleFirebaseError(
+                FirebaseRepository.isPermissionDenied(error)));
+        statusLiveData = repository.observeStatus(error -> handleFirebaseError(
+                FirebaseRepository.isPermissionDenied(error)));
+        commandLiveData = repository.observeCommands(error -> handleFirebaseError(
+                FirebaseRepository.isPermissionDenied(error)));
+        adaptiveRecommendation = repository.observeAdaptiveRecommendationData(error ->
+                handleFirebaseError(FirebaseRepository.isPermissionDenied(error)));
+        aiDecisionLiveData = repository.observeAIDecision(error -> handleFirebaseError(
+                FirebaseRepository.isPermissionDenied(error)));
+        aiExplanationLiveData = repository.observeAIExplanation(error ->
+                handleFirebaseError(FirebaseRepository.isPermissionDenied(error)));
         predictionValidationStatus = repository.observePredictionValidationStatus();
         moisturePrediction = repository.observeMoisturePrediction();
         predictionAccuracy = repository.observePredictionAccuracy();
@@ -130,9 +135,16 @@ public class MainViewModel extends AndroidViewModel {
     }
 
     public void authenticate() {
-        repository.authenticateAnonymously().addOnCompleteListener(task ->
-                authenticated.setValue(task.isSuccessful()
-                        && Boolean.TRUE.equals(task.getResult())));
+        if (authenticationInProgress) return;
+        authenticationInProgress = true;
+        repository.authenticateAnonymously().addOnCompleteListener(task -> {
+            authenticationInProgress = false;
+            if (task.isSuccessful()) {
+                authenticated.setValue(Boolean.TRUE.equals(task.getResult()));
+                return;
+            }
+            handleFirebaseError(false);
+        });
     }
 
     public void initializeNotificationSync() {
@@ -242,9 +254,12 @@ public class MainViewModel extends AndroidViewModel {
         repository.updateGardenZoneValveMode(zone.getZone_id(), physical);
     }
 
-    private void handleFirebaseError() {
+    private void handleFirebaseError(boolean permissionDenied) {
+        if (permissionDenied) {
+            authenticated.setValue(false);
+            return;
+        }
         errorLiveData.setValue(AvoraLanguageManager.localizedContext(
-                getApplication()).getString(
-                R.string.firebase_connection_error));
+                getApplication()).getString(R.string.firebase_connection_error));
     }
 }

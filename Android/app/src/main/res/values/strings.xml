@@ -1250,6 +1250,7 @@
     <string name="settings_quick_weather">Yağış\nAyarları</string>
     <string name="settings_quick_fertilization">Gübreleme\nAyarları</string>
     <string name="settings_quick_device">Cihaz\nBilgileri</string>
+    <string name="settings_quick_data_sync">Veri\nSenkronizasyonu</string>
     <string name="settings_quick_about">Uygulama\nHakkında</string>
     <string name="settings_quick_editor_title">Hızlı Ayarları düzenle</string>
     <string name="settings_quick_editor_message">Dört kısayol seçin, oklarla görünme sırasını değiştirin.</string>

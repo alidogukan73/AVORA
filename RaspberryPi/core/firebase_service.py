@@ -86,7 +86,7 @@ class FirebaseService:
         self._zone_map_refreshed_at = 0.0
         self._zone_map_refresh_seconds = max(
             10.0,
-            FirebaseConfig.STATUS_UPDATE_INTERVAL_SECONDS,
+            FirebaseConfig.ZONE_MAP_REFRESH_INTERVAL_SECONDS,
         )
         self._zone_map_signature: tuple[tuple[str, str], ...] | None = None
         self._published_sensor_configs: dict[

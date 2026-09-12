@@ -18,8 +18,9 @@
     <string name="main_menu_health_subtitle">Sistem durumu ve kaynak kullanımı</string>
     <string name="main_menu_settings_title">Ayarlar</string>
     <string name="main_menu_settings_subtitle">Sistem ayarları ve sınırlar</string>
-    <string name="main_menu_about_title">Hakkında</string>
-    <string name="main_menu_about_subtitle">Uygulama ve geliştirici bilgileri</string>
+    <string name="main_menu_secure_exit_title">Güvenli çıkış</string>
+    <string name="main_menu_secure_exit_subtitle">Uygulamayı güvenli biçimde kapatın</string>
+    <string name="symbol_secure_exit" translatable="false">⇥</string>
 
     <string name="symbol_main_menu" translatable="false">☰</string>
     <string name="symbol_garden_outline" translatable="false">♧</string>

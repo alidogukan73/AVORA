@@ -11,6 +11,7 @@
     <string name="notification_detail_seedling_batch">Related seedling batch</string>
     <string name="notification_detail_all_seedling_batches">All active batches</string>
     <string name="notification_detail_seedling_loading">Loading batch information</string>
+    <string name="notification_detail_named_item">%1$s %2$s</string>
     <string name="notification_detail_seedling_missing">The seedling batch is no longer available</string>
     <string name="notification_category_photo">Photo follow-up</string>
     <string name="notification_category_plant_assistant">Plant Assistant</string>

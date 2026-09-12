@@ -64,6 +64,8 @@ public class MainActivity extends EdgeToEdgeActivity {
     private MainViewModel viewModel;
     private boolean notificationPermissionChecked;
     private boolean authorizationErrorShown;
+    private long lastFirebaseErrorShownAt;
+    private static final long AUTHENTICATION_RETRY_DELAY_MILLIS = 10_000L;
     private long connectionStartedElapsedMillis;
     private MaterialCardView cardOnlineStatus;
     private TextView txtOnline;
@@ -154,6 +156,15 @@ public class MainActivity extends EdgeToEdgeActivity {
                 }
             };
 
+    private final Runnable authenticationRetry = () -> {
+        if (!authenticatedAppInitialized) authenticateThenInitialize();
+    };
+
+    private void scheduleAuthenticationRetry() {
+        onlineStatusHandler.removeCallbacks(authenticationRetry);
+        onlineStatusHandler.postDelayed(authenticationRetry, AUTHENTICATION_RETRY_DELAY_MILLIS);
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
 
@@ -162,10 +173,20 @@ public class MainActivity extends EdgeToEdgeActivity {
         viewModel = new ViewModelProvider(this).get(MainViewModel.class);
         viewModel.getAuthenticated().observe(this, authenticated -> {
             if (Boolean.TRUE.equals(authenticated)) {
+                onlineStatusHandler.removeCallbacks(authenticationRetry);
+                authorizationErrorShown = false;
                 initializeAuthenticatedApp();
             } else if (Boolean.FALSE.equals(authenticated)) {
                 showFirebaseAuthorizationError();
             }
+        });
+        viewModel.getError().observe(this, message -> {
+            if (message == null || message.isBlank()) return;
+            long now = System.currentTimeMillis();
+            if (now - lastFirebaseErrorShownAt < 15_000L) return;
+            lastFirebaseErrorShownAt = now;
+            Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+            if (!authenticatedAppInitialized) scheduleAuthenticationRetry();
         });
         authenticateThenInitialize();
     }
@@ -195,6 +216,9 @@ public class MainActivity extends EdgeToEdgeActivity {
                 .setMessage(getString(
                         R.string.runtime_device_authorization_message,
                         authorizationId))
+                .setNeutralButton(R.string.runtime_nas_invite_action,
+                        (dialog, which) -> startActivity(
+                                new Intent(this, DataSyncActivity.class)))
                 .setNegativeButton(R.string.runtime_close, null)
                 .setPositiveButton(R.string.runtime_copy_authorization_id,
                         (dialog, which) -> copyDeviceAuthorizationId(authorizationId))
@@ -389,21 +413,6 @@ public class MainActivity extends EdgeToEdgeActivity {
             latestWateringHistory = values == null ? new ArrayList<>() : values;
             viewModel.evaluateWateringSignals(latestWateringHistory, latestZones);
         });
-
-        viewModel.getError().observe(
-                this,
-                message -> {
-
-                    if (
-                            message == null
-                                    || message.isBlank()
-                    ) {
-                        return;
-                    }
-
-                    showFirebaseAuthorizationError();
-                }
-        );
     }
 
     private void ensureHomeWeatherViews() {
@@ -1131,6 +1140,10 @@ public class MainActivity extends EdgeToEdgeActivity {
 
         super.onStart();
 
+        if (!authenticatedAppInitialized) {
+            authenticateThenInitialize();
+        }
+
         androidx.core.content.ContextCompat.registerReceiver(
                 this,
                 notificationChangedReceiver,
@@ -1197,6 +1210,7 @@ public class MainActivity extends EdgeToEdgeActivity {
         onlineStatusHandler.removeCallbacks(
                 onlineStatusChecker
         );
+        onlineStatusHandler.removeCallbacks(authenticationRetry);
 
         super.onStop();
     }

@@ -18,6 +18,6 @@
     <string name="main_menu_health_subtitle">System status and resource usage</string>
     <string name="main_menu_settings_title">Settings</string>
     <string name="main_menu_settings_subtitle">System settings and limits</string>
-    <string name="main_menu_about_title">About</string>
-    <string name="main_menu_about_subtitle">App and developer information</string>
+    <string name="main_menu_secure_exit_title">Secure exit</string>
+    <string name="main_menu_secure_exit_subtitle">Close the app safely</string>
 </resources>

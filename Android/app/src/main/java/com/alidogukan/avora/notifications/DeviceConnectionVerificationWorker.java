@@ -12,6 +12,8 @@ import androidx.work.WorkManager;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
+import com.alidogukan.avora.config.AppInfo;
+import com.alidogukan.avora.firebase.FirebaseWorkerAuthentication;
 import com.alidogukan.avora.models.Status;
 import com.alidogukan.avora.language.AvoraLanguageManager;
 import com.google.android.gms.tasks.Tasks;
@@ -64,10 +66,13 @@ public final class DeviceConnectionVerificationWorker extends Worker {
             if (!FirebaseConnectionProbe.awaitConnected(15, TimeUnit.SECONDS)) {
                 return Result.retry();
             }
+            if (!FirebaseWorkerAuthentication.awaitAuthorized(20, TimeUnit.SECONDS)) {
+                return Result.success();
+            }
 
             DataSnapshot snapshot = Tasks.await(FirebaseDatabase.getInstance()
                             .getReference("devices")
-                            .child("avora-001")
+                            .child(AppInfo.DEVICE_ID)
                             .child("status")
                             .get(),
                     20, TimeUnit.SECONDS);

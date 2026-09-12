@@ -7,6 +7,7 @@ import android.provider.Settings;
 import androidx.annotation.NonNull;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MediatorLiveData;
+import com.alidogukan.avora.config.AppInfo;
 import com.alidogukan.avora.fertilization.FertilizerOutcomeFollowUpPolicy;
 import com.alidogukan.avora.models.AdaptiveRecommendation;
 import com.alidogukan.avora.models.AIDecision;
@@ -84,10 +85,9 @@ import java.util.function.Consumer;
 
 public class FirebaseRepository {
    private static final String TAG = "FirebaseRepository";
-   private static final String DEVICE_ID = "avora-001";
    private final DatabaseReference deviceRef = FirebaseDatabase.getInstance()
          .getReference("devices")
-         .child(DEVICE_ID);
+         .child(AppInfo.DEVICE_ID);
    private final DatabaseReference primaryZoneRef;
    private final DatabaseReference statusRef;
    private final DatabaseReference commandsRef;
@@ -407,14 +407,49 @@ public class FirebaseRepository {
       return currentUser == null ? "" : currentUser.getUid();
    }
 
+   public static boolean isPermissionDenied(DatabaseError error) {
+      return error != null && error.getCode() == DatabaseError.PERMISSION_DENIED;
+   }
+
+
    private Task<Boolean> refreshAuthenticationClaims(FirebaseUser user) {
-      return user.getIdToken(true).continueWith(task -> {
-         if (!task.isSuccessful() || task.getResult() == null) return false;
-         return DeviceOwnershipPolicy.ownsDevice(
-               task.getResult().getClaims(),
-               DEVICE_ID
-         );
+      return deviceAuthorization(user, false).continueWithTask(first -> {
+         if (first.isSuccessful() && Boolean.TRUE.equals(first.getResult())) {
+            return Tasks.forResult(true);
+         }
+         return deviceAuthorization(user, true);
       });
+   }
+
+   private Task<Boolean> deviceAuthorization(FirebaseUser user, boolean forceRefresh) {
+      return user.getIdToken(forceRefresh).continueWithTask(task -> {
+         if (!task.isSuccessful() || task.getResult() == null) {
+            return Tasks.forException(authenticationError(task.getException()));
+         }
+         if (DeviceOwnershipPolicy.ownsDevice(
+               task.getResult().getClaims(), AppInfo.DEVICE_ID)) {
+            return Tasks.forResult(true);
+         }
+         return FirebaseDatabase.getInstance()
+               .getReference("device_access")
+               .child(AppInfo.DEVICE_ID)
+               .child(user.getUid())
+               .child("approved")
+               .get()
+               .continueWith(access -> {
+                  if (!access.isSuccessful() || access.getResult() == null) {
+                     throw authenticationError(access.getException());
+                  }
+                  return Boolean.TRUE.equals(
+                        access.getResult().getValue(Boolean.class));
+               });
+      });
+   }
+
+   private Exception authenticationError(Exception error) {
+      return error != null
+            ? error
+            : new IllegalStateException("Firebase authentication token unavailable");
    }
 
    /**
@@ -2449,7 +2484,7 @@ public class FirebaseRepository {
       payload.put("id", feedbackId);
       payload.put("status", "new");
       payload.put("created_at", ServerValue.TIMESTAMP);
-      payload.put("device_id", DEVICE_ID);
+      payload.put("device_id", AppInfo.DEVICE_ID);
       payload.put("source", "android");
       FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
       if (user == null) {

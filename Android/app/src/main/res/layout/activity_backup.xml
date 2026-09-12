@@ -202,6 +202,36 @@
                 android:layout_marginTop="10dp"
                 android:text="@string/backup_restore_button" />
 
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:text="@string/backup_photo_section"
+                android:textAppearance="@style/TextAppearance.AVORA.Settings.Category" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:layout_marginBottom="10dp"
+                android:text="@string/backup_photo_message"
+                android:textAppearance="@style/TextAppearance.AVORA.Settings.RowSubtitle" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnExportPhotos"
+                style="@style/Widget.AVORA.Button.Outlined"
+                android:layout_width="match_parent"
+                android:layout_height="54dp"
+                android:text="@string/backup_photo_export_button" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnRestorePhotos"
+                style="@style/Widget.AVORA.Button.Outlined"
+                android:layout_width="match_parent"
+                android:layout_height="54dp"
+                android:layout_marginTop="10dp"
+                android:text="@string/backup_photo_restore_button" />
+
             <com.google.android.material.card.MaterialCardView
                 style="@style/Widget.AVORA.Settings.QuickCard"
                 android:layout_width="match_parent"

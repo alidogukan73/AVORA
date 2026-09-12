@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="nas_security_title">NAS Security Center</string>
+    <string name="nas_security_intro">Securely manage your account, family access, and open NAS sessions in one place.</string>
+    <string name="nas_security_safe">Secure</string>
+    <string name="nas_security_connection">AVORA NAS connection</string>
+    <string name="nas_security_connected">Connected · Encrypted</string>
+    <string name="nas_security_role_administrator">Administrator account</string>
+    <string name="nas_security_role_family">Family member account</string>
+    <string name="nas_security_sessions_section">SESSIONS</string>
+    <string name="nas_security_this_device">This device</string>
+    <string name="nas_security_this_device_detail">Current secure NAS session</string>
+    <string name="nas_security_active">Active now</string>
+    <string name="nas_security_family_section">FAMILY AND ACCESS</string>
+    <string name="nas_security_family_accounts">Family accounts</string>
+    <string name="nas_security_family_detail">Manage invitations and garden access</string>
+    <string name="nas_security_pending_label">Pending requests</string>
+    <string name="nas_security_pending_checking">Checking…</string>
+    <string name="nas_security_pending_unavailable">Unavailable now</string>
+    <string name="nas_security_pending_none">No requests</string>
+    <string name="nas_security_pending_count">%1$d requests</string>
+    <string name="nas_security_create_invite_short">Create a family invitation</string>
+    <string name="nas_security_manage_requests">Manage access requests</string>
+    <string name="nas_security_garden_access">Garden access</string>
+    <string name="nas_security_access_explanation">Request garden access for this phone or verify its existing approval.</string>
+    <string name="nas_security_access_pending">Waiting for administrator approval.</string>
+    <string name="nas_security_access_approved">Garden access is approved for this phone.</string>
+    <string name="nas_security_account_section">ACCOUNT SECURITY</string>
+    <string name="nas_security_password_detail">Securely signs out only this account’s other sessions</string>
+    <string name="nas_security_details_row">Security details</string>
+    <string name="nas_security_details_row_subtitle">View encryption, role, and session lifetime</string>
+    <string name="nas_security_details_title">NAS security details</string>
+    <string name="nas_security_details_message">Account: %1$s\nRole: %2$s\nConnection: Encrypted HTTPS\nSession expires: %3$s\n\nYour password is never stored on the phone. Only a temporary session key is encrypted in Android secure storage.</string>
+    <string name="nas_security_last_checked">Last security check: %1$s</string>
+    <string name="nas_security_password_changing">Changing the password securely…</string>
+    <string name="nas_security_sessions_closing">Signing out other NAS sessions…</string>
+    <string name="nas_security_disconnecting">Disconnecting the NAS securely…</string>
+    <string name="nas_security_disconnected">The NAS was disconnected from this phone.</string>
+    <string name="nas_security_not_connected">No active NAS account was found.</string>
+    <string name="nas_security_ok">OK</string>
+</resources>

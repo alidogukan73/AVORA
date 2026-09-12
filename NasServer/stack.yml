@@ -1,0 +1,71 @@
+services:
+  avora-api:
+    image: python:3.12-alpine
+    container_name: avora-nas-api
+    restart: unless-stopped
+    working_dir: /app
+    command: ["python", "-m", "avora_nas.server"]
+    environment:
+      AVORA_DATA_DIR: /data
+      AVORA_HOST: 0.0.0.0
+      AVORA_PORT: "8787"
+      AVORA_SESSION_HOURS: "720"
+      AVORA_LOGIN_WINDOW_SECONDS: "600"
+      AVORA_LOGIN_BLOCK_SECONDS: "900"
+      AVORA_LOGIN_ACCOUNT_ATTEMPTS: "5"
+      AVORA_LOGIN_SOURCE_ATTEMPTS: "60"
+      AVORA_LOG_LEVEL: INFO
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
+    ports:
+      - "18787:8787"
+    volumes:
+      - /share/Docker/AVORA/app:/app:ro
+      - /share/Docker/AVORA/database:/data/database
+      - /share/Docker/AVORA/photos:/data/photos
+      - /share/Docker/AVORA/backups:/data/backups
+      - /share/Docker/AVORA/config:/data/config
+      - /share/Docker/AVORA/logs:/data/logs
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 384m
+    cpus: 1.0
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import json,urllib.request; data=json.load(urllib.request.urlopen('http://127.0.0.1:8787/health', timeout=3)); assert data['status']=='ok' and data['storage_ready']"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  avora-tunnel:
+    image: tailscale/tailscale:stable
+    container_name: avora-tailscale
+    restart: unless-stopped
+    network_mode: "service:avora-api"
+    depends_on:
+      avora-api:
+        condition: service_healthy
+    environment:
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_USERSPACE: "true"
+      TS_HOSTNAME: avora-nas
+      TS_AUTH_ONCE: "true"
+      TS_ACCEPT_DNS: "false"
+    volumes:
+      - /share/Docker/AVORA/tailscale:/var/lib/tailscale
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 256m
+    cpus: 0.5
+

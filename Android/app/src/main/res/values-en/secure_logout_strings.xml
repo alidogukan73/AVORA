@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_secure_exit_confirm_title">Exit the app safely?</string>
+    <string name="app_secure_exit_confirm_message">AVORA will close safely. Your NAS connection, account, data, and backup settings will be preserved.</string>
+    <string name="app_secure_exit_confirm">Secure Exit</string>
+    <string name="app_secure_exit_cancel">Cancel</string>
+</resources>

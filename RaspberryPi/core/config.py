@@ -30,7 +30,18 @@ class FirebaseConfig:
 
     HTTP_TIMEOUT_SECONDS = 10
 
-    STATUS_UPDATE_INTERVAL_SECONDS = 10
+    # Android considers the device offline only after three minutes. A
+    # 30-second heartbeat keeps that detection responsive without rewriting
+    # the same Firebase status snapshot six times per minute.
+    STATUS_UPDATE_INTERVAL_SECONDS = 30
+
+    # Raspberry Pi resource and network information changes much more slowly
+    # than the connection heartbeat.
+    HEALTH_UPDATE_INTERVAL_SECONDS = 60
+
+    # Sensor-to-zone routing must remain responsive and is independent from
+    # the device heartbeat frequency.
+    ZONE_MAP_REFRESH_INTERVAL_SECONDS = 10
 
     # Normal command delivery uses one long-lived Firebase stream. This
     # interval is used only if that stream cannot be started.

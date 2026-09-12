@@ -286,7 +286,7 @@ public class SettingsHubActivity extends AppCompatActivity {
 
     private List<String> allQuickActionIds() {
         return Arrays.asList("irrigation", "plants", "notifications", "weather",
-                "fertilization", "device", "about");
+                "fertilization", "device", "sync", "about");
     }
 
     @Nullable
@@ -316,6 +316,10 @@ public class SettingsHubActivity extends AppCompatActivity {
                 return new QuickAction(R.drawable.ic_device_health_24,
                         R.string.settings_quick_device,
                         () -> open(DeviceInfoActivity.class));
+            case "sync":
+                return new QuickAction(R.drawable.ic_restart,
+                        R.string.settings_quick_data_sync,
+                        () -> open(DataSyncActivity.class));
             case "about":
                 return new QuickAction(R.drawable.ic_info_outline_20,
                         R.string.settings_quick_about,
@@ -447,7 +451,6 @@ public class SettingsHubActivity extends AppCompatActivity {
                           @StringRes int subtitle, Runnable action) {
         return new MenuItem(icon, title, subtitle, action);
     }
-
 
     private void open(Class<?> target) {
         startActivity(new Intent(this, target));

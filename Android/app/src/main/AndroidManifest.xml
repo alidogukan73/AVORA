@@ -176,6 +176,9 @@
             android:name=".activities.DeviceInfoActivity"
             android:exported="false" />
         <activity
+            android:name=".activities.NasSecurityActivity"
+            android:exported="false" />
+        <activity
             android:name=".activities.DataSyncActivity"
             android:exported="false" />
         <activity

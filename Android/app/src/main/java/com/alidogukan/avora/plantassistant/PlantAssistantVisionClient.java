@@ -16,13 +16,12 @@ import java.net.SocketTimeoutException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 
-/** LAN client. The Gemini key remains only on the Raspberry Pi. */
+/** HTTPS client. The Gemini key remains only on the Raspberry Pi. */
 public final class PlantAssistantVisionClient {
     private static final int MAX_RESPONSE_BYTES = 256 * 1024;
     private PlantAssistantVisionClient() { }
-    // Use the Raspberry Pi's LAN address: Android devices do not reliably resolve .local names.
-    /** Tailscale özel ağı üzerinden Raspberry Pi'deki görsel analiz servisi. */
-    public static final String BASE_URL = "http://100.97.32.111:8787";
+    /** Tailscale Funnel üzerinden Raspberry Pi'deki korumalı görsel analiz servisi. */
+    public static final String BASE_URL = "https://avora-pi.tailf335a4.ts.net";
     public static final String ENDPOINT = BASE_URL + "/v1/plant-assistant/analyze";
 
     public static JSONObject analyze(Bitmap bitmap, JSONObject context) throws Exception {
@@ -39,7 +38,11 @@ public final class PlantAssistantVisionClient {
             request.put("image_base64", Base64.encodeToString(image.toByteArray(), Base64.NO_WRAP));
             request.put("context", context == null ? new JSONObject() : context);
             byte[] payload = request.toString().getBytes(StandardCharsets.UTF_8);
-            connection = (HttpURLConnection) new URL(ENDPOINT).openConnection();
+            URL endpoint = new URL(ENDPOINT);
+            if (!"https".equalsIgnoreCase(endpoint.getProtocol())) {
+                throw new IllegalStateException("VISION_INSECURE_ENDPOINT");
+            }
+            connection = (HttpURLConnection) endpoint.openConnection();
             connection.setRequestMethod("POST");
             connection.setConnectTimeout(7000);
             connection.setReadTimeout(60000);

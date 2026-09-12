@@ -29,6 +29,13 @@ public final class DataSyncViewModel extends AndroidViewModel {
         repository.setAutomaticSyncEnabled(enabled);
     }
     public void goOnline() { repository.goOnline(); }
+    public String currentFirebaseUserId() {
+        return repository.currentFirebaseUserId();
+    }
+    public Task<Void> grantDeviceAccess(String firebaseUid, String nasUserId,
+                                        String email, String displayName) {
+        return repository.grantDeviceAccess(firebaseUid, nasUserId, email, displayName);
+    }
     public Task<SyncResult> readSummary() {
         return repository.readSummary().continueWith(task -> {
             DataSyncRepository.SyncResult value = task.getResult();

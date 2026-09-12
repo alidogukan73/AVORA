@@ -2,6 +2,7 @@ package com.alidogukan.avora.season;
 
 import androidx.annotation.NonNull;
 import androidx.lifecycle.LiveData;
+import com.alidogukan.avora.config.AppInfo;
 
 import com.alidogukan.avora.firebase.FirebaseLiveData;
 import com.alidogukan.avora.models.GardenSeason;
@@ -34,10 +35,9 @@ import java.util.Set;
  * preserve hardware configuration, inventory, calibration and historical data.
  */
 public final class SeasonRepository {
-    private static final String DEVICE_ID = "avora-001";
     private final DatabaseReference deviceRef = FirebaseDatabase.getInstance()
             .getReference("devices")
-            .child(DEVICE_ID);
+            .child(AppInfo.DEVICE_ID);
     private final DatabaseReference seasonsRef = deviceRef
             .child("garden_journal")
             .child("seasons");

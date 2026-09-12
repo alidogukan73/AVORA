@@ -2,10 +2,43 @@
   "rules": {
     ".read": false,
     ".write": false,
+    "device_access": {
+      "$deviceId": {
+        "$uid": {
+          ".read": "auth != null && (auth.uid == $uid || auth.token.avora_device_id == $deviceId)",
+          ".write": "auth != null && auth.token.avora_device_id == $deviceId",
+          ".validate": "!newData.exists() || (newData.hasChildren(['approved', 'firebase_uid', 'nas_user_id', 'email', 'display_name', 'approved_by', 'approved_at']) && newData.child('approved').val() == true && newData.child('firebase_uid').val() == $uid && newData.child('approved_by').val() == auth.uid)",
+          "approved": {
+            ".validate": "newData.isBoolean() && newData.val() == true"
+          },
+          "firebase_uid": {
+            ".validate": "newData.isString() && newData.val() == $uid && newData.val().matches(/^[A-Za-z0-9_-]{16,128}$/)"
+          },
+          "nas_user_id": {
+            ".validate": "newData.isString() && newData.val().matches(/^[0-9a-fA-F-]{36}$/)"
+          },
+          "email": {
+            ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 254"
+          },
+          "display_name": {
+            ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 120"
+          },
+          "approved_by": {
+            ".validate": "newData.isString() && newData.val() == auth.uid"
+          },
+          "approved_at": {
+            ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now"
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      }
+    },
     "devices": {
       "$deviceId": {
-        ".read": "auth != null && auth.token.avora_device_id == $deviceId",
-        ".write": "auth != null && auth.token.avora_device_id == $deviceId && newData.child('user_feedback_email_state/activation_epoch').val() == data.child('user_feedback_email_state/activation_epoch').val()",
+        ".read": "auth != null && (auth.token.avora_device_id == $deviceId || root.child('device_access').child($deviceId).child(auth.uid).child('approved').val() == true)",
+        ".write": "auth != null && (auth.token.avora_device_id == $deviceId || root.child('device_access').child($deviceId).child(auth.uid).child('approved').val() == true) && newData.child('user_feedback_email_state/activation_epoch').val() == data.child('user_feedback_email_state/activation_epoch').val()",
         "user_feedback_email_state": {
           "activation_epoch": {
             ".validate": "newData.val() == data.val()"

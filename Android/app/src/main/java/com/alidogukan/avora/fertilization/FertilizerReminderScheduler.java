@@ -4,7 +4,6 @@ import android.content.Context;
 
 import androidx.work.Constraints;
 import androidx.work.ExistingPeriodicWorkPolicy;
-import androidx.work.ExistingWorkPolicy;
 import androidx.work.NetworkType;
 import androidx.work.OneTimeWorkRequest;
 import androidx.work.PeriodicWorkRequest;
@@ -41,14 +40,23 @@ public final class FertilizerReminderScheduler {
                 ExistingPeriodicWorkPolicy.UPDATE,
                 periodic
         );
+    }
 
+    /** Runs an immediate refresh only after a user-visible settings change. */
+    public static void runNow(Context context) {
+        Constraints constraints = new Constraints.Builder()
+                .setRequiredNetworkType(NetworkType.CONNECTED)
+                .build();
+        WorkManager manager = WorkManager.getInstance(
+                context.getApplicationContext()
+        );
         OneTimeWorkRequest immediate =
                 new OneTimeWorkRequest.Builder(
                         FertilizerReminderWorker.class
                 ).setConstraints(constraints).build();
         manager.enqueueUniqueWork(
                 IMMEDIATE_WORK,
-                ExistingWorkPolicy.REPLACE,
+                androidx.work.ExistingWorkPolicy.REPLACE,
                 immediate
         );
     }

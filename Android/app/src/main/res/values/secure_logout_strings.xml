@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_secure_exit_confirm_title">Uygulamadan güvenli çıkış yapılsın mı?</string>
+    <string name="app_secure_exit_confirm_message">AVORA güvenli biçimde kapatılacak. NAS bağlantınız, hesabınız, verileriniz ve yedekleme ayarlarınız korunacak.</string>
+    <string name="app_secure_exit_confirm">Güvenli Çıkış</string>
+    <string name="app_secure_exit_cancel">Vazgeç</string>
+</resources>

@@ -14,6 +14,7 @@ const PROJECT_ID = "demo-avora-alidogukan";
 const DEVICE_ID = "avora-001";
 const OWNER_UID = "owner-user-001";
 const OTHER_UID = "other-user-001";
+const FAMILY_UID = "family-user-identity-001";
 const RULES_PATH = path.join(__dirname, "..", "firebase-database.rules.json");
 
 let testEnvironment;
@@ -141,6 +142,58 @@ test("only the claimed device owner can read or write the device", async () => {
       auto_mode: false,
     }),
   );
+});
+
+test("owner approval grants only the selected Firebase user device access", async () => {
+  await testEnvironment.withSecurityRulesDisabled(async (context) => {
+    await set(ref(context.database(), `devices/${DEVICE_ID}/status`), {
+      online: true,
+    });
+  });
+
+  const owner = authenticatedDatabase(OWNER_UID);
+  const family = unclaimedDatabase(FAMILY_UID);
+  const stranger = unclaimedDatabase("stranger-user-001");
+  const grantPath = `device_access/${DEVICE_ID}/${FAMILY_UID}`;
+  const grant = {
+    approved: true,
+    firebase_uid: FAMILY_UID,
+    nas_user_id: "123e4567-e89b-12d3-a456-426614174000",
+    email: "family@example.com",
+    display_name: "Aile Üyesi",
+    approved_by: OWNER_UID,
+    approved_at: Date.now(),
+  };
+
+  await assertSucceeds(set(ref(owner, grantPath), grant));
+  await assertSucceeds(get(ref(family, grantPath)));
+  await assertFails(get(ref(stranger, grantPath)));
+  await assertFails(get(ref(family,
+    `device_access/${DEVICE_ID}/${OWNER_UID}`)));
+  await assertSucceeds(get(ref(family, `devices/${DEVICE_ID}`)));
+  await assertSucceeds(update(
+    ref(family, `devices/${DEVICE_ID}/commands`),
+    { auto_mode: true },
+  ));
+  await assertFails(get(ref(stranger, `devices/${DEVICE_ID}`)));
+  await assertFails(set(
+    ref(family, `device_access/${DEVICE_ID}/${FAMILY_UID}`),
+    grant,
+  ));
+  await assertFails(set(ref(owner,
+    `device_access/${DEVICE_ID}/different-user-001`), grant));
+});
+
+test("owner cannot create a malformed family access grant", async () => {
+  const owner = authenticatedDatabase(OWNER_UID);
+  await assertFails(set(ref(owner,
+    `device_access/${DEVICE_ID}/${OTHER_UID}`), {
+    approved: true,
+    firebase_uid: OTHER_UID,
+    display_name: "Eksik kayıt",
+    approved_by: OWNER_UID,
+    approved_at: Date.now(),
+  }));
 });
 
 test("owner can submit only a bounded one-shot network configuration", async () => {
@@ -295,6 +348,37 @@ test("growth photo metadata accepts only the bounded owner schema", async () => 
   );
 
   await assertSucceeds(set(ref(owner, `${basePath}/${validId}`), null));
+});
+
+test("portable restore skips legacy photo metadata that newer rules reject", async () => {
+  const owner = authenticatedDatabase(OWNER_UID);
+  const devicePath = `devices/${DEVICE_ID}`;
+  const legacyId = "legacy-photo-001";
+
+  await testEnvironment.withSecurityRulesDisabled(async (context) => {
+    await set(
+      ref(context.database(), `${devicePath}/garden_journal/photo_metadata/${legacyId}`),
+      {
+        id: legacyId,
+        zone_id: "zone-001",
+        note: "Kurallar sıkılaştırılmadan önce oluşturulmuş kayıt",
+        captured_at_epoch: 1788271200,
+      },
+    );
+  });
+
+  await assertFails(update(ref(owner, devicePath), {
+    "profile/name": "AVORA",
+    [`garden_journal/photo_metadata/${legacyId}/note`]:
+      "Kurallar sıkılaştırılmadan önce oluşturulmuş kayıt",
+  }));
+
+  await assertSucceeds(update(ref(owner, devicePath), {
+    "profile/name": "AVORA",
+    "commands/relay": false,
+    "commands/auto_mode": false,
+    "garden_journal/events/event-001/note": "Sulama kontrol edildi",
+  }));
 });
 
 test("backend delivery state remains read-only to the Android owner", async () => {

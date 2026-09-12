@@ -187,6 +187,7 @@
                             app:tint="@color/primary" />
                         <TextView android:layout_width="0dp" android:layout_height="wrap_content"
                             android:layout_marginStart="14dp" android:layout_weight="1"
+                            android:labelFor="@id/inputSeedlingSeedCount"
                             android:text="@string/seedling_seed_count"
                             android:textAppearance="@style/TextAppearance.AVORA.Seedling.RowLabel" />
                         <EditText android:id="@+id/inputSeedlingSeedCount"
@@ -216,6 +217,7 @@
                         <TextView android:id="@+id/txtSeedlingTrayLabel"
                             android:layout_width="0dp" android:layout_height="wrap_content"
                             android:layout_marginStart="14dp" android:layout_weight="1"
+                            android:labelFor="@id/inputSeedlingTrayCells"
                             android:text="@string/seedling_tray_cells"
                             android:textAppearance="@style/TextAppearance.AVORA.Seedling.RowLabel" />
                         <EditText android:id="@+id/inputSeedlingTrayCells"

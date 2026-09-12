@@ -11,6 +11,8 @@ import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
 import com.alidogukan.avora.R;
+import com.alidogukan.avora.config.AppInfo;
+import com.alidogukan.avora.firebase.FirebaseWorkerAuthentication;
 import com.alidogukan.avora.language.AvoraLanguageManager;
 import com.alidogukan.avora.models.FertilizationProfile;
 import com.alidogukan.avora.models.FertilizerApplication;
@@ -36,7 +38,6 @@ import java.util.Map;
 
 public class FertilizerReminderWorker extends Worker {
 
-    private static final String DEVICE_ID = "avora-001";
     private static final String PREFS =
             "fertilizer_reminder_state";
     private static final String AI_STATE_PREFS =
@@ -55,23 +56,31 @@ public class FertilizerReminderWorker extends Worker {
         Context context = AvoraLanguageManager.localizedContext(getApplicationContext());
         NotificationSettingsStore notificationSettings =
                 new NotificationSettingsStore(context);
-        if (!(notificationSettings.isCategoryEnabled("fertilization")
-                && notificationSettings.isReminderEnabled("fertilization"))
-                && !notificationSettings.isCategoryEnabled("stock")) {
-            return Result.success();
-        }
+        boolean fertilizationEnabled =
+                notificationSettings.isCategoryEnabled("fertilization")
+                        && notificationSettings.isReminderEnabled("fertilization");
+        boolean stockEnabled = notificationSettings.isCategoryEnabled("stock");
+        if (!fertilizationEnabled && !stockEnabled) return Result.success();
+
         try {
+            if (!FirebaseWorkerAuthentication.awaitAuthorized(20, TimeUnit.SECONDS)) {
+                return Result.success();
+            }
             com.google.firebase.database.DatabaseReference deviceRef =
                     FirebaseDatabase.getInstance()
                             .getReference("devices")
-                            .child(DEVICE_ID);
-            DataSnapshot snapshot = Tasks.await(
-                    deviceRef.child("zones").get(),
+                            .child(AppInfo.DEVICE_ID);
+            DataSnapshot productSnapshot = Tasks.await(
+                    deviceRef.child("fertilizer_products").get(),
                     20,
                     TimeUnit.SECONDS
             );
-            DataSnapshot productSnapshot = Tasks.await(
-                    deviceRef.child("fertilizer_products").get(),
+            Map<String, FertilizerProduct> products = products(productSnapshot);
+            notifyLowStockProducts(context, products);
+            if (!fertilizationEnabled) return Result.success();
+
+            DataSnapshot zonesSnapshot = Tasks.await(
+                    deviceRef.child("zones").get(),
                     20,
                     TimeUnit.SECONDS
             );
@@ -87,35 +96,12 @@ public class FertilizerReminderWorker extends Worker {
                     20,
                     TimeUnit.SECONDS
             );
-            Map<String, FertilizerProduct> products = new HashMap<>();
-            for (DataSnapshot child
-                    : productSnapshot.getChildren()) {
-                FertilizerProduct product = child.getValue(
-                        FertilizerProduct.class
-                );
-                if (product != null) {
-                    if (product.getProduct_id() == null
-                            || product.getProduct_id().isBlank()) {
-                        product.setProduct_id(child.getKey());
-                    }
-                    products.put(
-                            safe(product.getProduct_id(), child.getKey()),
-                            product
-                    );
-                }
-            }
-            List<FertilizerRecommendation> recommendations =
-                    new ArrayList<>();
-            collectRecommendations(
-                    recommendationSnapshot,
-                    recommendations,
-                    "",
-                    ""
-            );
+            List<FertilizerRecommendation> recommendations = new ArrayList<>();
+            collectRecommendations(recommendationSnapshot, recommendations, "", "");
             List<FertilizerApplication> history = new ArrayList<>();
             collectHistory(historySnapshot, history);
-            notifyLowStockProducts(context, products);
-            for (DataSnapshot child : snapshot.getChildren()) {
+
+            for (DataSnapshot child : zonesSnapshot.getChildren()) {
                 GardenZone zone = child.getValue(GardenZone.class);
                 if (zone != null && (zone.getZone_id() == null
                         || zone.getZone_id().isBlank())) {
@@ -133,20 +119,28 @@ public class FertilizerReminderWorker extends Worker {
                         new FertilizationPreferenceStore(context)
                                 .preferOrganicInputs()
                 );
-                notifyIfDue(
-                        context,
-                        zone,
-                        products,
-                        recommendations,
-                        advice
-                );
+                notifyIfDue(context, zone, products, recommendations, advice);
                 notifyAiAdvice(context, zone, zoneHistory, advice);
             }
-            notifyOutcomeFollowUps(context, history, snapshot);
+            notifyOutcomeFollowUps(context, history, zonesSnapshot);
             return Result.success();
         } catch (Exception error) {
             return Result.retry();
         }
+    }
+
+    private Map<String, FertilizerProduct> products(DataSnapshot snapshot) {
+        Map<String, FertilizerProduct> products = new HashMap<>();
+        for (DataSnapshot child : snapshot.getChildren()) {
+            FertilizerProduct product = child.getValue(FertilizerProduct.class);
+            if (product == null) continue;
+            if (product.getProduct_id() == null
+                    || product.getProduct_id().isBlank()) {
+                product.setProduct_id(child.getKey());
+            }
+            products.put(safe(product.getProduct_id(), child.getKey()), product);
+        }
+        return products;
     }
 
     /**

@@ -3,16 +3,21 @@ package com.alidogukan.avora.sync;
 import android.content.Context;
 import android.content.SharedPreferences;
 
+import androidx.annotation.NonNull;
 import androidx.lifecycle.LiveData;
 
 import com.alidogukan.avora.config.AppInfo;
+import com.alidogukan.avora.firebase.FirebaseDeviceAccessManager;
 import com.alidogukan.avora.firebase.FirebaseRepository;
 import com.alidogukan.avora.models.Status;
 import com.google.android.gms.tasks.Task;
+import com.google.android.gms.tasks.TaskCompletionSource;
 import com.google.android.gms.tasks.Tasks;
 import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -55,12 +60,24 @@ public final class DataSyncRepository {
 
     public void goOnline() { database.goOnline(); }
 
+    public String currentFirebaseUserId() {
+        return FirebaseDeviceAccessManager.currentUserId();
+    }
+
+    public Task<Void> grantDeviceAccess(String firebaseUid,
+                                        String nasUserId,
+                                        String email,
+                                        String displayName) {
+        return FirebaseDeviceAccessManager.grantDeviceAccess(
+                firebaseUid, nasUserId, email, displayName);
+    }
+
     public Task<SyncResult> readSummary() {
         List<Task<DataSnapshot>> reads = new ArrayList<>();
-        reads.add(deviceRef.child("status").get());
-        reads.add(deviceRef.child("health").get());
-        reads.add(deviceRef.child("zones").get());
-        reads.add(deviceRef.child("weather").child("forecast").get());
+        reads.add(readOnce(deviceRef.child("status")));
+        reads.add(readOnce(deviceRef.child("health")));
+        reads.add(readOnce(deviceRef.child("zones")));
+        reads.add(readOnce(deviceRef.child("weather").child("forecast")));
         return Tasks.whenAllSuccess(reads).continueWith(task -> {
             if (!task.isSuccessful()) {
                 if (task.getException() != null) throw task.getException();
@@ -80,6 +97,27 @@ public final class DataSyncRepository {
                     resolveDeviceEpoch(status, health), status.exists(),
                     health.exists(), weather.exists());
         });
+    }
+
+    /**
+     * Firebase Database 22.x can assert when get() starts a second wire listen
+     * for a reference already covered by keepSynced(true). A single-value
+     * listener reuses the active sync tree and removes itself after delivery.
+     */
+    private static Task<DataSnapshot> readOnce(DatabaseReference reference) {
+        TaskCompletionSource<DataSnapshot> result = new TaskCompletionSource<>();
+        reference.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                result.setResult(snapshot);
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                result.setException(error.toException());
+            }
+        });
+        return result.getTask();
     }
 
     public void rememberSuccess(long deviceEpoch, String scope) {

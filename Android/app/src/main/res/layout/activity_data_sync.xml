@@ -114,6 +114,105 @@
                     android:paddingStart="14dp"
                     android:paddingEnd="14dp" />
             </com.google.android.material.card.MaterialCardView>
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnDataSyncNasAccount"
+                style="@style/Widget.AVORA.Button.Secondary"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:layout_marginTop="10dp"
+                android:text="@string/data_sync_nas_account_connect" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnDataSyncNasBackup"
+                style="@style/Widget.AVORA.Button.Secondary"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:layout_marginTop="8dp"
+                android:text="@string/data_sync_nas_backup_button" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnDataSyncNasRestore"
+                style="@style/Widget.AVORA.Button.Secondary"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:layout_marginTop="8dp"
+                android:text="@string/data_sync_nas_restore_button" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnDataSyncNasPhotoBackup"
+                style="@style/Widget.AVORA.Button.Secondary"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:layout_marginTop="8dp"
+                android:text="@string/data_sync_nas_photo_backup_button" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnDataSyncNasPhotoRestore"
+                style="@style/Widget.AVORA.Button.Secondary"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:layout_marginTop="8dp"
+                android:text="@string/data_sync_nas_photo_restore_button" />
+
+            <com.google.android.material.card.MaterialCardView
+                style="@style/Widget.AVORA.Settings.NavigationCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="14dp">
+
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/switchDataSyncNasAutomatic"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/data_sync_nas_auto_title"
+                        android:textColor="@color/textPrimary"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:text="@string/data_sync_nas_auto_message"
+                        android:textAppearance="@style/TextAppearance.AVORA.Settings.RowSubtitle" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                style="@style/Widget.AVORA.Settings.NavigationCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="14dp">
+
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/switchDataSyncNasPhotosAutomatic"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/data_sync_nas_photo_auto_title"
+                        android:textColor="@color/textPrimary"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:text="@string/data_sync_nas_photo_auto_message"
+                        android:textAppearance="@style/TextAppearance.AVORA.Settings.RowSubtitle" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
             <TextView
                 android:layout_width="match_parent"

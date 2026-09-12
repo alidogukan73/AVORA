@@ -285,6 +285,10 @@ public final class GardenNotificationManager {
                         store.completePendingCloudDeletions(removable));
     }
 
+    public boolean hasPendingCloudDeletions() {
+        return !store.pendingCloudDeletions().isEmpty();
+    }
+
     public Task<Void> syncPendingCloudDeletions() {
         List<GardenNotification> pending = store.pendingCloudDeletions();
         if (pending.isEmpty()) return Tasks.forResult(null);

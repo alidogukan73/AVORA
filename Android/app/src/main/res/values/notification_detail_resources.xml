@@ -11,6 +11,7 @@
     <string name="notification_detail_seedling_batch">İlgili fide partisi</string>
     <string name="notification_detail_all_seedling_batches">Tüm aktif partiler</string>
     <string name="notification_detail_seedling_loading">Parti bilgisi yükleniyor</string>
+    <string name="notification_detail_named_item">%1$s %2$s</string>
     <string name="notification_detail_seedling_missing">Fide partisi artık bulunamıyor</string>
     <string name="notification_category_photo">Fotoğraf takibi</string>
     <string name="notification_category_plant_assistant">Bitki Asistanı</string>

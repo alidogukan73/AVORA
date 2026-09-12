@@ -51,6 +51,7 @@
     <string name="settings_quick_weather">Rain\nSettings</string>
     <string name="settings_quick_fertilization">Fertilization\nSettings</string>
     <string name="settings_quick_device">Device\nInformation</string>
+    <string name="settings_quick_data_sync">Data\nSynchronization</string>
     <string name="settings_quick_about">About the\nApp</string>
     <string name="settings_quick_editor_title">Edit Quick Settings</string>
     <string name="settings_quick_editor_message">Select four shortcuts and use the arrows to change their display order.</string>

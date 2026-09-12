@@ -47,6 +47,7 @@ public final class FertilizationSettingsViewModel extends AndroidViewModel {
         boolean applied = notificationSettings.applyBackup(values);
         if (applied) {
             FertilizerReminderScheduler.schedule(getApplication());
+            FertilizerReminderScheduler.runNow(getApplication());
             NotificationSignalScheduler.schedule(getApplication());
         }
         return applied;
@@ -69,6 +70,7 @@ public final class FertilizationSettingsViewModel extends AndroidViewModel {
         notificationSettings.setCategoryEnabled("fertilization", reminders);
         notificationSettings.setCategoryEnabled("stock", stockWarnings);
         FertilizerReminderScheduler.schedule(getApplication());
+        FertilizerReminderScheduler.runNow(getApplication());
         NotificationSignalScheduler.schedule(getApplication());
         return Tasks.whenAll(
                 repository.saveNotificationSettings(notificationSettings.snapshot()),

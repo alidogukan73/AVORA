@@ -2,6 +2,7 @@ package com.alidogukan.avora.seedling;
 
 import androidx.annotation.NonNull;
 import androidx.lifecycle.LiveData;
+import com.alidogukan.avora.config.AppInfo;
 import com.alidogukan.avora.firebase.FirebaseLiveData;
 import com.alidogukan.avora.models.SeedlingBatch;
 import com.alidogukan.avora.models.SeedlingDailyLog;
@@ -21,9 +22,8 @@ import java.util.Map;
 
 /** Single persistence boundary for seedling batches, logs and sensor snapshots. */
 public final class SeedlingRepository {
-    private static final String DEVICE_ID = "avora-001";
     private final DatabaseReference root = FirebaseDatabase.getInstance()
-            .getReference("devices").child(DEVICE_ID).child("seedling");
+            .getReference("devices").child(AppInfo.DEVICE_ID).child("seedling");
 
     public LiveData<List<SeedlingBatch>> observeBatches() {
         DatabaseReference reference = root.child("batches");
