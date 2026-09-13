@@ -61,6 +61,7 @@ services:
       TS_HOSTNAME: avora-nas
       TS_AUTH_ONCE: "true"
       TS_ACCEPT_DNS: "false"
+      TS_SERVE_CONFIG: /var/lib/tailscale/config/serve.json
     volumes:
       - /share/Docker/AVORA/tailscale:/var/lib/tailscale
     security_opt:

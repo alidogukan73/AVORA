@@ -36,6 +36,8 @@ Portainer yığını aşağıdaki mevcut dizinleri kullanır:
 ├── logs
 ├── photos
 └── tailscale
+    └── config
+        └── serve.json
 ```
 
 Sunucu ilk kez başladığında `config/setup_token.txt` dosyasına tek kullanımlık kurulum
@@ -56,13 +58,16 @@ aktif hesap bulunduğu için kalıcı yeni bir kurulum anahtarı oluşturulmaz.
 `18787` yönlendirici üzerinden internete açılmamalıdır. CGNAT altındaki dış erişim,
 `avora-tunnel` konteyneri ve Tailscale Funnel üzerinden sağlanır. Tailscale durumu
 `tailscale/` dizininde kalıcı tutulur; yeniden başlatmada cihaz kimliği kaybolmaz.
+`tailscale/config/serve.json` dosyası Funnel yönlendirmesini her konteyner açılışında
+otomatik olarak yeniden uygular.
 
 İlk dağıtımdan sonra Portainer'da `avora-tailscale` günlüklerindeki oturum açma bağlantısı
-kullanılarak NAS Tailscale hesabına eklenir. Ardından aynı konteynerin konsolunda
-`tailscale funnel --bg 8787` çalıştırılır. Funnel'ın verdiği `https://...ts.net` adresi
-AVORA istemcilerinin güvenli API adresidir. Test kullanıcılarının cihazlarına Tailscale
-kurulması gerekmez. Funnel etkinleştirilmeden önce yönlendiricideki `18788` kuralı devre
-dışı bırakılmalıdır.
+kullanılarak NAS Tailscale hesabına eklenir. Oturum açma tamamlanınca Funnel yapılandırması
+`TS_SERVE_CONFIG` üzerinden otomatik yüklenir. Konteyner konsolunda `tailscale funnel status`
+ile `Funnel on` ve `proxy http://127.0.0.1:8787` görüldüğü doğrulanır. Oluşan
+`https://...ts.net` adresi AVORA istemcilerinin güvenli API adresidir. Test kullanıcılarının
+cihazlarına Tailscale kurulması gerekmez. Funnel etkinleştirilmeden önce yönlendiricideki
+`18788` kuralı devre dışı bırakılmalıdır.
 
 ## Başlıca API uçları
 
