@@ -11,7 +11,9 @@ import java.time.ZoneId;
 
 /** Pure timing and eligibility rules for actionable seedling notifications. */
 public final class SeedlingNotificationPolicy {
-    public static final long TELEMETRY_MAX_AGE_SECONDS = 45L * 60L;
+    // Firmware publishes every 10 seconds. A 90-second grace period tolerates
+    // short network gaps without generating advice from genuinely old data.
+    public static final long TELEMETRY_MAX_AGE_SECONDS = 90L;
 
     public enum Milestone { NONE, GERMINATION, FIRST_LEAF, HARDENING, READY }
 

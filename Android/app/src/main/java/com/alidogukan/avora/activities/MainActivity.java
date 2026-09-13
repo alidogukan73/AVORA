@@ -218,7 +218,7 @@ public class MainActivity extends EdgeToEdgeActivity {
                         authorizationId))
                 .setNeutralButton(R.string.runtime_nas_invite_action,
                         (dialog, which) -> startActivity(
-                                new Intent(this, DataSyncActivity.class)))
+                                new Intent(this, NasSecurityActivity.class)))
                 .setNegativeButton(R.string.runtime_close, null)
                 .setPositiveButton(R.string.runtime_copy_authorization_id,
                         (dialog, which) -> copyDeviceAuthorizationId(authorizationId))

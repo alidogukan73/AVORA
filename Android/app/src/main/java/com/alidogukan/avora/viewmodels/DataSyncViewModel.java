@@ -8,6 +8,7 @@ import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 
 import com.alidogukan.avora.backup.AvoraBackupManager;
+import com.alidogukan.avora.firebase.GardenAccessNotificationClient;
 import com.alidogukan.avora.nas.NasAutomaticBackupScheduler;
 import com.alidogukan.avora.nas.NasAutomaticBackupSettings;
 import com.alidogukan.avora.nas.NasPhotoBackupManager;
@@ -51,6 +52,9 @@ public final class DataSyncViewModel extends AndroidViewModel {
     public void goOnline() { repository.goOnline(); }
     public String currentFirebaseUserId() {
         return repository.currentFirebaseUserId();
+    }
+    public void notifyGardenAccessRequest(String requestId) {
+        GardenAccessNotificationClient.notifyOwnerBestEffort(requestId);
     }
     public Task<Void> grantDeviceAccess(String firebaseUid, String nasUserId,
                                         String email, String displayName) {

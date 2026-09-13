@@ -12,7 +12,7 @@ class AppConfig:
 
     DEVICE_ID = "avora-001"
 
-    VERSION = "2.11.1"
+    VERSION = "2.11.2"
 
     LOOP_DELAY_SECONDS = 2.0
 
@@ -112,6 +112,9 @@ class SeedlingConfig:
     MQTT_TOPIC = "avora/seedling/+/telemetry"
 
     MQTT_CLIENT_ID = "avora-pi-seedling-assistant"
+
+    # Only explicitly provisioned nodes may publish through the Admin SDK bridge.
+    MQTT_ALLOWED_NODE_IDS = ("seedling-001",)
 
     TELEMETRY_STALE_AFTER_SECONDS = 45
 

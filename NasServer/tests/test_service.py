@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 import os
+import sqlite3
 import tempfile
 import unittest
+from contextlib import closing
 from pathlib import Path
 from unittest.mock import patch
 
 from avora_nas.config import Settings
 from avora_nas.database import (
+    AccountDatabase,
+    AccountLifecycleError,
     DataConflictError,
     InvalidCurrentPasswordError,
     InvalidCredentialsError,
@@ -52,6 +56,26 @@ class AvoraServiceTest(unittest.TestCase):
         with self.assertRaises(InvalidCredentialsError):
             self.service.authenticate(session.token)
 
+    def test_authenticated_use_slides_the_session_expiry(self) -> None:
+        session = self.service.accounts.create_session(
+            "owner@example.com",
+            "Guvenli-Yonetici-2026!",
+            ttl_seconds=100,
+            now=1_800_000_000,
+        )
+
+        self.service.accounts.authenticate(
+            session.token,
+            now=1_800_000_090,
+            ttl_seconds=100,
+        )
+
+        user = self.service.accounts.authenticate(
+            session.token,
+            now=1_800_000_150,
+        )
+        self.assertEqual(self.admin.id, user.id)
+
     def test_password_change_keeps_current_session_and_revokes_others(self) -> None:
         first = self.service.login("owner@example.com", "Guvenli-Yonetici-2026!")
         second = self.service.login("owner@example.com", "Guvenli-Yonetici-2026!")
@@ -95,6 +119,37 @@ class AvoraServiceTest(unittest.TestCase):
         with self.assertRaises(InvalidCredentialsError):
             self.service.authenticate(second.token)
 
+    def test_active_sessions_show_devices_without_exposing_tokens(self) -> None:
+        now = 1_800_000_000
+        phone = self.service.login(
+            "owner@example.com",
+            "Guvenli-Yonetici-2026!",
+            now=now,
+            device_id="android-phone",
+            device_name="Samsung Galaxy S24",
+        )
+        tablet = self.service.login(
+            "owner@example.com",
+            "Guvenli-Yonetici-2026!",
+            now=now + 10,
+            device_id="android-tablet",
+            device_name="Samsung Galaxy Tab",
+        )
+
+        sessions = self.service.list_sessions(phone.token, phone.user, now + 20)
+
+        self.assertEqual(2, len(sessions))
+        self.assertTrue(sessions[0].current)
+        self.assertEqual("Samsung Galaxy S24", sessions[0].device_name)
+        self.assertFalse(sessions[1].current)
+        self.assertEqual("Samsung Galaxy Tab", sessions[1].device_name)
+        self.service.identify_session(
+            tablet.token, tablet.user, "android-tablet", "Ali'nin Tableti"
+        )
+        updated = self.service.list_sessions(tablet.token, tablet.user, now + 20)
+        self.assertEqual("Ali'nin Tableti", updated[0].device_name)
+        self.assertTrue(updated[0].current)
+
     def test_repeated_failed_logins_are_blocked_across_restart(self) -> None:
         for offset in range(self.settings.login_account_attempts - 1):
             with self.assertRaises(InvalidCredentialsError):
@@ -127,6 +182,39 @@ class AvoraServiceTest(unittest.TestCase):
         )
         self.assertEqual(self.admin.id, session.user.id)
 
+    def test_existing_session_table_is_migrated_for_device_metadata(self) -> None:
+        legacy_path = Path(self.temporary.name) / "legacy-accounts.sqlite3"
+        with closing(sqlite3.connect(legacy_path)) as connection:
+            connection.executescript(
+                """
+                CREATE TABLE users (
+                    id TEXT PRIMARY KEY,
+                    email TEXT NOT NULL UNIQUE COLLATE NOCASE,
+                    display_name TEXT NOT NULL,
+                    password_hash TEXT NOT NULL,
+                    role TEXT NOT NULL,
+                    active INTEGER NOT NULL DEFAULT 1,
+                    created_at INTEGER NOT NULL
+                );
+                CREATE TABLE sessions (
+                    token_hash TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    created_at INTEGER NOT NULL,
+                    expires_at INTEGER NOT NULL
+                );
+                """
+            )
+
+        AccountDatabase(legacy_path)
+
+        with closing(sqlite3.connect(legacy_path)) as connection:
+            columns = {
+                row[1] for row in connection.execute("PRAGMA table_info(sessions)")
+            }
+        self.assertTrue(
+            {"device_id", "device_name", "last_seen_at"}.issubset(columns)
+        )
+
     def test_invitation_is_single_use(self) -> None:
         code, _ = self.service.create_invite(self.admin, valid_hours=24, max_uses=1)
         user = self.service.register(
@@ -148,6 +236,33 @@ class AvoraServiceTest(unittest.TestCase):
         self.assertTrue(
             (self.settings.tenant_database_dir / f"{session.user.id}.sqlite3").is_file()
         )
+
+    def test_only_admin_can_list_accounts_and_active_session_counts(self) -> None:
+        now = 1_800_000_000
+        admin_session = self.service.login(
+            "owner@example.com", "Guvenli-Yonetici-2026!", now=now
+        )
+        code, _ = self.service.create_invite(self.admin, valid_hours=24, max_uses=1)
+        family_session = self.service.register_session(
+            code,
+            "family@example.com",
+            "Aile Üyesi",
+            "Aile-Uyesi-2026!",
+            now=now,
+        )
+
+        accounts = self.service.list_accounts(self.admin, now=now + 1)
+
+        self.assertEqual(["admin", "user"], [item.role for item in accounts])
+        self.assertEqual(
+            ["owner@example.com", "family@example.com"],
+            [item.email for item in accounts],
+        )
+        self.assertEqual([1, 1], [item.active_sessions for item in accounts])
+        self.assertTrue(all(item.active for item in accounts))
+        with self.assertRaises(PermissionError):
+            self.service.list_accounts(family_session.user, now=now + 1)
+        self.service.logout(admin_session.token)
 
     def test_admin_can_revoke_unused_invitation(self) -> None:
         code, _ = self.service.create_invite(self.admin, valid_hours=24, max_uses=1)
@@ -180,6 +295,160 @@ class AvoraServiceTest(unittest.TestCase):
         self.assertEqual("approved", approved.status)
         self.assertEqual(
             [], self.service.list_pending_access_requests(self.admin, "avora-001")
+        )
+
+    def test_inactive_family_access_is_reviewed_without_deleting_account_data(self) -> None:
+        day = 24 * 60 * 60
+        now = 1_900_000_000
+        code, _ = self.service.create_invite(self.admin, valid_hours=24, max_uses=1)
+        family = self.service.register_session(
+            code,
+            "inactive@example.com",
+            "Pasif Aile Üyesi",
+            "Aile-Uyesi-2026!",
+            now=now,
+        )
+        self.service.put_document(family.user, "garden", {"kept": True}, 0)
+        request = self.service.request_device_access(
+            family.user, "avora-001", "inactiveFirebaseUser_001"
+        )
+        self.service.approve_access_request(self.admin, request.id)
+
+        before = self.service.list_accounts(
+            self.admin, "avora-001", now + (30 * day) - 1
+        )
+        self.assertFalse(next(item for item in before if item.role == "user").inactive_access)
+        due = self.service.list_accounts(self.admin, "avora-001", now + (30 * day))
+        self.assertFalse(next(item for item in due if item.role == "admin").inactive_access)
+        self.assertTrue(next(item for item in due if item.role == "user").inactive_access)
+        with self.assertRaises(PermissionError):
+            self.service.keep_inactive_device_access(
+                family.user, family.user.id, "avora-001", now + (30 * day)
+            )
+        with self.assertRaises(PermissionError):
+            self.service.revoke_device_access(
+                family.user, family.user.id, "avora-001"
+            )
+
+        self.assertTrue(
+            self.service.keep_inactive_device_access(
+                self.admin, family.user.id, "avora-001", now + (30 * day)
+            )
+        )
+        reviewed = self.service.list_accounts(
+            self.admin, "avora-001", now + (60 * day) - 1
+        )
+        self.assertFalse(next(item for item in reviewed if item.role == "user").inactive_access)
+
+        revoked = self.service.revoke_device_access(
+            self.admin, family.user.id, "avora-001"
+        )
+        self.assertIsNotNone(revoked)
+        self.assertEqual("inactiveFirebaseUser_001", revoked[0])
+        with self.assertRaises(InvalidCredentialsError):
+            self.service.authenticate(family.token)
+        remaining = self.service.list_accounts(self.admin, "avora-001")
+        family_account = next(item for item in remaining if item.id == family.user.id)
+        self.assertEqual("", family_account.access_status)
+        self.assertEqual(
+            {"kept": True},
+            self.service.get_document(family.user, "garden").data,
+        )
+
+    def test_family_account_disable_restore_and_permanent_deletion(self) -> None:
+        day = 24 * 60 * 60
+        now = 1_900_000_000
+        code, _ = self.service.create_invite(self.admin)
+        family = self.service.register_session(
+            code,
+            "managed@example.com",
+            "Yönetilen Aile Üyesi",
+            "Aile-Uyesi-2026!",
+            now=now,
+        )
+        self.service.put_document(family.user, "garden", {"retained": True}, 0)
+        self.service.save_photo(
+            family.user, "daily_1", b"\xff\xd8family-photo\xff\xd9"
+        )
+        request = self.service.request_device_access(
+            family.user, "avora-001", "managedFirebaseUser_001"
+        )
+        self.service.approve_access_request(self.admin, request.id)
+        database_path = (
+            self.settings.tenant_database_dir / f"{family.user.id}.sqlite3"
+        )
+        photo_path = self.settings.photo_dir / family.user.id / "daily_1.jpg"
+        self.assertTrue(database_path.is_file())
+        self.assertTrue(photo_path.is_file())
+        self.assertIsNone(
+            self.service.disable_account(self.admin, self.admin.id, now)
+        )
+
+        disabled = self.service.disable_account(self.admin, family.user.id, now)
+        self.assertIsNotNone(disabled)
+        self.assertEqual(now + (30 * day), disabled[0])
+        with self.assertRaises(InvalidCredentialsError):
+            self.service.authenticate(family.token)
+        account = next(
+            item for item in self.service.list_accounts(
+                self.admin, "avora-001", now + 1
+            ) if item.id == family.user.id
+        )
+        self.assertFalse(account.active)
+        self.assertTrue(account.can_restore)
+        self.assertFalse(account.can_permanently_delete)
+        self.assertEqual("", account.access_status)
+        with self.assertRaises(AccountLifecycleError):
+            self.service.permanently_delete_account(
+                self.admin,
+                family.user.id,
+                "Guvenli-Yonetici-2026!",
+                now + (29 * day),
+            )
+
+        self.assertTrue(
+            self.service.restore_account(
+                self.admin, family.user.id, now + (29 * day)
+            )
+        )
+        restored = self.service.login(
+            "managed@example.com", "Aile-Uyesi-2026!", now=now + (29 * day)
+        )
+        self.assertEqual(family.user.id, restored.user.id)
+        self.assertEqual(
+            {"retained": True},
+            self.service.get_document(restored.user, "garden").data,
+        )
+
+        second_disabled_at = now + (30 * day)
+        self.service.disable_account(
+            self.admin, family.user.id, second_disabled_at
+        )
+        deletion_time = second_disabled_at + (30 * day)
+        due = next(
+            item for item in self.service.list_accounts(
+                self.admin, "avora-001", deletion_time
+            ) if item.id == family.user.id
+        )
+        self.assertFalse(due.can_restore)
+        self.assertTrue(due.can_permanently_delete)
+        with self.assertRaises(InvalidCurrentPasswordError):
+            self.service.permanently_delete_account(
+                self.admin, family.user.id, "wrong-password", deletion_time
+            )
+
+        deleted = self.service.permanently_delete_account(
+            self.admin,
+            family.user.id,
+            "Guvenli-Yonetici-2026!",
+            deletion_time,
+        )
+        self.assertEqual(family.user.id, deleted.id)
+        self.assertFalse(database_path.exists())
+        self.assertFalse(photo_path.exists())
+        self.assertNotIn(
+            family.user.id,
+            [item.id for item in self.service.list_accounts(self.admin)],
         )
 
     def test_new_firebase_identity_reopens_an_approved_request(self) -> None:

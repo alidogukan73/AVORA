@@ -4,13 +4,20 @@ import com.google.firebase.database.IgnoreExtraProperties;
 /** One traceable tray/lot from sowing until transfer to a garden season. */
 @IgnoreExtraProperties
 public final class SeedlingBatch {
+    public static final String STATUS_ACTIVE = "ACTIVE";
+    public static final String STATUS_ARCHIVED = "ARCHIVED";
+    public static final String STATUS_TRANSFERRED = "TRANSFERRED";
+    public static final String ARCHIVE_REASON_MANUAL = "MANUAL";
+    public static final String ARCHIVE_REASON_TRANSFERRED = "TRANSFERRED";
+
     private String batch_id = "";
+    private String crop_id = "";
     private String plant_type = "";
     private String emoji = "🌱";
     private String variety = "";
     private String area = "";
     private String node_id = "seedling-001";
-    private String status = "ACTIVE";
+    private String status = STATUS_ACTIVE;
     private String stage = "SOWN";
     private long sowing_date_epoch;
     private long estimated_emergence_epoch;
@@ -23,12 +30,19 @@ public final class SeedlingBatch {
     private int seed_count;
     private int tray_cell_count;
     private int healthy_count;
+    private long archived_at_epoch;
+    private String archive_reason = "";
+    private String transferred_season_id = "";
+    private String transferred_zone_id = "";
+    private long transferred_at_epoch;
     private long created_at_epoch;
     private long updated_at_epoch;
 
     public SeedlingBatch() { }
     public String getBatch_id() { return batch_id; }
     public void setBatch_id(String v) { batch_id = safe(v); }
+    public String getCrop_id() { return crop_id; }
+    public void setCrop_id(String v) { crop_id = safe(v); }
     public String getPlant_type() { return plant_type; }
     public void setPlant_type(String v) { plant_type = safe(v); }
     public String getEmoji() { return emoji; }
@@ -65,6 +79,16 @@ public final class SeedlingBatch {
     public void setTray_cell_count(int v) { tray_cell_count = positive(v); }
     public int getHealthy_count() { return healthy_count; }
     public void setHealthy_count(int v) { healthy_count = positive(v); }
+    public long getArchived_at_epoch() { return archived_at_epoch; }
+    public void setArchived_at_epoch(long v) { archived_at_epoch = positive(v); }
+    public String getArchive_reason() { return archive_reason; }
+    public void setArchive_reason(String v) { archive_reason = safe(v); }
+    public String getTransferred_season_id() { return transferred_season_id; }
+    public void setTransferred_season_id(String v) { transferred_season_id = safe(v); }
+    public String getTransferred_zone_id() { return transferred_zone_id; }
+    public void setTransferred_zone_id(String v) { transferred_zone_id = safe(v); }
+    public long getTransferred_at_epoch() { return transferred_at_epoch; }
+    public void setTransferred_at_epoch(long v) { transferred_at_epoch = positive(v); }
     public long getCreated_at_epoch() { return created_at_epoch; }
     public void setCreated_at_epoch(long v) { created_at_epoch = positive(v); }
     public long getUpdated_at_epoch() { return updated_at_epoch; }
@@ -72,6 +96,16 @@ public final class SeedlingBatch {
     public String displayName() {
         String name = plant_type.isBlank() ? "Fide partisi" : plant_type;
         return variety.isBlank() ? name : name + " – " + variety;
+    }
+    public boolean isActive() { return STATUS_ACTIVE.equalsIgnoreCase(status); }
+    public boolean isArchived() {
+        return STATUS_ARCHIVED.equalsIgnoreCase(status)
+                || STATUS_TRANSFERRED.equalsIgnoreCase(status);
+    }
+    public boolean isTransferred() {
+        return STATUS_TRANSFERRED.equalsIgnoreCase(status)
+                || (ARCHIVE_REASON_TRANSFERRED.equalsIgnoreCase(archive_reason)
+                        && !transferred_season_id.isBlank());
     }
     private static String safe(String v) { return v == null ? "" : v.trim(); }
     private static int positive(int v) { return Math.max(0, v); }

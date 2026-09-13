@@ -3,6 +3,7 @@ import com.google.firebase.database.IgnoreExtraProperties;
 
 @IgnoreExtraProperties
 public final class SeedlingTelemetry {
+    public static final long MAX_FUTURE_SKEW_SECONDS = 120L;
     private String node_id = "";
     private String firmware = "";
     private double air_temperature_c;
@@ -45,9 +46,14 @@ public final class SeedlingTelemetry {
     public void setOnline(boolean v) { online = v; }
     public boolean isFresh(long nowEpoch, long maximumAgeSeconds) {
         if (!online || received_at_epoch <= 0) return false;
-        // The Pi and the phone can differ by a few seconds. A reading that is
-        // slightly ahead of the phone clock is still the newest valid reading.
-        if (received_at_epoch > nowEpoch) return true;
+        // The Pi and the phone can differ slightly, but a timestamp far in the
+        // future must not keep a disconnected node looking fresh indefinitely.
+        if (received_at_epoch > nowEpoch) {
+            long latestAllowed = nowEpoch > Long.MAX_VALUE - MAX_FUTURE_SKEW_SECONDS
+                    ? Long.MAX_VALUE
+                    : nowEpoch + MAX_FUTURE_SKEW_SECONDS;
+            return received_at_epoch <= latestAllowed;
+        }
         return nowEpoch - received_at_epoch <= Math.max(0L, maximumAgeSeconds);
     }
     private static String safe(String v) { return v == null ? "" : v; }

@@ -26,7 +26,7 @@
     <string name="data_sync_nas_invite_detail">Son kullanım: %1$s · Tek kullanımlık</string>
     <string name="data_sync_nas_invite_share">Paylaş</string>
     <string name="data_sync_nas_invite_share_chooser">NAS davetini paylaş</string>
-    <string name="data_sync_nas_invite_share_text">AVORA NAS davet kodu: %1$s\nSon kullanım: %2$s\n\nAVORA’da Ayarlar → Veri Senkronizasyonu → NAS hesabına bağlan → Davet koduyla hesap oluştur yolunu açın. Parolanızı davet eden kişiyle paylaşmayın.</string>
+    <string name="data_sync_nas_invite_share_text">AVORA NAS davet kodu: %1$s\nSon kullanım: %2$s\n\nAVORA’da Ayarlar → NAS Hesabı ve Güvenlik → Davet koduyla hesap oluştur yolunu açın. Parolanızı davet eden kişiyle paylaşmayın.</string>
     <string name="data_sync_nas_invite_revoke">Daveti İptal Et</string>
     <string name="data_sync_nas_invite_revoke_title">Daveti iptal et</string>
     <string name="data_sync_nas_invite_revoke_message">Bu kod hemen geçersiz olacak ve daha sonra kullanılamayacak.</string>

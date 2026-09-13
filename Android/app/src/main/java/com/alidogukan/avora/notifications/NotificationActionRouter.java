@@ -16,6 +16,7 @@ import com.alidogukan.avora.activities.FertilizerProductsActivity;
 import com.alidogukan.avora.activities.PlantAssistantActivity;
 import com.alidogukan.avora.activities.SeedlingAssistantActivity;
 import com.alidogukan.avora.activities.SeedlingBatchDetailActivity;
+import com.alidogukan.avora.activities.NasSecurityActivity;
 import com.alidogukan.avora.activities.WateringHistoryActivity;
 import com.alidogukan.avora.activities.WeatherForecastActivity;
 import com.alidogukan.avora.fertilization.FertilizerOutcomeFollowUpPolicy;
@@ -37,6 +38,7 @@ public final class NotificationActionRouter {
         WEATHER_FORECAST,
         DEVICE_HEALTH,
         SEEDLING_ASSISTANT,
+        NAS_SECURITY,
         SEEDLING_BATCH
     }
 
@@ -75,6 +77,8 @@ public final class NotificationActionRouter {
                 return Destination.WEATHER_FORECAST;
             case "DEVICE":
                 return Destination.DEVICE_HEALTH;
+            case "ACCESS":
+                return Destination.NAS_SECURITY;
             default:
                 return Destination.NONE;
         }
@@ -124,6 +128,16 @@ public final class NotificationActionRouter {
             case SEEDLING_ASSISTANT:
                 intent = new Intent(context, SeedlingAssistantActivity.class);
                 break;
+            case NAS_SECURITY:
+                intent = new Intent(context, NasSecurityActivity.class);
+                if (isInactiveAccessReview(value.getSource_key())) {
+                    intent.putExtra(
+                            NasSecurityActivity.EXTRA_OPEN_INACTIVE_ACCOUNTS, true);
+                } else {
+                    intent.putExtra(
+                            NasSecurityActivity.EXTRA_OPEN_PENDING_REQUESTS, true);
+                }
+                break;
             case SEEDLING_BATCH:
                 intent = new Intent(context, SeedlingBatchDetailActivity.class)
                         .putExtra(SeedlingBatchDetailActivity.EXTRA_BATCH_ID,
@@ -168,6 +182,11 @@ public final class NotificationActionRouter {
                 return R.string.notification_action_open_seedling_assistant;
             case SEEDLING_BATCH:
                 return R.string.notification_action_open_seedling_batch;
+            case NAS_SECURITY:
+                return isInactiveAccessReview(value == null
+                        ? "" : value.getSource_key())
+                        ? R.string.notification_action_review_inactive_access
+                        : R.string.notification_action_open_access_requests;
             default:
                 return 0;
         }
@@ -175,6 +194,10 @@ public final class NotificationActionRouter {
 
     private static String normalize(String value) {
         return safe(value).toUpperCase(Locale.ROOT);
+    }
+
+    static boolean isInactiveAccessReview(String sourceKey) {
+        return normalize(sourceKey).startsWith("INACTIVE-ACCESS:");
     }
 
     private static String safe(String value) {

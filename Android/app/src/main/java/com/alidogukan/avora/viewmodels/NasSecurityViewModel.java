@@ -11,6 +11,7 @@ import com.alidogukan.avora.nas.NasAuthClient;
 import com.alidogukan.avora.nas.NasSecurityRepository;
 import com.alidogukan.avora.nas.NasSession;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -21,22 +22,38 @@ import java.util.concurrent.atomic.AtomicLong;
 public final class NasSecurityViewModel extends AndroidViewModel {
     public enum Action {
         NONE,
+        LOGIN,
+        REGISTER,
         CREATE_INVITE,
+        LOAD_ACCOUNTS,
         REVOKE_INVITE,
         LOAD_REQUESTS,
         REQUEST_ACCESS,
         APPROVE_ACCESS,
+        KEEP_INACTIVE_ACCESS,
+        REVOKE_DEVICE_ACCESS,
+        DISABLE_ACCOUNT,
+        RESTORE_ACCOUNT,
+        DELETE_ACCOUNT,
         CHANGE_PASSWORD,
         REVOKE_SESSIONS,
         DISCONNECT
     }
 
     public enum EventType {
+        CONNECTED,
+        REGISTERED,
         INVITE_READY,
         INVITE_REVOKED,
+        ACCOUNTS_READY,
         REQUESTS_READY,
         ACCESS_REQUESTED,
         ACCESS_APPROVED,
+        INACTIVE_ACCESS_KEPT,
+        DEVICE_ACCESS_REVOKED,
+        ACCOUNT_DISABLED,
+        ACCOUNT_RESTORED,
+        ACCOUNT_DELETED,
         PASSWORD_CHANGED,
         SESSIONS_REVOKED,
         DISCONNECTED,
@@ -50,13 +67,20 @@ public final class NasSecurityViewModel extends AndroidViewModel {
         public final Action action;
         /** -1 checking, -2 unavailable, otherwise exact count. */
         public final int pendingRequestCount;
+        public final List<NasAuthClient.SessionSummary> activeSessions;
+        /** -1 loading, -2 unavailable, 0 ready. */
+        public final int sessionListStatus;
 
         State(NasSession session, boolean busy, Action action,
-              int pendingRequestCount) {
+              int pendingRequestCount,
+              List<NasAuthClient.SessionSummary> activeSessions,
+              int sessionListStatus) {
             this.session = session;
             this.busy = busy;
             this.action = action;
             this.pendingRequestCount = pendingRequestCount;
+            this.activeSessions = activeSessions;
+            this.sessionListStatus = sessionListStatus;
         }
 
         public boolean isAdministrator() {
@@ -98,6 +122,10 @@ public final class NasSecurityViewModel extends AndroidViewModel {
         Object run(NasSession session) throws Exception;
     }
 
+    private interface AuthenticationWork {
+        NasSession run() throws Exception;
+    }
+
     private final NasSecurityRepository repository;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final MutableLiveData<State> state = new MutableLiveData<>();
@@ -107,6 +135,9 @@ public final class NasSecurityViewModel extends AndroidViewModel {
     private volatile boolean busy;
     private volatile Action action = Action.NONE;
     private volatile int pendingRequestCount;
+    private volatile List<NasAuthClient.SessionSummary> activeSessions =
+            Collections.emptyList();
+    private volatile int sessionListStatus;
 
     public NasSecurityViewModel(@NonNull Application application) {
         super(application);
@@ -127,15 +158,34 @@ public final class NasSecurityViewModel extends AndroidViewModel {
         action = Action.NONE;
         pendingRequestCount = session != null && "admin".equals(session.user.role)
                 ? -1 : 0;
+        activeSessions = Collections.emptyList();
+        sessionListStatus = session == null ? 0 : -1;
         publishState(false);
+        if (session != null) refreshActiveSessions(session);
         if (session != null && "admin".equals(session.user.role)) {
             refreshPendingCount(session);
         }
     }
 
+    public void login(String email, String password) {
+        authenticate(Action.LOGIN, EventType.CONNECTED,
+                () -> repository.login(email, password));
+    }
+
+    public void register(String inviteCode, String email,
+                         String displayName, String password) {
+        authenticate(Action.REGISTER, EventType.REGISTERED,
+                () -> repository.register(inviteCode, email, displayName, password));
+    }
+
     public void createInvite() {
         execute(Action.CREATE_INVITE, EventType.INVITE_READY,
                 current -> repository.createInvite(current));
+    }
+
+    public void loadAccounts() {
+        execute(Action.LOAD_ACCOUNTS, EventType.ACCOUNTS_READY,
+                current -> repository.accounts(current));
     }
 
     public void revokeInvite(NasAuthClient.Invite invite) {
@@ -162,6 +212,48 @@ public final class NasSecurityViewModel extends AndroidViewModel {
         });
     }
 
+    public void keepInactiveAccess(NasAuthClient.AccountSummary account) {
+        execute(Action.KEEP_INACTIVE_ACCESS, EventType.INACTIVE_ACCESS_KEPT,
+                current -> {
+                    repository.keepInactiveAccess(current, account);
+                    return account == null ? "" : account.displayName;
+                });
+    }
+
+    public void revokeDeviceAccess(NasAuthClient.AccountSummary account) {
+        execute(Action.REVOKE_DEVICE_ACCESS, EventType.DEVICE_ACCESS_REVOKED,
+                current -> {
+                    repository.revokeDeviceAccess(current, account);
+                    return account == null ? "" : account.displayName;
+                });
+    }
+
+    public void disableAccount(NasAuthClient.AccountSummary account) {
+        execute(Action.DISABLE_ACCOUNT, EventType.ACCOUNT_DISABLED,
+                current -> {
+                    repository.disableAccount(current, account);
+                    return account == null ? "" : account.displayName;
+                });
+    }
+
+    public void restoreAccount(NasAuthClient.AccountSummary account) {
+        execute(Action.RESTORE_ACCOUNT, EventType.ACCOUNT_RESTORED,
+                current -> {
+                    repository.restoreAccount(current, account);
+                    return account == null ? "" : account.displayName;
+                });
+    }
+
+    public void permanentlyDeleteAccount(NasAuthClient.AccountSummary account,
+                                         String currentPassword) {
+        execute(Action.DELETE_ACCOUNT, EventType.ACCOUNT_DELETED,
+                current -> {
+                    repository.permanentlyDeleteAccount(
+                            current, account, currentPassword);
+                    return account == null ? "" : account.displayName;
+                });
+    }
+
     public void changePassword(String currentPassword, String newPassword) {
         execute(Action.CHANGE_PASSWORD, EventType.PASSWORD_CHANGED,
                 current -> repository.changePassword(
@@ -182,10 +274,43 @@ public final class NasSecurityViewModel extends AndroidViewModel {
         executor.execute(() -> {
             repository.disconnect(current);
             session = null;
+            pendingRequestCount = 0;
+            activeSessions = Collections.emptyList();
+            sessionListStatus = 0;
             busy = false;
             action = Action.NONE;
             publishState(true);
             postEvent(EventType.DISCONNECTED, Action.DISCONNECT, null, 0, "");
+        });
+    }
+
+    private void authenticate(Action requestedAction, EventType successType,
+                              AuthenticationWork work) {
+        if (busy) return;
+        busy = true;
+        action = requestedAction;
+        publishState(false);
+        executor.execute(() -> {
+            try {
+                NasSession authenticated = work.run();
+                session = authenticated;
+                busy = false;
+                action = Action.NONE;
+                pendingRequestCount = "admin".equals(authenticated.user.role) ? -1 : 0;
+                activeSessions = Collections.emptyList();
+                sessionListStatus = -1;
+                publishState(true);
+                postEvent(successType, requestedAction, authenticated, 0, "");
+                refreshActiveSessions(authenticated);
+                if ("admin".equals(authenticated.user.role)) {
+                    refreshPendingCount(authenticated);
+                }
+            } catch (Exception error) {
+                busy = false;
+                action = Action.NONE;
+                publishState(true);
+                postEvent(EventType.ERROR, requestedAction, null, 0, message(error));
+            }
         });
     }
 
@@ -209,11 +334,47 @@ public final class NasSecurityViewModel extends AndroidViewModel {
                 if (successType == EventType.ACCESS_APPROVED) {
                     pendingRequestCount = Math.max(0, pendingRequestCount - 1);
                 }
+                boolean reloadSessions = successType == EventType.SESSIONS_REVOKED;
+                if (reloadSessions) {
+                    activeSessions = Collections.emptyList();
+                    sessionListStatus = -1;
+                }
                 publishState(true);
                 int count = result instanceof Integer ? (Integer) result : 0;
                 postEvent(successType, requestedAction, result, count, "");
+                if (reloadSessions) refreshActiveSessions(current);
             } catch (Exception error) {
                 fail(current, requestedAction, error);
+            }
+        });
+    }
+
+    private void refreshActiveSessions(NasSession expected) {
+        executor.execute(() -> {
+            try {
+                List<NasAuthClient.SessionSummary> sessions =
+                        repository.sessions(expected);
+                if (session != expected) return;
+                activeSessions = Collections.unmodifiableList(
+                        new ArrayList<>(sessions));
+                sessionListStatus = 0;
+                publishState(true);
+            } catch (Exception error) {
+                if (session != expected) return;
+                if ("NAS_SESSION_EXPIRED".equals(message(error))) {
+                    repository.expireLocalSession();
+                    session = null;
+                    pendingRequestCount = 0;
+                    activeSessions = Collections.emptyList();
+                    sessionListStatus = 0;
+                    publishState(true);
+                    postEvent(EventType.SESSION_EXPIRED, Action.NONE,
+                            null, 0, "NAS_SESSION_EXPIRED");
+                } else {
+                    activeSessions = Collections.emptyList();
+                    sessionListStatus = -2;
+                    publishState(true);
+                }
             }
         });
     }
@@ -232,6 +393,8 @@ public final class NasSecurityViewModel extends AndroidViewModel {
                     repository.expireLocalSession();
                     session = null;
                     pendingRequestCount = 0;
+                    activeSessions = Collections.emptyList();
+                    sessionListStatus = 0;
                     publishState(true);
                     postEvent(EventType.SESSION_EXPIRED, Action.LOAD_REQUESTS,
                             null, 0, "NAS_SESSION_EXPIRED");
@@ -252,6 +415,8 @@ public final class NasSecurityViewModel extends AndroidViewModel {
             repository.expireLocalSession();
             session = null;
             pendingRequestCount = 0;
+            activeSessions = Collections.emptyList();
+            sessionListStatus = 0;
             publishState(true);
             postEvent(EventType.SESSION_EXPIRED, failedAction, null, 0, code);
         } else {
@@ -261,7 +426,10 @@ public final class NasSecurityViewModel extends AndroidViewModel {
     }
 
     private void publishState(boolean fromWorker) {
-        State value = new State(session, busy, action, pendingRequestCount);
+        State value = new State(
+                session, busy, action, pendingRequestCount,
+                Collections.unmodifiableList(new ArrayList<>(activeSessions)),
+                sessionListStatus);
         if (fromWorker) state.postValue(value);
         else state.setValue(value);
     }
@@ -283,6 +451,14 @@ public final class NasSecurityViewModel extends AndroidViewModel {
             return Collections.emptyList();
         }
         return (List<NasAuthClient.AccessRequest>) event.payload;
+    }
+
+    @SuppressWarnings("unchecked")
+    public static List<NasAuthClient.AccountSummary> accountsFrom(Event event) {
+        if (event == null || !(event.payload instanceof List<?>)) {
+            return Collections.emptyList();
+        }
+        return (List<NasAuthClient.AccountSummary>) event.payload;
     }
 
     @Override

@@ -75,11 +75,12 @@ public final class SeedlingNotificationPolicyTest {
         SeedlingTelemetry telemetry = new SeedlingTelemetry();
         telemetry.setOnline(true);
         telemetry.setReceived_at_epoch(10_000L);
-        assertTrue(SeedlingNotificationPolicy.hasFreshTelemetry(telemetry, 10_100L));
+        assertTrue(SeedlingNotificationPolicy.hasFreshTelemetry(telemetry, 10_090L));
+        assertFalse(SeedlingNotificationPolicy.hasFreshTelemetry(telemetry, 10_091L));
         assertFalse(SeedlingNotificationPolicy.hasFreshTelemetry(
                 telemetry, 10_000L + SeedlingNotificationPolicy.TELEMETRY_MAX_AGE_SECONDS + 1L));
         telemetry.setOnline(false);
-        assertFalse(SeedlingNotificationPolicy.hasFreshTelemetry(telemetry, 10_100L));
+        assertFalse(SeedlingNotificationPolicy.hasFreshTelemetry(telemetry, 10_090L));
     }
 
     private static SeedlingBatch batch(String stage) {

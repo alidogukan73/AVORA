@@ -115,19 +115,11 @@
                     android:paddingEnd="14dp" />
             </com.google.android.material.card.MaterialCardView>
             <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnDataSyncNasAccount"
-                style="@style/Widget.AVORA.Button.Secondary"
-                android:layout_width="match_parent"
-                android:layout_height="50dp"
-                android:layout_marginTop="10dp"
-                android:text="@string/data_sync_nas_account_connect" />
-
-            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnDataSyncNasBackup"
                 style="@style/Widget.AVORA.Button.Secondary"
                 android:layout_width="match_parent"
                 android:layout_height="50dp"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="10dp"
                 android:text="@string/data_sync_nas_backup_button" />
 
             <com.google.android.material.button.MaterialButton

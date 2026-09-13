@@ -18,6 +18,7 @@ from urllib.parse import unquote, urlsplit
 
 from .config import ConfigurationError, Settings
 from .database import (
+    AccountLifecycleError,
     DataConflictError,
     InvalidCurrentPasswordError,
     InvalidCredentialsError,
@@ -98,6 +99,8 @@ class Handler(BaseHTTPRequestHandler):
                     required_text(body, "email"),
                     required_text(body, "password"),
                     self._login_source(),
+                    device_id=optional_text(body, "device_id"),
+                    device_name=optional_text(body, "device_name"),
                 )
                 self._json(
                     HTTPStatus.OK,
@@ -116,6 +119,8 @@ class Handler(BaseHTTPRequestHandler):
                     required_text(body, "email"),
                     required_text(body, "display_name"),
                     required_text(body, "password"),
+                    device_id=optional_text(body, "device_id"),
+                    device_name=optional_text(body, "device_name"),
                 )
                 self._json(
                     HTTPStatus.CREATED,
@@ -159,6 +164,36 @@ class Handler(BaseHTTPRequestHandler):
                     {"revoked_sessions": revoked},
                 )
                 return
+            if path == "/v1/account/session/device" and method == "POST":
+                body = self._read_json(16 * 1024)
+                service.identify_session(
+                    token,
+                    user,
+                    required_text(body, "device_id"),
+                    required_text(body, "device_name"),
+                )
+                self._json(HTTPStatus.OK, {"updated": True})
+                return
+            if path == "/v1/account/sessions" and method == "GET":
+                sessions = service.list_sessions(token, user)
+                self._json(
+                    HTTPStatus.OK,
+                    {"sessions": [asdict(item) for item in sessions]},
+                )
+                return
+            if path == "/v1/admin/accounts" and method == "GET":
+                query = urlsplit(self.path).query
+                parameters = dict(
+                    item.split("=", 1) if "=" in item else (item, "")
+                    for item in query.split("&") if item
+                )
+                device_id = unquote(parameters.get("device_id", ""))
+                accounts = service.list_accounts(user, device_id)
+                self._json(
+                    HTTPStatus.OK,
+                    {"accounts": [asdict(item) for item in accounts]},
+                )
+                return
             if path == "/v1/access-requests" and method == "POST":
                 body = self._read_json(32 * 1024)
                 request = service.request_device_access(
@@ -193,6 +228,96 @@ class Handler(BaseHTTPRequestHandler):
                         "Pending access request not found.",
                     )
                 self._json(HTTPStatus.OK, {"access_request": asdict(request)})
+                return
+            if path == "/v1/admin/inactive-access/keep" and method == "POST":
+                body = self._read_json(32 * 1024)
+                kept = service.keep_inactive_device_access(
+                    user,
+                    required_text(body, "user_id"),
+                    required_text(body, "device_id"),
+                )
+                if not kept:
+                    raise RequestError(
+                        HTTPStatus.NOT_FOUND,
+                        "device_access_not_found",
+                        "Approved device access was not found.",
+                    )
+                self._json(HTTPStatus.OK, {"kept": True})
+                return
+            if path == "/v1/admin/device-access/revoke" and method == "POST":
+                body = self._read_json(32 * 1024)
+                revoked = service.revoke_device_access(
+                    user,
+                    required_text(body, "user_id"),
+                    required_text(body, "device_id"),
+                )
+                if revoked is None:
+                    raise RequestError(
+                        HTTPStatus.NOT_FOUND,
+                        "device_access_not_found",
+                        "Approved device access was not found.",
+                    )
+                firebase_uid, revoked_sessions = revoked
+                self._json(
+                    HTTPStatus.OK,
+                    {
+                        "revoked": True,
+                        "firebase_uid": firebase_uid,
+                        "revoked_sessions": revoked_sessions,
+                    },
+                )
+                return
+            if path == "/v1/admin/accounts/disable" and method == "POST":
+                body = self._read_json(32 * 1024)
+                result = service.disable_account(
+                    user, required_text(body, "user_id")
+                )
+                if result is None:
+                    raise RequestError(
+                        HTTPStatus.NOT_FOUND,
+                        "account_not_found",
+                        "Family account not found.",
+                    )
+                delete_eligible_at, revoked_sessions = result
+                self._json(
+                    HTTPStatus.OK,
+                    {
+                        "disabled": True,
+                        "delete_eligible_at": delete_eligible_at,
+                        "revoked_sessions": revoked_sessions,
+                    },
+                )
+                return
+            if path == "/v1/admin/accounts/restore" and method == "POST":
+                body = self._read_json(32 * 1024)
+                restored = service.restore_account(
+                    user, required_text(body, "user_id")
+                )
+                if not restored:
+                    raise RequestError(
+                        HTTPStatus.NOT_FOUND,
+                        "account_not_found",
+                        "Family account not found.",
+                    )
+                self._json(HTTPStatus.OK, {"restored": True})
+                return
+            if path == "/v1/admin/accounts/delete" and method == "POST":
+                body = self._read_json(32 * 1024)
+                deleted = service.permanently_delete_account(
+                    user,
+                    required_text(body, "user_id"),
+                    required_text(body, "current_password"),
+                )
+                if deleted is None:
+                    raise RequestError(
+                        HTTPStatus.NOT_FOUND,
+                        "account_not_found",
+                        "Family account not found.",
+                    )
+                self._json(
+                    HTTPStatus.OK,
+                    {"deleted": True, "user_id": deleted.id},
+                )
                 return
             if path == "/v1/admin/invites" and method == "POST":
                 body = self._read_json(32 * 1024)
@@ -298,6 +423,10 @@ class Handler(BaseHTTPRequestHandler):
             self._json_error(HTTPStatus.BAD_REQUEST, "current_password_invalid", "The current password is invalid.")
         except PasswordUnchangedError:
             self._json_error(HTTPStatus.BAD_REQUEST, "password_unchanged", "The new password must be different.")
+        except AccountLifecycleError as exc:
+            self._json_error(
+                HTTPStatus.CONFLICT, "account_state_conflict", str(exc)
+            )
         except PermissionError as exc:
             self._json_error(HTTPStatus.FORBIDDEN, "forbidden", str(exc))
         except SetupCompleteError as exc:
@@ -430,6 +559,15 @@ def required_text(body: dict[str, Any], name: str) -> str:
     value = body.get(name)
     if not isinstance(value, str) or not value:
         raise RequestError(HTTPStatus.BAD_REQUEST, "invalid_request", f"Field '{name}' is required.")
+    return value
+
+
+def optional_text(body: dict[str, Any], name: str) -> str:
+    value = body.get(name, "")
+    if not isinstance(value, str):
+        raise RequestError(
+            HTTPStatus.BAD_REQUEST, "invalid_request", f"Field '{name}' must be text."
+        )
     return value
 
 

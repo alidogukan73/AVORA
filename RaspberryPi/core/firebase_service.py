@@ -13,6 +13,7 @@ from pathlib import Path
 
 import firebase_admin
 from firebase_admin import credentials
+from firebase_admin import auth
 from firebase_admin import db
 from firebase_admin import messaging
 
@@ -44,6 +45,14 @@ from models.moisture_prediction import MoisturePrediction
 from models.prediction_accuracy import PredictionAccuracy
 from models.unified_confidence import UnifiedConfidence
 from models.prediction_validation_status import PredictionValidationStatus
+
+
+def _valid_uuid(value: str) -> bool:
+    try:
+        return str(uuid.UUID(str(value))).lower() == str(value).lower()
+    except (ValueError, TypeError, AttributeError):
+        return False
+
 
 class FirebaseService:
 
@@ -103,6 +112,7 @@ class FirebaseService:
         ] = {}
         self._zone_sensor_published_at: dict[str, float] = {}
         self._last_push_sent_at: dict[str, float] = {}
+        self._owner_uid_cache: dict[str, tuple[bool, float]] = {}
         self._active_error_incident_id = ""
         self._sensor_config_publisher = (
             Esp32SensorConfigPublisher(
@@ -309,6 +319,7 @@ class FirebaseService:
                 "last_seen_epoch": int(time.time()),
             },
         )
+        self._process_access_request_notifications()
 
     def has_active_error(self) -> bool:
         """Return whether Firebase still contains an unresolved service error."""
@@ -1582,7 +1593,8 @@ class FirebaseService:
         zone_id: str,
         duration_seconds: int = 0,
         minimum_interval_seconds: int = 0,
-    ) -> None:
+        owner_only: bool = False,
+    ) -> bool:
         """Send a language-neutral data-only event to AVORA installations.
 
         Android owns category, priority and user-facing text. Firebase database
@@ -1592,12 +1604,12 @@ class FirebaseService:
         now = time.time()
         previous = self._last_push_sent_at.get(event_id, 0.0)
         if minimum_interval_seconds and now - previous < minimum_interval_seconds:
-            return
+            return False
 
         try:
             tokens = self._device_ref().child("push_tokens").get() or {}
             if not isinstance(tokens, dict):
-                return
+                return False
 
             payload = self._notification_event_payload(
                 event_code=event_code,
@@ -1609,6 +1621,8 @@ class FirebaseService:
             for token_key, value in tokens.items():
                 token = str(value.get("token", "")) if isinstance(value, dict) else ""
                 if not token:
+                    continue
+                if owner_only and not self._is_owner_token(value):
                     continue
                 try:
                     messaging.send(
@@ -1627,6 +1641,85 @@ class FirebaseService:
                 self._last_push_sent_at[event_id] = now
         except Exception as exc:
             self._logger.warning("FCM push preparation skipped: %s", exc)
+            return False
+        return delivered
+
+    def _is_owner_token(self, value: object) -> bool:
+        if not isinstance(value, dict):
+            return False
+        firebase_uid = str(value.get("firebase_uid", "")).strip()
+        if not firebase_uid:
+            return False
+        now = time.time()
+        cached = self._owner_uid_cache.get(firebase_uid)
+        if cached is not None and now - cached[1] < 300:
+            return cached[0]
+        try:
+            user = auth.get_user(firebase_uid)
+            claims = user.custom_claims or {}
+            is_owner = (
+                str(claims.get("avora_device_id", "")).strip()
+                == AppConfig.DEVICE_ID
+            )
+        except Exception as exc:
+            self._logger.warning("FCM owner verification skipped: %s", exc)
+            is_owner = False
+        self._owner_uid_cache[firebase_uid] = (is_owner, now)
+        return is_owner
+
+    def _access_request_notification_ref(self) -> db.Reference:
+        return db.reference(
+            f"access_request_notifications/{AppConfig.DEVICE_ID}"
+        )
+
+    def _process_access_request_notifications(self) -> None:
+        """Deliver validated access requests only to verified owner devices."""
+        try:
+            queue_ref = self._access_request_notification_ref()
+            requests = queue_ref.get() or {}
+            if not isinstance(requests, dict):
+                return
+            now_millis = int(time.time() * 1000)
+            for requester_uid, value in requests.items():
+                if not isinstance(value, dict) or value.get("processed_at_epoch"):
+                    continue
+                request_id = str(value.get("request_id", "")).strip()
+                firebase_uid = str(value.get("firebase_uid", "")).strip()
+                try:
+                    requested_at = int(value.get("requested_at_epoch", 0) or 0)
+                except (TypeError, ValueError):
+                    requested_at = 0
+                valid = (
+                    firebase_uid == str(requester_uid)
+                    and _valid_uuid(request_id)
+                    and now_millis - 86_400_000
+                    <= requested_at
+                    <= now_millis + 10_000
+                )
+                request_ref = queue_ref.child(str(requester_uid))
+                if not valid:
+                    request_ref.update({
+                        "processed_at_epoch": now_millis,
+                        "delivery_status": "invalid",
+                    })
+                    continue
+                delivered = self._send_push_notification(
+                    event_code="GARDEN_ACCESS_REQUEST",
+                    event_id=f"access-request:{request_id}",
+                    zone_id="",
+                    owner_only=True,
+                )
+                result = {
+                    "delivery_status": "sent" if delivered else "not_delivered",
+                    "last_attempt_at_epoch": now_millis,
+                }
+                if delivered:
+                    result["processed_at_epoch"] = now_millis
+                request_ref.update(result)
+        except Exception as exc:
+            self._logger.warning(
+                "Garden access notification processing skipped: %s", exc
+            )
 
     @staticmethod
     def _notification_event_payload(
@@ -2543,6 +2636,24 @@ class FirebaseService:
         self._device_ref().child("seedling/nodes").child(
             safe_node_id
         ).update({"latest": latest, "recommendation": advice})
+
+    def update_seedling_online(self, node_id: str, online: bool) -> None:
+        """Publish the retained MQTT availability state for a seedling node."""
+        safe_node_id = str(node_id).strip().lower()
+        if not safe_node_id or any(
+            character not in "abcdefghijklmnopqrstuvwxyz0123456789-_"
+            for character in safe_node_id
+        ):
+            raise ValueError("Invalid seedling node id.")
+        if not isinstance(online, bool):
+            raise ValueError("Seedling online state must be a boolean.")
+
+        self._device_ref().child("seedling/nodes").child(
+            safe_node_id
+        ).child("latest").update({
+            "online": online,
+            "status_updated_at_epoch": int(time.time()),
+        })
 
     def get_weather_location(self) -> dict:
         """Return the user-selected garden location, if one is configured."""

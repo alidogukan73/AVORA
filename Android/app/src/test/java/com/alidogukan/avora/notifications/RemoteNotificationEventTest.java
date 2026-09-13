@@ -54,4 +54,18 @@ public class RemoteNotificationEventTest {
         assertEquals("NORMAL", event.priority());
         assertEquals("legacy-event-1", event.sourceKey());
     }
+
+    @Test
+    public void accessRequest_isHighPriorityAndKeepsItsRequestId() {
+        Map<String, String> data = new HashMap<>();
+        data.put("event_code", RemoteNotificationEvent.GARDEN_ACCESS_REQUEST);
+        data.put("event_id", "access-request:3cb18d21-d1db-4c75-a499-b97a8aa43d4e");
+
+        RemoteNotificationEvent event = RemoteNotificationEvent.from(data, "fcm-id");
+
+        assertEquals("ACCESS", event.type());
+        assertEquals("HIGH", event.priority());
+        assertEquals("access-request:3cb18d21-d1db-4c75-a499-b97a8aa43d4e",
+                event.sourceKey());
+    }
 }

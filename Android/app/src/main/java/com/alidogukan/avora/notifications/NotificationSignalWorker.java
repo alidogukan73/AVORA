@@ -39,6 +39,7 @@ public final class NotificationSignalWorker extends Worker {
     public Result doWork() {
         Context context = AvoraLanguageManager.localizedContext(getApplicationContext());
         publishDuePlantFollowUps(context);
+        NasInactiveAccessMonitor.check(context);
         NotificationSignalReadPlan plan = NotificationSignalReadPlan.from(
                 new NotificationSettingsStore(context));
         GardenNotificationManager notifications = new GardenNotificationManager(context);

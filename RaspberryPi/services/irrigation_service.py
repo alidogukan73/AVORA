@@ -99,6 +99,7 @@ class IrrigationService:
             port=SeedlingConfig.MQTT_PORT,
             topic=SeedlingConfig.MQTT_TOPIC,
             client_id=SeedlingConfig.MQTT_CLIENT_ID,
+            allowed_node_ids=SeedlingConfig.MQTT_ALLOWED_NODE_IDS,
         )
         self._network_configuration = NetworkConfigurationService()
         self._feedback_email = FeedbackEmailService(

@@ -9,6 +9,7 @@ import com.alidogukan.avora.models.GardenSeason;
 import com.alidogukan.avora.models.GardenZone;
 import com.alidogukan.avora.models.SeasonOutcome;
 import com.alidogukan.avora.models.SeasonStatus;
+import com.alidogukan.avora.models.SeedlingBatch;
 import com.alidogukan.avora.models.ZoneSeasonState;
 import com.alidogukan.avora.zones.ZoneCapacityPolicy;
 import com.alidogukan.avora.zones.ZoneOperationSafetyPolicy;
@@ -328,9 +329,198 @@ public final class SeasonRepository {
                             growthStage,
                             requestedLabel,
                             configuration,
-                            readTask.getResult()
+                            readTask.getResult(),
+                            null
                     );
                 });
+    }
+
+    /**
+     * Starts the selected garden season and archives its source seedling batch in
+     * the same multi-location write. Retrying the same transfer reuses its season ID.
+     */
+    public Task<Void> transferSeedlingToSeason(
+            GardenZone zone,
+            String plantingDate,
+            String growthStage,
+            String requestedLabel,
+            SeasonStartConfiguration requestedConfiguration,
+            SeedlingBatch batch
+    ) {
+        if (zone == null || safe(zone.getZone_id()).isBlank()) {
+            return Tasks.forException(new IllegalArgumentException("Bölge bilgisi gerekli."));
+        }
+        if (batch == null || safe(batch.getBatch_id()).isBlank()) {
+            return Tasks.forException(new IllegalArgumentException("Fide partisi gerekli."));
+        }
+        SeasonStartConfiguration configuration = requestedConfiguration == null
+                ? SeasonStartConfiguration.fromZone(zone)
+                : requestedConfiguration;
+        if (!configuration.isValid()) {
+            return Tasks.forException(new IllegalArgumentException(
+                    "Yeni sezon için ürün bilgisi gerekli."));
+        }
+        FirebaseDatabase.getInstance().goOnline();
+        return deviceRef.get().continueWithTask(readTask -> {
+            if (!readTask.isSuccessful() || readTask.getResult() == null) {
+                Exception error = readTask.getException();
+                return Tasks.forException(error == null
+                        ? new IllegalStateException("Fide aktarımı için veriler okunamadı.")
+                        : error);
+            }
+            return startSeasonFromSnapshot(
+                    zone,
+                    safe(plantingDate),
+                    growthStage,
+                    requestedLabel,
+                    configuration,
+                    readTask.getResult(),
+                    batch
+            );
+        });
+    }
+
+    /**
+     * Reverses a seedling transfer only while its linked season is still untouched.
+     * The season manifest and generated records are removed in the same atomic write
+     * that returns the source batch to active seedling tracking.
+     */
+    public Task<Void> undoSeedlingTransfer(SeedlingBatch batch) {
+        if (batch == null || safe(batch.getBatch_id()).isBlank()) {
+            return Tasks.forException(new IllegalArgumentException("Fide partisi gerekli."));
+        }
+        if (!batch.isTransferred()) {
+            return Tasks.forException(new IllegalStateException(
+                    "Yalnızca sezona aktarılmış fide partisi geri alınabilir."));
+        }
+        FirebaseDatabase.getInstance().goOnline();
+        String batchId = safe(batch.getBatch_id());
+        return deviceRef.get().continueWithTask(readTask -> {
+            if (!readTask.isSuccessful() || readTask.getResult() == null
+                    || !readTask.getResult().exists()) {
+                Exception error = readTask.getException();
+                return Tasks.forException(error == null
+                        ? new IllegalStateException("Sezona aktarım bilgileri okunamadı.")
+                        : error);
+            }
+            return undoSeedlingTransferFromSnapshot(batchId, readTask.getResult());
+        });
+    }
+
+    private Task<Void> undoSeedlingTransferFromSnapshot(
+            String batchId,
+            DataSnapshot root
+    ) {
+        DataSnapshot batchData = root.child("seedling").child("batches").child(batchId);
+        SeedlingBatch persistedBatch = batchData.getValue(SeedlingBatch.class);
+        if (persistedBatch == null) {
+            return Tasks.forException(new IllegalStateException("Fide partisi bulunamadı."));
+        }
+        persistedBatch.setBatch_id(batchId);
+        if (!persistedBatch.isTransferred()) {
+            return Tasks.forException(new IllegalStateException(
+                    "Bu fide partisi artık sezona bağlı değil."));
+        }
+
+        String seasonId = safe(persistedBatch.getTransferred_season_id());
+        String zoneId = safe(persistedBatch.getTransferred_zone_id());
+        if (seasonId.isBlank() || zoneId.isBlank()) {
+            return Tasks.forException(new IllegalStateException(
+                    "Fide partisinin sezon bağlantısı eksik."));
+        }
+
+        DataSnapshot zoneData = root.child("zones").child(zoneId);
+        ZoneSeasonState state = zoneData.child("season").getValue(ZoneSeasonState.class);
+        DataSnapshot manifest = root.child("garden_journal").child("seasons").child(seasonId);
+        GardenSeason targetSeason = manifest.getValue(GardenSeason.class);
+        GardenZone persistedZone = zoneData.getValue(GardenZone.class);
+        if (state == null || persistedZone == null || targetSeason == null
+                || !state.isSeasonActive(seasonId)
+                || !SeasonStatus.isActive(targetSeason.getStatus())) {
+            return Tasks.forException(new IllegalStateException(
+                    "Bağlı sezon artık aktif olmadığı için aktarım geri alınamaz."));
+        }
+        if (!batchId.equals(safe(targetSeason.getSource_seedling_batch_id()))) {
+            return Tasks.forException(new IllegalStateException(
+                    "Sezon ile fide partisi bağlantısı doğrulanamadı."));
+        }
+        if (targetSeason.getSeason_id().isBlank()) targetSeason.setSeason_id(seasonId);
+        if (!ZoneAreaIdentity.belongsToCurrentOrArea(persistedZone, targetSeason)) {
+            return Tasks.forException(new IllegalStateException(
+                    "Bağlı sezon artık bu bahçe alanına ait değil."));
+        }
+
+        ZoneSeasonState targetScope = seasonScopeFor(targetSeason);
+        SeasonCounts counts = calculateCounts(root, zoneId, targetScope, false);
+        boolean hasSeasonRecords = counts.wateringCount > 0
+                || counts.fertilizerCount > 0
+                || counts.eventCount > 0
+                || counts.photoCount > 0
+                || counts.analysisCount > 0;
+        if (hasSeasonRecords) {
+            return Tasks.forException(new IllegalStateException(
+                    "Bu sezonda işlem kaydı oluştuğu için aktarım geri alınamaz. Sezonu normal şekilde kapatın."));
+        }
+        if (isZoneIrrigationBusy(root, zoneId)) {
+            return Tasks.forException(new IllegalStateException(
+                    "Sulama veya vana işlemi sürerken aktarım geri alınamaz."));
+        }
+
+        long now = nowEpoch();
+        String zonePath = "zones/" + zoneId + "/";
+        Map<String, Object> updates = new HashMap<>();
+        List<GardenSeason> remaining = remainingActiveSeasons(root, persistedZone, seasonId);
+        putSeasonState(updates, zonePath, remaining, now);
+        if (remaining.isEmpty()) {
+            DataSnapshot cancellationSnapshot = manifest.child("cancellation_snapshot");
+            if (!cancellationSnapshot.exists()) {
+                return Tasks.forException(new IllegalStateException(
+                        "Önceki bahçe ayarları bulunamadığı için aktarım güvenle geri alınamıyor."));
+            }
+            restorePriorSeasonOrClose(updates, zonePath, cancellationSnapshot, state, now);
+            restoreSnapshotObject(
+                    updates, zonePath + "fertilization",
+                    cancellationSnapshot.child("fertilization"));
+            restoreSnapshotObject(
+                    updates, zonePath + "ai", cancellationSnapshot.child("ai"));
+            restoreZoneFields(updates, zonePath, cancellationSnapshot.child("zone"));
+            putCancelledIrrigationState(updates, zonePath, now);
+        } else {
+            GardenSeason primary = remaining.get(0);
+            updates.put(zonePath + "plant_type", primary.getPlant_type());
+            updates.put(zonePath + "emoji", primary.getEmoji());
+            updates.put(zonePath + "moisture_limit",
+                    SharedIrrigationCompatibility.commonMinimumOrFallback(
+                            remaining, persistedZone.getMoisture_limit()));
+            updates.put(zonePath + "ai/season_id", primary.getSeason_id());
+            updates.put(zonePath + "ai/season_status", SeasonStatus.ACTIVE);
+            updates.put(zonePath + "ai/season_started_at_epoch",
+                    primary.getStarted_at_epoch());
+            updates.put(zonePath + "ai/season_closed_at_epoch", 0L);
+            updates.put(zonePath + "ai/updated_at_epoch", now);
+        }
+
+        updates.put("garden_journal/seasons/" + seasonId, null);
+        putEmptySeasonGeneratedRecordCleanup(updates, root, seasonId);
+        putSeedlingTransferUndo(updates, batchId, now);
+        return deviceRef.updateChildren(updates);
+    }
+
+    static void putSeedlingTransferUndo(
+            Map<String, Object> updates,
+            String batchId,
+            long nowEpoch
+    ) {
+        long now = Math.max(0L, nowEpoch);
+        String path = "seedling/batches/" + safe(batchId) + "/";
+        updates.put(path + "status", SeedlingBatch.STATUS_ACTIVE);
+        updates.put(path + "archive_reason", null);
+        updates.put(path + "archived_at_epoch", 0L);
+        updates.put(path + "transferred_season_id", null);
+        updates.put(path + "transferred_zone_id", null);
+        updates.put(path + "transferred_at_epoch", null);
+        updates.put(path + "updated_at_epoch", now);
+        updates.put("seedling/transfer_claims/" + safe(batchId), null);
     }
 
     /**
@@ -344,7 +534,8 @@ public final class SeasonRepository {
             String growthStage,
             String requestedLabel,
             SeasonStartConfiguration configuration,
-            DataSnapshot root
+            DataSnapshot root,
+            SeedlingBatch requestedBatch
     ) {
         String zoneId = zone.getZone_id();
         DataSnapshot zoneData = root.child("zones").child(zoneId);
@@ -370,8 +561,46 @@ public final class SeasonRepository {
         }
         boolean firstActiveSeason = current == null || !current.isActive();
 
+        SeedlingBatch persistedBatch = null;
+        if (requestedBatch != null) {
+            String requestedBatchId = safe(requestedBatch.getBatch_id());
+            DataSnapshot claimData = root.child("seedling").child("transfer_claims")
+                    .child(requestedBatchId);
+            if (claimData.exists()) {
+                String claimedZone = stringValue(claimData.child("zone_id"));
+                String claimedSeason = stringValue(claimData.child("season_id"));
+                String requestedSeason = seedlingSeasonId(zoneId, requestedBatchId);
+                if (!zoneId.equals(claimedZone) || !requestedSeason.equals(claimedSeason)) {
+                    return Tasks.forException(new IllegalStateException(
+                            "Bu fide partisi başka bir bahçe sezonu için ayrılmış."));
+                }
+            }
+            DataSnapshot batchData = root.child("seedling").child("batches")
+                    .child(requestedBatchId);
+            persistedBatch = batchData.getValue(SeedlingBatch.class);
+            if (persistedBatch == null) {
+                return Tasks.forException(new IllegalStateException(
+                        "Aktarılacak fide partisi bulunamadı."));
+            }
+            if (persistedBatch.isTransferred()) {
+                if (sameSeedlingTransferTarget(persistedBatch, zoneId)) {
+                    return Tasks.forResult(null);
+                }
+                return Tasks.forException(new IllegalStateException(
+                        "Bu fide partisi başka bir bahçe sezonuna aktarılmış."));
+            }
+            if (!persistedBatch.isActive()
+                    || !"READY".equalsIgnoreCase(safe(persistedBatch.getStage()))) {
+                return Tasks.forException(new IllegalStateException(
+                        "Yalnızca dikime hazır ve aktif fide partileri sezona aktarılabilir."));
+            }
+            persistedBatch.setBatch_id(safe(requestedBatch.getBatch_id()));
+        }
+
         long now = nowEpoch();
-        String seasonId = SeasonScope.createSeasonId(zoneId, now);
+        String seasonId = persistedBatch == null
+                ? SeasonScope.createSeasonId(zoneId, now)
+                : seedlingSeasonId(zoneId, persistedBatch.getBatch_id());
         String label = safe(requestedLabel).trim();
         if (label.isBlank()) label = seasonLabel(zone, now);
         String zonePath = "zones/" + zoneId + "/";
@@ -402,7 +631,58 @@ public final class SeasonRepository {
             updates.put(zonePath + "ai/season_id", seasonId);
             updates.put(zonePath + "ai/updated_at_epoch", now);
         }
+        if (persistedBatch != null) {
+            putSeedlingTransfer(
+                    updates,
+                    manifestPath,
+                    persistedBatch,
+                    zoneId,
+                    seasonId,
+                    now
+            );
+        }
         return deviceRef.updateChildren(updates);
+    }
+
+    static String seedlingSeasonId(String zoneId, String batchId) {
+        return safe(zoneId).replaceAll("[^A-Za-z0-9_-]", "-")
+                + "-seedling-"
+                + safe(batchId).replaceAll("[^A-Za-z0-9_-]", "-");
+    }
+
+    static boolean sameSeedlingTransferTarget(SeedlingBatch batch, String zoneId) {
+        if (batch == null || !batch.isTransferred()) return false;
+        String requestedZoneId = safe(zoneId);
+        return requestedZoneId.equals(safe(batch.getTransferred_zone_id()))
+                && seedlingSeasonId(requestedZoneId, batch.getBatch_id()).equals(
+                        safe(batch.getTransferred_season_id()));
+    }
+
+    static void putSeedlingTransfer(
+            Map<String, Object> updates,
+            String manifestPath,
+            SeedlingBatch batch,
+            String zoneId,
+            String seasonId,
+            long nowEpoch
+    ) {
+        long now = Math.max(0L, nowEpoch);
+        String batchPath = "seedling/batches/" + safe(batch.getBatch_id()) + "/";
+        updates.put(manifestPath + "source_seedling_batch_id", batch.getBatch_id());
+        updates.put(manifestPath + "source_seedling_variety", safe(batch.getVariety()));
+        updates.put(manifestPath + "source_seedling_healthy_count", batch.getHealthy_count());
+
+        updates.put(batchPath + "status", SeedlingBatch.STATUS_ARCHIVED);
+        updates.put(batchPath + "archive_reason", SeedlingBatch.ARCHIVE_REASON_TRANSFERRED);
+        updates.put(batchPath + "archived_at_epoch", now);
+        updates.put(batchPath + "transferred_season_id", seasonId);
+        updates.put(batchPath + "transferred_zone_id", safe(zoneId));
+        updates.put(batchPath + "transferred_at_epoch", now);
+        updates.put(batchPath + "updated_at_epoch", now);
+        String claimPath = "seedling/transfer_claims/" + safe(batch.getBatch_id()) + "/";
+        updates.put(claimPath + "batch_id", batch.getBatch_id());
+        updates.put(claimPath + "zone_id", safe(zoneId));
+        updates.put(claimPath + "season_id", seasonId);
     }
 
     private static void putNewSeasonState(
@@ -1033,6 +1313,10 @@ public final class SeasonRepository {
         if (targetSeason == null) {
             return CancellationCheck.blocked("İptal edilecek sezon kaydı bulunamadı.");
         }
+        if (!targetSeason.getSource_seedling_batch_id().isBlank()) {
+            return CancellationCheck.blocked(
+                    "Bu sezon bir fide partisinden oluşturulduğu için silinemez; sezonu kapatın.");
+        }
         if (targetSeason.getSeason_id().isBlank()) {
             targetSeason.setSeason_id(safe(manifest.getKey()));
         }
@@ -1137,9 +1421,7 @@ public final class SeasonRepository {
             String targetPath,
             DataSnapshot snapshot
     ) {
-        if (snapshot.exists() && snapshot.getValue() != null) {
-            updates.put(targetPath, snapshot.getValue());
-        }
+        updates.put(targetPath, snapshot.exists() ? snapshot.getValue() : null);
     }
 
     private static void restoreZoneFields(
@@ -1156,9 +1438,8 @@ public final class SeasonRepository {
                 "rssi", "updated_at_epoch"
         };
         for (String field : fields) {
-            if (snapshot.hasChild(field)) {
-                updates.put(zonePath + field, snapshot.child(field).getValue());
-            }
+            updates.put(zonePath + field,
+                    snapshot.hasChild(field) ? snapshot.child(field).getValue() : null);
         }
     }
 

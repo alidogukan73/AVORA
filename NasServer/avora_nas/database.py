@@ -54,6 +54,10 @@ class SetupCompleteError(RuntimeError):
     """Raised when bootstrap is attempted after an account already exists."""
 
 
+class AccountLifecycleError(RuntimeError):
+    """Raised when an account transition is unsafe for its current state."""
+
+
 @dataclass(frozen=True)
 class User:
     id: str
@@ -67,6 +71,36 @@ class Session:
     token: str
     expires_at: int
     user: User
+
+
+@dataclass(frozen=True)
+class SessionSummary:
+    device_id: str
+    device_name: str
+    created_at: int
+    last_seen_at: int
+    expires_at: int
+    current: bool
+
+
+@dataclass(frozen=True)
+class AccountSummary:
+    id: str
+    email: str
+    display_name: str
+    role: str
+    active: bool
+    created_at: int
+    active_sessions: int
+    last_active_at: int
+    access_status: str
+    firebase_uid: str
+    inactivity_reviewed_at: int
+    inactive_access: bool
+    disabled_at: int
+    delete_eligible_at: int
+    can_restore: bool
+    can_permanently_delete: bool
 
 
 @dataclass(frozen=True)
@@ -134,13 +168,19 @@ class AccountDatabase:
                     password_hash TEXT NOT NULL,
                     role TEXT NOT NULL CHECK (role IN ('admin', 'user')),
                     active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),
-                    created_at INTEGER NOT NULL
+                    created_at INTEGER NOT NULL,
+                    last_active_at INTEGER NOT NULL,
+                    disabled_at INTEGER NOT NULL DEFAULT 0,
+                    delete_eligible_at INTEGER NOT NULL DEFAULT 0
                 );
                 CREATE TABLE IF NOT EXISTS sessions (
                     token_hash TEXT PRIMARY KEY,
                     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
                     created_at INTEGER NOT NULL,
-                    expires_at INTEGER NOT NULL
+                    expires_at INTEGER NOT NULL,
+                    device_id TEXT NOT NULL DEFAULT '',
+                    device_name TEXT NOT NULL DEFAULT '',
+                    last_seen_at INTEGER NOT NULL DEFAULT 0
                 );
                 CREATE INDEX IF NOT EXISTS sessions_expiry_idx ON sessions(expires_at);
                 CREATE TABLE IF NOT EXISTS invites (
@@ -161,6 +201,7 @@ class AccountDatabase:
                         CHECK (status IN ('pending', 'approved')),
                     created_at INTEGER NOT NULL,
                     updated_at INTEGER NOT NULL,
+                    inactivity_reviewed_at INTEGER NOT NULL DEFAULT 0,
                     UNIQUE(device_id, user_id)
                 );
                 CREATE INDEX IF NOT EXISTS access_requests_status_idx
@@ -178,6 +219,73 @@ class AccountDatabase:
                     ON login_throttle(updated_at);
                 """
             )
+
+            session_columns = {
+                row["name"] for row in connection.execute("PRAGMA table_info(sessions)")
+            }
+            if "device_id" not in session_columns:
+                connection.execute(
+                    "ALTER TABLE sessions ADD COLUMN device_id TEXT NOT NULL DEFAULT ''"
+                )
+            if "device_name" not in session_columns:
+                connection.execute(
+                    "ALTER TABLE sessions ADD COLUMN device_name TEXT NOT NULL DEFAULT ''"
+                )
+            if "last_seen_at" not in session_columns:
+                connection.execute(
+                    "ALTER TABLE sessions ADD COLUMN last_seen_at INTEGER NOT NULL DEFAULT 0"
+                )
+            connection.execute(
+                "UPDATE sessions SET last_seen_at = created_at WHERE last_seen_at = 0"
+            )
+
+            user_columns = {
+                row["name"] for row in connection.execute("PRAGMA table_info(users)")
+            }
+            if "last_active_at" not in user_columns:
+                connection.execute(
+                    "ALTER TABLE users ADD COLUMN last_active_at INTEGER NOT NULL DEFAULT 0"
+                )
+            if "disabled_at" not in user_columns:
+                connection.execute(
+                    "ALTER TABLE users ADD COLUMN disabled_at INTEGER NOT NULL DEFAULT 0"
+                )
+            if "delete_eligible_at" not in user_columns:
+                connection.execute(
+                    """ALTER TABLE users
+                       ADD COLUMN delete_eligible_at INTEGER NOT NULL DEFAULT 0"""
+                )
+            connection.execute(
+                """UPDATE users
+                   SET last_active_at = MAX(
+                       created_at,
+                       COALESCE((SELECT MAX(last_seen_at) FROM sessions
+                                 WHERE sessions.user_id = users.id), 0),
+                       COALESCE((SELECT MAX(updated_at) FROM access_requests
+                                 WHERE access_requests.user_id = users.id), 0)
+                   )
+                   WHERE last_active_at = 0"""
+            )
+            connection.execute(
+                """UPDATE users
+                   SET disabled_at = CASE
+                           WHEN disabled_at = 0 THEN created_at ELSE disabled_at END,
+                       delete_eligible_at = CASE
+                           WHEN delete_eligible_at = 0
+                           THEN created_at + ? ELSE delete_eligible_at END
+                   WHERE active = 0 AND role = 'user'""",
+                (30 * 24 * 60 * 60,),
+            )
+
+            access_request_columns = {
+                row["name"]
+                for row in connection.execute("PRAGMA table_info(access_requests)")
+            }
+            if "inactivity_reviewed_at" not in access_request_columns:
+                connection.execute(
+                    """ALTER TABLE access_requests
+                       ADD COLUMN inactivity_reviewed_at INTEGER NOT NULL DEFAULT 0"""
+                )
 
     def has_users(self) -> bool:
         with self._connect() as connection:
@@ -198,14 +306,24 @@ class AccountDatabase:
                 raise SetupCompleteError("AVORA has already been initialized.")
             connection.execute(
                 """INSERT INTO users
-                   (id, email, display_name, password_hash, role, active, created_at)
-                   VALUES (?, ?, ?, ?, 'admin', 1, ?)""",
-                (user.id, user.email, user.display_name, encoded_password, timestamp),
+                   (id, email, display_name, password_hash, role, active,
+                    created_at, last_active_at)
+                   VALUES (?, ?, ?, ?, 'admin', 1, ?, ?)""",
+                (
+                    user.id, user.email, user.display_name, encoded_password,
+                    timestamp, timestamp,
+                ),
             )
         return user
 
     def create_session(
-        self, email: str, password: str, ttl_seconds: int, now: int | None = None
+        self,
+        email: str,
+        password: str,
+        ttl_seconds: int,
+        now: int | None = None,
+        device_id: str = "",
+        device_name: str = "",
     ) -> Session:
         timestamp = int(time.time()) if now is None else int(now)
         try:
@@ -225,13 +343,28 @@ class AccountDatabase:
         with self._connect() as connection:
             connection.execute("DELETE FROM sessions WHERE expires_at <= ?", (timestamp,))
             connection.execute(
-                "INSERT INTO sessions(token_hash, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
-                (token_digest(token), row["id"], timestamp, expires_at),
+                """INSERT INTO sessions
+                   (token_hash, user_id, created_at, expires_at,
+                    device_id, device_name, last_seen_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    token_digest(token), row["id"], timestamp, expires_at,
+                    device_id, device_name, timestamp,
+                ),
+            )
+            connection.execute(
+                "UPDATE users SET last_active_at = ? WHERE id = ?",
+                (timestamp, row["id"]),
             )
         return Session(token, expires_at, _row_to_user(row))
 
     def create_session_for_user(
-        self, user: User, ttl_seconds: int, now: int | None = None
+        self,
+        user: User,
+        ttl_seconds: int,
+        now: int | None = None,
+        device_id: str = "",
+        device_name: str = "",
     ) -> Session:
         timestamp = int(time.time()) if now is None else int(now)
         token = new_secret(32)
@@ -239,28 +372,60 @@ class AccountDatabase:
         with self._connect() as connection:
             connection.execute("DELETE FROM sessions WHERE expires_at <= ?", (timestamp,))
             connection.execute(
-                "INSERT INTO sessions(token_hash, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
-                (token_digest(token), user.id, timestamp, expires_at),
+                """INSERT INTO sessions
+                   (token_hash, user_id, created_at, expires_at,
+                    device_id, device_name, last_seen_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    token_digest(token), user.id, timestamp, expires_at,
+                    device_id, device_name, timestamp,
+                ),
+            )
+            connection.execute(
+                "UPDATE users SET last_active_at = ? WHERE id = ?",
+                (timestamp, user.id),
             )
         return Session(token, expires_at, user)
 
-    def authenticate(self, token: str, now: int | None = None) -> User:
+    def authenticate(
+        self,
+        token: str,
+        now: int | None = None,
+        ttl_seconds: int | None = None,
+    ) -> User:
         timestamp = int(time.time()) if now is None else int(now)
         if not isinstance(token, str) or len(token) < 32 or len(token) > 256:
             raise InvalidCredentialsError("Authentication is required.")
+        digest = token_digest(token)
         with self._connect() as connection:
             row = connection.execute(
                 """SELECT u.id, u.email, u.display_name, u.role, u.active, s.expires_at
                    FROM sessions s JOIN users u ON u.id = s.user_id
                    WHERE s.token_hash = ?""",
-                (token_digest(token),),
+                (digest,),
             ).fetchone()
             if row is None or not row["active"] or row["expires_at"] <= timestamp:
                 if row is not None:
                     connection.execute(
-                        "DELETE FROM sessions WHERE token_hash = ?", (token_digest(token),)
+                        "DELETE FROM sessions WHERE token_hash = ?", (digest,)
                     )
                 raise InvalidCredentialsError("Authentication is required.")
+            connection.execute(
+                """UPDATE sessions
+                   SET last_seen_at = ?,
+                       expires_at = CASE WHEN ? > 0 THEN ? ELSE expires_at END
+                   WHERE token_hash = ?""",
+                (
+                    timestamp,
+                    int(ttl_seconds or 0),
+                    timestamp + int(ttl_seconds or 0),
+                    digest,
+                ),
+            )
+            connection.execute(
+                "UPDATE users SET last_active_at = ? WHERE id = ?",
+                (timestamp, row["id"]),
+            )
         return _row_to_user(row)
 
     def logout(self, token: str) -> None:
@@ -311,6 +476,133 @@ class AccountDatabase:
                 (user.id, current_token_hash),
             )
         return max(0, cursor.rowcount)
+
+    def identify_session(
+        self,
+        user: User,
+        current_token: str,
+        device_id: str,
+        device_name: str,
+        now: int | None = None,
+    ) -> None:
+        timestamp = int(time.time()) if now is None else int(now)
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """UPDATE sessions
+                   SET device_id = ?, device_name = ?, last_seen_at = ?
+                   WHERE token_hash = ? AND user_id = ? AND expires_at > ?""",
+                (
+                    device_id,
+                    device_name,
+                    timestamp,
+                    token_digest(current_token),
+                    user.id,
+                    timestamp,
+                ),
+            )
+        if cursor.rowcount != 1:
+            raise InvalidCredentialsError("Authentication is required.")
+
+    def list_sessions(
+        self, user: User, current_token: str, now: int | None = None
+    ) -> list[SessionSummary]:
+        timestamp = int(time.time()) if now is None else int(now)
+        current_digest = token_digest(current_token)
+        with self._connect() as connection:
+            connection.execute("DELETE FROM sessions WHERE expires_at <= ?", (timestamp,))
+            rows = connection.execute(
+                """SELECT token_hash, device_id, device_name, created_at,
+                          last_seen_at, expires_at
+                   FROM sessions
+                   WHERE user_id = ? AND expires_at > ?
+                   ORDER BY CASE WHEN token_hash = ? THEN 0 ELSE 1 END,
+                            last_seen_at DESC, created_at DESC""",
+                (user.id, timestamp, current_digest),
+            ).fetchall()
+        return [
+            SessionSummary(
+                device_id=row["device_id"],
+                device_name=row["device_name"],
+                created_at=int(row["created_at"]),
+                last_seen_at=int(row["last_seen_at"]),
+                expires_at=int(row["expires_at"]),
+                current=row["token_hash"] == current_digest,
+            )
+            for row in rows
+        ]
+
+    def list_accounts(
+        self,
+        admin: User,
+        device_id: str = "",
+        now: int | None = None,
+        inactivity_seconds: int = 30 * 24 * 60 * 60,
+    ) -> list[AccountSummary]:
+        if admin.role != "admin":
+            raise PermissionError("Administrator access is required.")
+        timestamp = int(time.time()) if now is None else int(now)
+        with self._connect() as connection:
+            connection.execute("DELETE FROM sessions WHERE expires_at <= ?", (timestamp,))
+            rows = connection.execute(
+                """SELECT u.id, u.email, u.display_name, u.role, u.active,
+                          u.created_at, u.last_active_at,
+                          u.disabled_at, u.delete_eligible_at,
+                          COUNT(s.token_hash) AS active_sessions,
+                          COALESCE(r.status, '') AS access_status,
+                          COALESCE(r.firebase_uid, '') AS firebase_uid,
+                          COALESCE(r.inactivity_reviewed_at, 0)
+                              AS inactivity_reviewed_at
+                   FROM users u
+                   LEFT JOIN sessions s
+                     ON s.user_id = u.id AND s.expires_at > ?
+                   LEFT JOIN access_requests r
+                     ON r.user_id = u.id AND r.device_id = ?
+                   GROUP BY u.id, u.email, u.display_name, u.role,
+                            u.active, u.created_at, u.last_active_at,
+                            u.disabled_at, u.delete_eligible_at,
+                            r.status, r.firebase_uid, r.inactivity_reviewed_at
+                   ORDER BY CASE u.role WHEN 'admin' THEN 0 ELSE 1 END,
+                            u.created_at ASC, u.display_name COLLATE NOCASE ASC""",
+                (timestamp, device_id),
+            ).fetchall()
+        return [
+            AccountSummary(
+                id=row["id"],
+                email=row["email"],
+                display_name=row["display_name"],
+                role=row["role"],
+                active=bool(row["active"]),
+                created_at=int(row["created_at"]),
+                active_sessions=int(row["active_sessions"]),
+                last_active_at=int(row["last_active_at"]),
+                access_status=row["access_status"],
+                firebase_uid=row["firebase_uid"],
+                inactivity_reviewed_at=int(row["inactivity_reviewed_at"]),
+                inactive_access=(
+                    row["role"] == "user"
+                    and bool(row["active"])
+                    and row["access_status"] == "approved"
+                    and timestamp - max(
+                        int(row["last_active_at"]),
+                        int(row["inactivity_reviewed_at"]),
+                    ) >= max(1, int(inactivity_seconds))
+                ),
+                disabled_at=int(row["disabled_at"]),
+                delete_eligible_at=int(row["delete_eligible_at"]),
+                can_restore=(
+                    row["role"] == "user"
+                    and not bool(row["active"])
+                    and int(row["delete_eligible_at"]) > timestamp
+                ),
+                can_permanently_delete=(
+                    row["role"] == "user"
+                    and not bool(row["active"])
+                    and int(row["delete_eligible_at"]) > 0
+                    and timestamp >= int(row["delete_eligible_at"])
+                ),
+            )
+            for row in rows
+        ]
 
     def login_retry_after(
         self, bucket_keys: tuple[str, ...], now: int | None = None
@@ -453,9 +745,13 @@ class AccountDatabase:
             try:
                 connection.execute(
                     """INSERT INTO users
-                       (id, email, display_name, password_hash, role, active, created_at)
-                       VALUES (?, ?, ?, ?, 'user', 1, ?)""",
-                    (user.id, user.email, user.display_name, encoded_password, timestamp),
+                       (id, email, display_name, password_hash, role, active,
+                        created_at, last_active_at)
+                       VALUES (?, ?, ?, ?, 'user', 1, ?, ?)""",
+                    (
+                        user.id, user.email, user.display_name, encoded_password,
+                        timestamp, timestamp,
+                    ),
                 )
             except sqlite3.IntegrityError as exc:
                 raise InviteError("This account cannot be registered.") from exc
@@ -507,7 +803,8 @@ class AccountDatabase:
                 connection.execute(
                     """UPDATE access_requests
                        SET firebase_uid = ?, status = 'pending',
-                           created_at = ?, updated_at = ?
+                           created_at = ?, updated_at = ?,
+                           inactivity_reviewed_at = 0
                        WHERE id = ?""",
                     (firebase_uid, timestamp, timestamp, request_id),
                 )
@@ -550,7 +847,8 @@ class AccountDatabase:
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
             cursor = connection.execute(
-                """UPDATE access_requests SET status = 'approved', updated_at = ?
+                """UPDATE access_requests
+                   SET status = 'approved', updated_at = ?, inactivity_reviewed_at = 0
                    WHERE id = ? AND status = 'pending'""",
                 (timestamp, request_id),
             )
@@ -565,6 +863,173 @@ class AccountDatabase:
                 (request_id,),
             ).fetchone()
         return _row_to_access_request(row)
+
+    def keep_inactive_device_access(
+        self,
+        admin: User,
+        user_id: str,
+        device_id: str,
+        now: int | None = None,
+    ) -> bool:
+        if admin.role != "admin":
+            raise PermissionError("Administrator access is required.")
+        timestamp = int(time.time()) if now is None else int(now)
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """UPDATE access_requests
+                   SET inactivity_reviewed_at = ?, updated_at = ?
+                   WHERE user_id = ? AND device_id = ? AND status = 'approved'
+                     AND user_id IN (SELECT id FROM users WHERE role = 'user')""",
+                (timestamp, timestamp, user_id, device_id),
+            )
+        return cursor.rowcount > 0
+
+    def revoke_device_access(
+        self,
+        admin: User,
+        user_id: str,
+        device_id: str,
+    ) -> tuple[str, int] | None:
+        if admin.role != "admin":
+            raise PermissionError("Administrator access is required.")
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                """SELECT r.firebase_uid
+                   FROM access_requests r JOIN users u ON u.id = r.user_id
+                   WHERE r.user_id = ? AND r.device_id = ?
+                     AND r.status = 'approved' AND u.role = 'user'""",
+                (user_id, device_id),
+            ).fetchone()
+            if row is None:
+                return None
+            connection.execute(
+                "DELETE FROM access_requests WHERE user_id = ? AND device_id = ?",
+                (user_id, device_id),
+            )
+            cursor = connection.execute(
+                "DELETE FROM sessions WHERE user_id = ?",
+                (user_id,),
+            )
+        return row["firebase_uid"], max(0, cursor.rowcount)
+
+    def disable_account(
+        self,
+        admin: User,
+        user_id: str,
+        now: int | None = None,
+        retention_seconds: int = 30 * 24 * 60 * 60,
+    ) -> tuple[int, int] | None:
+        if admin.role != "admin":
+            raise PermissionError("Administrator access is required.")
+        timestamp = int(time.time()) if now is None else int(now)
+        delete_eligible_at = timestamp + max(1, int(retention_seconds))
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                "SELECT role, active FROM users WHERE id = ?", (user_id,)
+            ).fetchone()
+            if row is None or row["role"] != "user":
+                return None
+            if not row["active"]:
+                raise AccountLifecycleError("The account is already disabled.")
+            connection.execute(
+                """UPDATE users
+                   SET active = 0, disabled_at = ?, delete_eligible_at = ?
+                   WHERE id = ?""",
+                (timestamp, delete_eligible_at, user_id),
+            )
+            sessions = connection.execute(
+                "DELETE FROM sessions WHERE user_id = ?", (user_id,)
+            ).rowcount
+            connection.execute(
+                "DELETE FROM access_requests WHERE user_id = ?", (user_id,)
+            )
+        return delete_eligible_at, max(0, sessions)
+
+    def restore_account(
+        self, admin: User, user_id: str, now: int | None = None
+    ) -> bool:
+        if admin.role != "admin":
+            raise PermissionError("Administrator access is required.")
+        timestamp = int(time.time()) if now is None else int(now)
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                """SELECT role, active, delete_eligible_at
+                   FROM users WHERE id = ?""",
+                (user_id,),
+            ).fetchone()
+            if row is None or row["role"] != "user":
+                return False
+            if row["active"]:
+                raise AccountLifecycleError("The account is already active.")
+            if int(row["delete_eligible_at"]) <= timestamp:
+                raise AccountLifecycleError("The account recovery period has ended.")
+            connection.execute(
+                """UPDATE users
+                   SET active = 1, disabled_at = 0, delete_eligible_at = 0
+                   WHERE id = ?""",
+                (user_id,),
+            )
+        return True
+
+    def validate_permanent_deletion(
+        self,
+        admin: User,
+        user_id: str,
+        current_password: str,
+        now: int | None = None,
+    ) -> User | None:
+        timestamp = int(time.time()) if now is None else int(now)
+        with self._connect() as connection:
+            admin_row = connection.execute(
+                "SELECT password_hash, active FROM users WHERE id = ?",
+                (admin.id,),
+            ).fetchone()
+            if (
+                admin.role != "admin"
+                or admin_row is None
+                or not admin_row["active"]
+                or not verify_password(current_password, admin_row["password_hash"])
+            ):
+                raise InvalidCurrentPasswordError("The current password is invalid.")
+            row = connection.execute(
+                """SELECT id, email, display_name, role, active,
+                          delete_eligible_at
+                   FROM users WHERE id = ?""",
+                (user_id,),
+            ).fetchone()
+        if row is None or row["role"] != "user":
+            return None
+        if row["active"] or int(row["delete_eligible_at"]) <= 0:
+            raise AccountLifecycleError("The account must be disabled first.")
+        if timestamp < int(row["delete_eligible_at"]):
+            raise AccountLifecycleError("The account recovery period is still active.")
+        return _row_to_user(row)
+
+    def permanently_delete_account(
+        self,
+        admin: User,
+        user_id: str,
+        current_password: str,
+        now: int | None = None,
+    ) -> User | None:
+        target = self.validate_permanent_deletion(
+            admin, user_id, current_password, now
+        )
+        if target is None:
+            return None
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            cursor = connection.execute(
+                """DELETE FROM users
+                   WHERE id = ? AND role = 'user' AND active = 0""",
+                (target.id,),
+            )
+            if cursor.rowcount != 1:
+                raise AccountLifecycleError("The account state changed.")
+        return target
 
 
 class TenantDatabase:

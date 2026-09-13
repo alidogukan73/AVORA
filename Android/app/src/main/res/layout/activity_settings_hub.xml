@@ -51,16 +51,6 @@
                     android:text="@string/settings_hub_quick_title"
                     android:textAppearance="@style/TextAppearance.AVORA.Settings.Category" />
 
-                <TextView
-                    android:id="@+id/btnEditQuickSettings"
-                    android:layout_width="wrap_content"
-                    android:layout_height="32dp"
-                    android:gravity="center"
-                    android:paddingStart="10dp"
-                    android:paddingEnd="2dp"
-                    android:text="@string/settings_hub_edit"
-                    android:textAppearance="@style/TextAppearance.AVORA.Settings.Category" />
-
             </LinearLayout>
 
             <LinearLayout

@@ -24,12 +24,14 @@ import com.alidogukan.avora.R;
 import com.alidogukan.avora.models.SeedlingBatch;
 import com.alidogukan.avora.models.SeedlingDailyLog;
 import com.alidogukan.avora.models.SeedlingNodeState;
-import com.alidogukan.avora.models.SeedlingRecommendation;
 import com.alidogukan.avora.models.SeedlingTelemetry;
 import com.alidogukan.avora.seedling.SeedlingConditionSummary;
+import com.alidogukan.avora.seedling.SeedlingEnvironmentAdvice;
+import com.alidogukan.avora.seedling.SeedlingEnvironmentAdviceText;
 import com.alidogukan.avora.seedling.SeedlingEnvironmentGuide;
 import com.alidogukan.avora.seedling.SeedlingFertilizerGuide;
 import com.alidogukan.avora.seedling.SeedlingTimeline;
+import com.alidogukan.avora.seedling.SeedlingTelemetryFreshnessTicker;
 import com.alidogukan.avora.ui.GardenPhotoViewerDialog;
 import com.alidogukan.avora.viewmodels.SeedlingViewModel;
 import com.google.android.material.button.MaterialButton;
@@ -54,6 +56,7 @@ public final class SeedlingBatchDetailActivity extends EdgeToEdgeActivity {
     private String observedNodeId = "";
     private LiveData<SeedlingNodeState> nodeSource;
     private SeedlingNodeState latestNodeState;
+    private SeedlingTelemetryFreshnessTicker freshnessTicker;
 
     private TextView emoji;
     private TextView name;
@@ -101,6 +104,7 @@ public final class SeedlingBatchDetailActivity extends EdgeToEdgeActivity {
     private View[] stageLines;
     private LinearLayout logs;
     private View advance;
+    private View dailyLogAction;
     private MaterialCardView overallCard;
     private MaterialCardView adviceCard;
     private boolean hasDailyLogs;
@@ -116,15 +120,30 @@ public final class SeedlingBatchDetailActivity extends EdgeToEdgeActivity {
         }
 
         viewModel = new ViewModelProvider(this).get(SeedlingViewModel.class);
+        viewModel.getReadError().observe(this, event -> {
+            if (event == null) return;
+            Integer message = event.consume();
+            if (message != null) Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+        });
+        freshnessTicker = new SeedlingTelemetryFreshnessTicker(
+                this, 45L, () -> renderNode(latestNodeState));
         bindViews();
         findViewById(R.id.btnBack).setOnClickListener(view -> finish());
         findViewById(R.id.btnSeedlingMore).setOnClickListener(view -> showBatchActions());
-        findViewById(R.id.btnSeedlingDailyLog).setOnClickListener(view -> {
+        dailyLogAction = findViewById(R.id.btnSeedlingDailyLog);
+        dailyLogAction.setOnClickListener(view -> {
+            if (batch == null || !batch.isActive()) return;
             Intent intent = new Intent(this, SeedlingDailyLogActivity.class);
             intent.putExtra(EXTRA_BATCH_ID, batchId);
             startActivity(intent);
         });
-        advance.setOnClickListener(view -> confirmAdvanceStage());
+        advance.setOnClickListener(view -> {
+            if (batch != null && batch.isActive() && viewModel.isReady(batch)) {
+                openSeasonTransfer();
+            } else {
+                confirmAdvanceStage();
+            }
+        });
 
         viewModel.getBatch(batchId).observe(this, value -> {
             if (value == null) {
@@ -214,9 +233,14 @@ public final class SeedlingBatchDetailActivity extends EdgeToEdgeActivity {
         if (nodeSource != null) nodeSource.removeObservers(this);
         observedNodeId = nodeId;
         latestNodeState = null;
+        freshnessTicker.update(null);
         renderNode(null);
         nodeSource = viewModel.getNode(nodeId);
-        nodeSource.observe(this, this::renderNode);
+        nodeSource.observe(this, value -> {
+            latestNodeState = value;
+            freshnessTicker.update(value == null ? null : value.getLatest());
+            renderNode(value);
+        });
     }
 
     private void renderBatch() {
@@ -227,17 +251,35 @@ public final class SeedlingBatchDetailActivity extends EdgeToEdgeActivity {
                 - batch.getSowing_date_epoch()) / 86_400L + 1L);
         meta.setText(getString(R.string.seedling_batch_detail_meta,
                 day, batch.getHealthy_count()));
-        stage.setText(viewModel.stageLabel(batch.getStage()));
+        if (batch.isArchived()) {
+            stage.setText(batch.isTransferred()
+                    ? R.string.seedling_transferred_status
+                    : R.string.seedling_archived_status);
+        } else {
+            stage.setText(viewModel.stageLabel(batch.getStage()));
+        }
         targetContext.setText(getString(R.string.seedling_target_context,
                 batch.getPlant_type(), viewModel.stageLabel(batch.getStage())));
         renderTimeline();
         renderFertilizerGuide();
 
-        boolean enabled = !stageUpdateInProgress && viewModel.canAdvance(batch);
+        boolean enabled = !stageUpdateInProgress && batch.isActive()
+                && (viewModel.canAdvance(batch) || viewModel.isReady(batch));
         advance.setEnabled(enabled);
+        dailyLogAction.setEnabled(batch.isActive());
+        dailyLogAction.setAlpha(batch.isActive() ? 1f : 0.55f);
         if (advance instanceof TextView) {
-            ((TextView) advance).setText(enabled
-                    ? R.string.seedling_advance_stage : R.string.seedling_stage_complete);
+            int actionText;
+            if (batch.isTransferred()) {
+                actionText = R.string.seedling_transferred_status;
+            } else if (batch.isArchived()) {
+                actionText = R.string.seedling_archived_status;
+            } else if (viewModel.isReady(batch)) {
+                actionText = R.string.seedling_transfer_to_season;
+            } else {
+                actionText = R.string.seedling_advance_stage;
+            }
+            ((TextView) advance).setText(actionText);
         }
     }
 
@@ -275,13 +317,32 @@ public final class SeedlingBatchDetailActivity extends EdgeToEdgeActivity {
 
     private void showBatchActions() {
         if (batch == null) return;
-        boolean canRetreat = viewModel.canRetreat(batch);
+        boolean active = batch.isActive();
+        boolean canRetreat = active && viewModel.canRetreat(batch);
         List<String> actions = new ArrayList<>();
         actions.add(getString(R.string.seedling_batch_information_title));
         if (canRetreat) actions.add(getString(R.string.seedling_previous_stage));
-        actions.add(getString(R.string.seedling_delete_batch));
+        int lifecycleIndex = actions.size();
+        if (active) {
+            actions.add(getString(R.string.seedling_archive_batch));
+        } else if (batch.isTransferred()) {
+            actions.add(getString(R.string.seedling_open_linked_season));
+        } else {
+            actions.add(getString(R.string.seedling_restore_batch));
+        }
+        int requestedUndoIndex = -1;
+        if (batch.isTransferred()) {
+            requestedUndoIndex = actions.size();
+            actions.add(getString(R.string.seedling_undo_transfer));
+        }
+        int undoIndex = requestedUndoIndex;
+        int requestedDeleteIndex = -1;
+        if (!batch.isTransferred()) {
+            requestedDeleteIndex = actions.size();
+            actions.add(getString(R.string.seedling_delete_batch));
+        }
+        int deleteIndex = requestedDeleteIndex;
         int previousIndex = canRetreat ? 1 : -1;
-        int deleteIndex = actions.size() - 1;
         new MaterialAlertDialogBuilder(this)
                 .setTitle(batch.displayName())
                 .setItems(actions.toArray(new String[0]), (dialog, which) -> {
@@ -289,12 +350,117 @@ public final class SeedlingBatchDetailActivity extends EdgeToEdgeActivity {
                         showBatchInformation();
                     } else if (which == previousIndex) {
                         confirmPreviousStage();
+                    } else if (which == lifecycleIndex) {
+                        if (batch.isActive()) {
+                            confirmArchiveBatch();
+                        } else if (batch.isTransferred()) {
+                            openLinkedSeason();
+                        } else {
+                            restoreBatch();
+                        }
+                    } else if (which == undoIndex) {
+                        confirmUndoTransfer();
                     } else if (which == deleteIndex) {
                         requestDeleteBatch();
                     }
                 })
                 .setNegativeButton(android.R.string.cancel, null)
                 .show();
+    }
+
+    private void confirmUndoTransfer() {
+        SeedlingBatch target = batch;
+        if (target == null || !target.isTransferred()) return;
+        new MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.seedling_undo_transfer_title)
+                .setMessage(R.string.seedling_undo_transfer_message)
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(R.string.seedling_undo_transfer, (dialog, which) ->
+                        viewModel.undoSeasonTransfer(target)
+                                .addOnSuccessListener(ignored -> Toast.makeText(
+                                        this,
+                                        R.string.seedling_undo_transfer_success,
+                                        Toast.LENGTH_SHORT
+                                ).show())
+                                .addOnFailureListener(error -> Toast.makeText(
+                                        this,
+                                        undoTransferError(error),
+                                        Toast.LENGTH_LONG
+                                ).show()))
+                .show();
+    }
+
+    private String undoTransferError(Throwable error) {
+        Throwable current = error;
+        while (current != null) {
+            String message = current.getMessage();
+            if (message != null && !message.isBlank()) {
+                return getString(R.string.seedling_undo_transfer_failed_detail, message);
+            }
+            current = current.getCause();
+        }
+        return getString(R.string.seedling_undo_transfer_failed);
+    }
+
+    private void confirmArchiveBatch() {
+        SeedlingBatch target = batch;
+        if (target == null || !target.isActive()) return;
+        new MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.seedling_archive_batch_title)
+                .setMessage(R.string.seedling_archive_batch_message)
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(R.string.seedling_archive_batch, (dialog, which) ->
+                        viewModel.archiveBatch(target.getBatch_id())
+                                .addOnSuccessListener(ignored -> Toast.makeText(
+                                        this,
+                                        R.string.seedling_archive_batch_success,
+                                        Toast.LENGTH_SHORT
+                                ).show())
+                                .addOnFailureListener(error -> Toast.makeText(
+                                        this,
+                                        R.string.seedling_archive_batch_failed,
+                                        Toast.LENGTH_LONG
+                                ).show()))
+                .show();
+    }
+
+    private void restoreBatch() {
+        SeedlingBatch target = batch;
+        if (target == null || !target.isArchived() || target.isTransferred()) return;
+        viewModel.restoreBatch(target)
+                .addOnSuccessListener(ignored -> Toast.makeText(
+                        this,
+                        R.string.seedling_restore_batch_success,
+                        Toast.LENGTH_SHORT
+                ).show())
+                .addOnFailureListener(error -> Toast.makeText(
+                        this,
+                        R.string.seedling_restore_batch_failed,
+                        Toast.LENGTH_LONG
+                ).show());
+    }
+
+    private void openLinkedSeason() {
+        if (batch == null || batch.getTransferred_season_id().isBlank()
+                || batch.getTransferred_zone_id().isBlank()) {
+            startActivity(new Intent(this, SeasonManagementActivity.class));
+            return;
+        }
+        Intent intent = new Intent(this, PlantTimelineActivity.class);
+        intent.putExtra(PlantTimelineActivity.EXTRA_ZONE_ID,
+                batch.getTransferred_zone_id());
+        intent.putExtra(PlantTimelineActivity.EXTRA_SEASON_ID,
+                batch.getTransferred_season_id());
+        startActivity(intent);
+    }
+
+    private void openSeasonTransfer() {
+        SeedlingBatch target = batch;
+        if (target == null || !target.isActive() || !viewModel.isReady(target)) return;
+        Intent intent = new Intent(this, SeasonManagementActivity.class);
+        intent.putExtra(SeasonManagementActivity.EXTRA_SEEDLING_BATCH_ID,
+                target.getBatch_id());
+        startActivity(intent);
     }
 
     private void showBatchInformation() {
@@ -374,7 +540,8 @@ public final class SeedlingBatchDetailActivity extends EdgeToEdgeActivity {
 
     private void confirmAdvanceStage() {
         SeedlingBatch target = batch;
-        if (stageUpdateInProgress || target == null || !viewModel.canAdvance(target)) return;
+        if (stageUpdateInProgress || target == null || !target.isActive()
+                || !viewModel.canAdvance(target)) return;
         new MaterialAlertDialogBuilder(this)
                 .setTitle(R.string.seedling_advance_stage_title)
                 .setMessage(getString(R.string.seedling_advance_stage_message,
@@ -475,9 +642,8 @@ public final class SeedlingBatchDetailActivity extends EdgeToEdgeActivity {
                         localHour(nowMillis));
         renderMetricCards(assessment, fresh);
 
-        SeedlingRecommendation advice = value == null ? null : value.getRecommendation();
         renderOverallStatus(fresh, assessment);
-        renderAdvice(fresh, advice);
+        renderAdvice(fresh, assessment);
     }
 
     private void renderMetricCards(SeedlingEnvironmentGuide.Assessment assessment,
@@ -690,22 +856,19 @@ public final class SeedlingBatchDetailActivity extends EdgeToEdgeActivity {
         return calendar.get(Calendar.HOUR_OF_DAY);
     }
 
-    private void renderAdvice(boolean fresh, @Nullable SeedlingRecommendation advice) {
+    private void renderAdvice(boolean fresh,
+                              SeedlingEnvironmentGuide.Assessment assessment) {
         adviceCard.setVisibility(View.VISIBLE);
-        if (!fresh || advice == null) {
+        if (!fresh) {
             adviceTitle.setText(R.string.seedling_advice_waiting);
             adviceMessage.setText("");
             return;
         }
-        String action = viewModel.recommendationAction(advice);
-        String message = viewModel.recommendationMessage(advice);
-        if (action.isBlank() && message.isBlank()) {
-            adviceCard.setVisibility(View.GONE);
-            return;
-        }
-        if (action.isBlank()) action = advice.getTitle();
+        SeedlingEnvironmentAdvice.Advice advice =
+                SeedlingEnvironmentAdvice.from(assessment);
+        String action = SeedlingEnvironmentAdviceText.title(this, advice);
         adviceTitle.setText(getString(R.string.seedling_advice_title_format, action));
-        adviceMessage.setText(message);
+        adviceMessage.setText(SeedlingEnvironmentAdviceText.message(this, advice));
     }
 
     private void renderLogs(List<SeedlingDailyLog> values) {
@@ -766,6 +929,12 @@ public final class SeedlingBatchDetailActivity extends EdgeToEdgeActivity {
         content.addView(details);
         if (value.hasPhoto()) content.addView(logPhoto(value));
         card.addView(content);
+
+        if (batch == null || !batch.isActive()) {
+            rail.addView(card);
+            swipe.addView(rail, new HorizontalScrollView.LayoutParams(-2, -2));
+            return swipe;
+        }
 
         int actionWidth = dp(82);
         MaterialButton edit = logActionButton(

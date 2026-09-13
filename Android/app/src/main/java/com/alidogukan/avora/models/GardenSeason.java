@@ -21,6 +21,9 @@ public class GardenSeason {
     private String label = "";
     private String status = SeasonStatus.ACTIVE;
     private String planting_date = "";
+    private String source_seedling_batch_id = "";
+    private String source_seedling_variety = "";
+    private int source_seedling_healthy_count;
     private long started_at_epoch;
     private long ended_at_epoch;
     private boolean includes_legacy_records;
@@ -77,6 +80,20 @@ public class GardenSeason {
     public void setStatus(String value) { status = safe(value); }
     public String getPlanting_date() { return planting_date; }
     public void setPlanting_date(String value) { planting_date = safe(value); }
+    public String getSource_seedling_batch_id() { return source_seedling_batch_id; }
+    public void setSource_seedling_batch_id(String value) {
+        source_seedling_batch_id = safe(value);
+    }
+    public String getSource_seedling_variety() { return source_seedling_variety; }
+    public void setSource_seedling_variety(String value) {
+        source_seedling_variety = safe(value);
+    }
+    public int getSource_seedling_healthy_count() {
+        return source_seedling_healthy_count;
+    }
+    public void setSource_seedling_healthy_count(int value) {
+        source_seedling_healthy_count = Math.max(0, value);
+    }
     public long getStarted_at_epoch() { return started_at_epoch; }
     public void setStarted_at_epoch(long value) { started_at_epoch = Math.max(0L, value); }
     public long getEnded_at_epoch() { return ended_at_epoch; }

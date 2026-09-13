@@ -60,8 +60,6 @@ public class SettingsHubActivity extends AppCompatActivity {
         View toolbarAction = findViewById(R.id.btnSettingsToolbarAction);
         toolbarAction.setVisibility(View.VISIBLE);
         toolbarAction.setOnClickListener(view -> showQuickSettingsEditor());
-        findViewById(R.id.btnEditQuickSettings)
-                .setOnClickListener(view -> showQuickSettingsEditor());
 
         PrimaryBottomNavigation.bind(this, PrimaryBottomNavigation.SETTINGS);
         buildQuickActions();
@@ -285,13 +283,21 @@ public class SettingsHubActivity extends AppCompatActivity {
     }
 
     private List<String> allQuickActionIds() {
-        return Arrays.asList("irrigation", "plants", "notifications", "weather",
-                "fertilization", "device", "sync", "about");
+        return Arrays.asList(
+                "garden", "plants", "sensor", "crop_catalog", "units",
+                "irrigation", "fertilization", "weather",
+                "notifications", "reminders",
+                "device", "nas_security", "sync", "backup", "theme", "language",
+                "help", "feedback", "about");
     }
 
     @Nullable
     private QuickAction quickActionFor(String id) {
         switch (id) {
+            case "garden":
+                return new QuickAction(R.drawable.ic_home_garden_plan_24,
+                        R.string.settings_garden_info_title,
+                        () -> open(GardenInfoActivity.class));
             case "irrigation":
                 return new QuickAction(R.drawable.ic_water_drop_24,
                         R.string.settings_quick_irrigation,
@@ -300,10 +306,26 @@ public class SettingsHubActivity extends AppCompatActivity {
                 return new QuickAction(R.drawable.ic_leaf_24,
                         R.string.settings_quick_plants,
                         () -> open(ZoneManagementActivity.class));
+            case "sensor":
+                return new QuickAction(R.drawable.ic_device_health_24,
+                        R.string.settings_sensor_settings_title,
+                        () -> open(SensorSettingsActivity.class));
+            case "crop_catalog":
+                return new QuickAction(R.drawable.ic_leaf_24,
+                        R.string.settings_crop_catalog_title,
+                        () -> open(CropCatalogActivity.class));
+            case "units":
+                return new QuickAction(R.drawable.ic_settings_24,
+                        R.string.settings_units_title,
+                        () -> open(UnitsSettingsActivity.class));
             case "notifications":
                 return new QuickAction(R.drawable.ic_header_notification,
                         R.string.settings_quick_notifications,
                         () -> open(NotificationSettingsActivity.class));
+            case "reminders":
+                return new QuickAction(R.drawable.ic_history_24,
+                        R.string.settings_reminders_title,
+                        () -> open(ReminderSettingsActivity.class));
             case "weather":
                 return new QuickAction(R.drawable.ic_weather_cloud_24,
                         R.string.settings_quick_weather,
@@ -316,10 +338,34 @@ public class SettingsHubActivity extends AppCompatActivity {
                 return new QuickAction(R.drawable.ic_device_health_24,
                         R.string.settings_quick_device,
                         () -> open(DeviceInfoActivity.class));
+            case "nas_security":
+                return new QuickAction(R.drawable.ic_nas_security_shield_24,
+                        R.string.settings_nas_account_title,
+                        () -> open(NasSecurityActivity.class));
             case "sync":
                 return new QuickAction(R.drawable.ic_restart,
                         R.string.settings_quick_data_sync,
                         () -> open(DataSyncActivity.class));
+            case "backup":
+                return new QuickAction(R.drawable.ic_history_24,
+                        R.string.settings_backup_title,
+                        () -> open(BackupActivity.class));
+            case "theme":
+                return new QuickAction(R.drawable.ic_palette_24,
+                        R.string.settings_theme_title,
+                        () -> open(ThemeSettingsActivity.class));
+            case "language":
+                return new QuickAction(R.drawable.ic_language_24,
+                        R.string.settings_language_title,
+                        () -> open(LanguageSettingsActivity.class));
+            case "help":
+                return new QuickAction(R.drawable.ic_help_24,
+                        R.string.settings_help_title,
+                        () -> open(HelpCenterActivity.class));
+            case "feedback":
+                return new QuickAction(R.drawable.ic_feedback_24,
+                        R.string.settings_feedback_title,
+                        () -> open(FeedbackActivity.class));
             case "about":
                 return new QuickAction(R.drawable.ic_info_outline_20,
                         R.string.settings_quick_about,
@@ -372,6 +418,10 @@ public class SettingsHubActivity extends AppCompatActivity {
                 item(R.drawable.ic_device_health_24, R.string.settings_device_info_title,
                         R.string.settings_device_info_subtitle,
                         () -> open(DeviceInfoActivity.class)),
+                item(R.drawable.ic_nas_security_shield_24,
+                        R.string.settings_nas_account_title,
+                        R.string.settings_nas_account_subtitle,
+                        () -> open(NasSecurityActivity.class)),
                 item(R.drawable.ic_restart, R.string.settings_sync_title,
                         R.string.settings_sync_subtitle,
                         () -> open(DataSyncActivity.class)),

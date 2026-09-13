@@ -16,6 +16,7 @@
     <string name="notification_category_photo">Photo follow-up</string>
     <string name="notification_category_plant_assistant">Plant Assistant</string>
     <string name="notification_category_system">System</string>
+    <string name="notification_category_access">Family and access</string>
     <string name="notification_priority_high">High</string>
     <string name="notification_priority_normal">Medium</string>
     <string name="notification_priority_low">Low</string>
@@ -30,4 +31,6 @@
     <string name="notification_action_open_device_health">Open Device Health</string>
     <string name="notification_action_open_seedling_assistant">Open Seedling Assistant</string>
     <string name="notification_action_open_seedling_batch">Open seedling batch</string>
+    <string name="notification_action_open_access_requests">Open access requests</string>
+    <string name="notification_action_review_inactive_access">Review family access</string>
 </resources>

@@ -25,10 +25,18 @@ public final class NasAuthClient {
     private NasAuthClient() { }
 
     public static NasSession login(String email, String password) throws NasApiException {
+        return login(email, password, "", "");
+    }
+
+    public static NasSession login(String email, String password,
+                                   String deviceId, String deviceName)
+            throws NasApiException {
         try {
             JSONObject body = new JSONObject()
                     .put("email", safe(email))
-                    .put("password", password == null ? "" : password);
+                    .put("password", password == null ? "" : password)
+                    .put("device_id", safe(deviceId))
+                    .put("device_name", safe(deviceName));
             JSONObject response = request("POST", "/v1/auth/login",
                     body.toString().getBytes(StandardCharsets.UTF_8), null);
             return parseSession(response);
@@ -42,12 +50,21 @@ public final class NasAuthClient {
     public static NasSession register(String inviteCode, String email,
                                       String displayName, String password)
             throws NasApiException {
+        return register(inviteCode, email, displayName, password, "", "");
+    }
+
+    public static NasSession register(String inviteCode, String email,
+                                      String displayName, String password,
+                                      String deviceId, String deviceName)
+            throws NasApiException {
         try {
             JSONObject body = new JSONObject()
                     .put("invite_code", safe(inviteCode))
                     .put("email", safe(email))
                     .put("display_name", safe(displayName))
-                    .put("password", password == null ? "" : password);
+                    .put("password", password == null ? "" : password)
+                    .put("device_id", safe(deviceId))
+                    .put("device_name", safe(deviceName));
             JSONObject response = request("POST", "/v1/auth/register",
                     body.toString().getBytes(StandardCharsets.UTF_8), null);
             return parseSession(response);
@@ -88,6 +105,169 @@ public final class NasAuthClient {
             JSONObject response = request("POST", "/v1/admin/invites/revoke",
                     body.toString().getBytes(StandardCharsets.UTF_8), accessToken);
             if (!response.optBoolean("revoked", false)) {
+                throw new NasApiException("NAS_INVALID_RESPONSE");
+            }
+        } catch (NasApiException error) {
+            throw error;
+        } catch (Exception error) {
+            throw new NasApiException("NAS_INVALID_RESPONSE", error);
+        }
+    }
+
+    public static void identifyCurrentSession(String accessToken,
+                                              String deviceId,
+                                              String deviceName)
+            throws NasApiException {
+        try {
+            JSONObject body = new JSONObject()
+                    .put("device_id", safe(deviceId))
+                    .put("device_name", safe(deviceName));
+            JSONObject response = request(
+                    "POST", "/v1/account/session/device",
+                    body.toString().getBytes(StandardCharsets.UTF_8), accessToken);
+            if (!response.optBoolean("updated", false)) {
+                throw new NasApiException("NAS_INVALID_RESPONSE");
+            }
+        } catch (NasApiException error) {
+            throw error;
+        } catch (Exception error) {
+            throw new NasApiException("NAS_INVALID_RESPONSE", error);
+        }
+    }
+
+    public static List<SessionSummary> sessions(String accessToken)
+            throws NasApiException {
+        try {
+            JSONObject response = request(
+                    "GET", "/v1/account/sessions", null, accessToken);
+            JSONArray values = response.optJSONArray("sessions");
+            if (values == null) throw new NasApiException("NAS_INVALID_RESPONSE");
+            List<SessionSummary> result = new ArrayList<>();
+            for (int index = 0; index < values.length(); index++) {
+                result.add(parseSessionSummary(values.optJSONObject(index)));
+            }
+            return result;
+        } catch (NasApiException error) {
+            throw error;
+        } catch (Exception error) {
+            throw new NasApiException("NAS_INVALID_RESPONSE", error);
+        }
+    }
+
+    public static List<AccountSummary> accounts(String accessToken, String deviceId)
+            throws NasApiException {
+        try {
+            JSONObject response = request(
+                    "GET", "/v1/admin/accounts?device_id=" + safe(deviceId),
+                    null, accessToken);
+            JSONArray values = response.optJSONArray("accounts");
+            if (values == null) throw new NasApiException("NAS_INVALID_RESPONSE");
+            List<AccountSummary> result = new ArrayList<>();
+            for (int index = 0; index < values.length(); index++) {
+                result.add(parseAccountSummary(values.optJSONObject(index)));
+            }
+            return result;
+        } catch (NasApiException error) {
+            throw error;
+        } catch (Exception error) {
+            throw new NasApiException("NAS_INVALID_RESPONSE", error);
+        }
+    }
+
+    public static void keepInactiveDeviceAccess(String accessToken,
+                                                String userId,
+                                                String deviceId)
+            throws NasApiException {
+        try {
+            JSONObject body = new JSONObject()
+                    .put("user_id", safe(userId))
+                    .put("device_id", safe(deviceId));
+            JSONObject response = request("POST", "/v1/admin/inactive-access/keep",
+                    body.toString().getBytes(StandardCharsets.UTF_8), accessToken);
+            if (!response.optBoolean("kept", false)) {
+                throw new NasApiException("NAS_INVALID_RESPONSE");
+            }
+        } catch (NasApiException error) {
+            throw error;
+        } catch (Exception error) {
+            throw new NasApiException("NAS_INVALID_RESPONSE", error);
+        }
+    }
+
+    public static DeviceAccessRevocation revokeDeviceAccess(String accessToken,
+                                                             String userId,
+                                                             String deviceId)
+            throws NasApiException {
+        try {
+            JSONObject body = new JSONObject()
+                    .put("user_id", safe(userId))
+                    .put("device_id", safe(deviceId));
+            JSONObject response = request("POST", "/v1/admin/device-access/revoke",
+                    body.toString().getBytes(StandardCharsets.UTF_8), accessToken);
+            DeviceAccessRevocation result = new DeviceAccessRevocation(
+                    response.optString("firebase_uid", ""),
+                    Math.max(0, response.optInt("revoked_sessions", 0)));
+            if (!response.optBoolean("revoked", false) || !result.isValid()) {
+                throw new NasApiException("NAS_INVALID_RESPONSE");
+            }
+            return result;
+        } catch (NasApiException error) {
+            throw error;
+        } catch (Exception error) {
+            throw new NasApiException("NAS_INVALID_RESPONSE", error);
+        }
+    }
+
+    public static AccountDisableResult disableAccount(String accessToken,
+                                                      String userId)
+            throws NasApiException {
+        try {
+            JSONObject body = new JSONObject().put("user_id", safe(userId));
+            JSONObject response = request("POST", "/v1/admin/accounts/disable",
+                    body.toString().getBytes(StandardCharsets.UTF_8), accessToken);
+            AccountDisableResult result = new AccountDisableResult(
+                    response.optLong("delete_eligible_at", 0L),
+                    Math.max(0, response.optInt("revoked_sessions", 0)));
+            if (!response.optBoolean("disabled", false) || !result.isValid()) {
+                throw new NasApiException("NAS_INVALID_RESPONSE");
+            }
+            return result;
+        } catch (NasApiException error) {
+            throw error;
+        } catch (Exception error) {
+            throw new NasApiException("NAS_INVALID_RESPONSE", error);
+        }
+    }
+
+    public static void restoreAccount(String accessToken, String userId)
+            throws NasApiException {
+        try {
+            JSONObject body = new JSONObject().put("user_id", safe(userId));
+            JSONObject response = request("POST", "/v1/admin/accounts/restore",
+                    body.toString().getBytes(StandardCharsets.UTF_8), accessToken);
+            if (!response.optBoolean("restored", false)) {
+                throw new NasApiException("NAS_INVALID_RESPONSE");
+            }
+        } catch (NasApiException error) {
+            throw error;
+        } catch (Exception error) {
+            throw new NasApiException("NAS_INVALID_RESPONSE", error);
+        }
+    }
+
+    public static void permanentlyDeleteAccount(String accessToken,
+                                                String userId,
+                                                String currentPassword)
+            throws NasApiException {
+        try {
+            JSONObject body = new JSONObject()
+                    .put("user_id", safe(userId))
+                    .put("current_password",
+                            currentPassword == null ? "" : currentPassword);
+            JSONObject response = request("POST", "/v1/admin/accounts/delete",
+                    body.toString().getBytes(StandardCharsets.UTF_8), accessToken);
+            if (!response.optBoolean("deleted", false)
+                    || !safe(userId).equals(response.optString("user_id", ""))) {
                 throw new NasApiException("NAS_INVALID_RESPONSE");
             }
         } catch (NasApiException error) {
@@ -288,6 +468,9 @@ public final class NasAuthClient {
         if ("invite_not_found".equals(code)) {
             return "NAS_INVITE_NOT_FOUND";
         }
+        if ("account_state_conflict".equals(code)) {
+            return "NAS_ACCOUNT_STATE_CONFLICT";
+        }
         if ("forbidden".equals(code) || status == HttpURLConnection.HTTP_FORBIDDEN) {
             return "NAS_FORBIDDEN";
         }
@@ -308,6 +491,165 @@ public final class NasAuthClient {
         public boolean isValidAt(long epochSeconds) {
             return code.startsWith("avora_") && code.length() >= 24
                     && expiresAt > epochSeconds && maxUses > 0;
+        }
+    }
+
+    private static SessionSummary parseSessionSummary(JSONObject value)
+            throws NasApiException {
+        if (value == null) throw new NasApiException("NAS_INVALID_RESPONSE");
+        SessionSummary result = new SessionSummary(
+                value.optString("device_id", ""),
+                value.optString("device_name", ""),
+                value.optLong("created_at", 0L),
+                value.optLong("last_seen_at", 0L),
+                value.optLong("expires_at", 0L),
+                value.optBoolean("current", false));
+        if (!result.isValid()) throw new NasApiException("NAS_INVALID_RESPONSE");
+        return result;
+    }
+
+    public static final class SessionSummary {
+        public final String deviceId;
+        public final String deviceName;
+        public final long createdAt;
+        public final long lastSeenAt;
+        public final long expiresAt;
+        public final boolean current;
+
+        SessionSummary(String deviceId, String deviceName,
+                       long createdAt, long lastSeenAt,
+                       long expiresAt, boolean current) {
+            this.deviceId = safe(deviceId);
+            this.deviceName = safe(deviceName);
+            this.createdAt = createdAt;
+            this.lastSeenAt = lastSeenAt;
+            this.expiresAt = expiresAt;
+            this.current = current;
+        }
+
+        boolean isValid() {
+            boolean deviceFieldsMatch = deviceId.isEmpty() == deviceName.isEmpty();
+            return deviceFieldsMatch && createdAt > 0L && lastSeenAt > 0L
+                    && expiresAt > createdAt;
+        }
+    }
+
+    private static AccountSummary parseAccountSummary(JSONObject value)
+            throws NasApiException {
+        if (value == null) throw new NasApiException("NAS_INVALID_RESPONSE");
+        AccountSummary result = new AccountSummary(
+                value.optString("id", ""),
+                value.optString("email", ""),
+                value.optString("display_name", ""),
+                value.optString("role", ""),
+                value.optBoolean("active", false),
+                value.optLong("created_at", 0L),
+                value.optInt("active_sessions", -1),
+                value.optLong("last_active_at", 0L),
+                value.optString("access_status", ""),
+                value.optString("firebase_uid", ""),
+                value.optLong("inactivity_reviewed_at", 0L),
+                value.optBoolean("inactive_access", false),
+                value.optLong("disabled_at", 0L),
+                value.optLong("delete_eligible_at", 0L),
+                value.optBoolean("can_restore", false),
+                value.optBoolean("can_permanently_delete", false));
+        if (!result.isValid()) throw new NasApiException("NAS_INVALID_RESPONSE");
+        return result;
+    }
+
+    public static final class AccountSummary {
+        public final String id;
+        public final String email;
+        public final String displayName;
+        public final String role;
+        public final boolean active;
+        public final long createdAt;
+        public final int activeSessions;
+        public final long lastActiveAt;
+        public final String accessStatus;
+        public final String firebaseUid;
+        public final long inactivityReviewedAt;
+        public final boolean inactiveAccess;
+        public final long disabledAt;
+        public final long deleteEligibleAt;
+        public final boolean canRestore;
+        public final boolean canPermanentlyDelete;
+
+        AccountSummary(String id, String email, String displayName,
+                       String role, boolean active, long createdAt,
+                       int activeSessions, long lastActiveAt,
+                       String accessStatus, String firebaseUid,
+                       long inactivityReviewedAt, boolean inactiveAccess,
+                       long disabledAt, long deleteEligibleAt,
+                       boolean canRestore, boolean canPermanentlyDelete) {
+            this.id = safe(id);
+            this.email = safe(email);
+            this.displayName = safe(displayName);
+            this.role = safe(role);
+            this.active = active;
+            this.createdAt = createdAt;
+            this.activeSessions = activeSessions;
+            this.lastActiveAt = lastActiveAt;
+            this.accessStatus = safe(accessStatus);
+            this.firebaseUid = safe(firebaseUid);
+            this.inactivityReviewedAt = inactivityReviewedAt;
+            this.inactiveAccess = inactiveAccess;
+            this.disabledAt = disabledAt;
+            this.deleteEligibleAt = deleteEligibleAt;
+            this.canRestore = canRestore;
+            this.canPermanentlyDelete = canPermanentlyDelete;
+        }
+
+        boolean isValid() {
+            boolean validAccess = accessStatus.isEmpty()
+                    || "pending".equals(accessStatus)
+                    || "approved".equals(accessStatus);
+            boolean validFirebaseIdentity = firebaseUid.isEmpty()
+                    || firebaseUid.length() >= 16;
+            boolean validLifecycle = active
+                    ? disabledAt == 0L && deleteEligibleAt == 0L
+                    && !canRestore && !canPermanentlyDelete
+                    : "user".equals(role) && disabledAt > 0L
+                    && deleteEligibleAt > disabledAt
+                    && canRestore != canPermanentlyDelete;
+            return !id.isEmpty() && !email.isEmpty() && !displayName.isEmpty()
+                    && ("admin".equals(role) || "user".equals(role))
+                    && createdAt > 0L && activeSessions >= 0
+                    && lastActiveAt > 0L && inactivityReviewedAt >= 0L
+                    && validAccess && validFirebaseIdentity
+                    && validLifecycle
+                    && (!inactiveAccess || ("user".equals(role)
+                    && "approved".equals(accessStatus)));
+        }
+    }
+
+    public static final class AccountDisableResult {
+        public final long deleteEligibleAt;
+        public final int revokedSessions;
+
+        AccountDisableResult(long deleteEligibleAt, int revokedSessions) {
+            this.deleteEligibleAt = deleteEligibleAt;
+            this.revokedSessions = revokedSessions;
+        }
+
+        boolean isValid() {
+            return deleteEligibleAt > System.currentTimeMillis() / 1000L
+                    && revokedSessions >= 0;
+        }
+    }
+
+    public static final class DeviceAccessRevocation {
+        public final String firebaseUid;
+        public final int revokedSessions;
+
+        DeviceAccessRevocation(String firebaseUid, int revokedSessions) {
+            this.firebaseUid = safe(firebaseUid);
+            this.revokedSessions = revokedSessions;
+        }
+
+        boolean isValid() {
+            return firebaseUid.length() >= 16 && revokedSessions >= 0;
         }
     }
 

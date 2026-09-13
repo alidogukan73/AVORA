@@ -425,8 +425,18 @@ test("backend delivery state remains read-only to the Android owner", async () =
 test("owner can manage bounded seedling batches and daily observations", async () => {
   const owner = authenticatedDatabase(OWNER_UID);
   const id = "batch-seedling-001";
-  const batchPath = `devices/${DEVICE_ID}/seedling/batches/${id}`;
+  const devicePath = `devices/${DEVICE_ID}`;
+  const batchPath = `${devicePath}/seedling/batches/${id}`;
   await assertSucceeds(set(ref(owner, batchPath), validSeedlingBatch(id)));
+  const directSowId = "batch-direct-sow-001";
+  await assertSucceeds(set(
+    ref(owner, `${devicePath}/seedling/batches/${directSowId}`),
+    validSeedlingBatch(directSowId, {
+      crop_id: "carrot",
+      plant_type: "Havuç",
+      tray_cell_count: 0,
+    }),
+  ));
   await assertSucceeds(update(ref(owner, batchPath), {
     stage: "GERMINATING",
     germination_date_epoch: 1788357600,
@@ -484,6 +494,79 @@ test("owner can manage bounded seedling batches and daily observations", async (
   }));
   await assertFails(update(ref(owner, logPath), {
     photo_id: "",
+  }));
+
+  await assertSucceeds(update(ref(owner, batchPath), {
+    status: "ARCHIVED",
+    archive_reason: "MANUAL",
+    archived_at_epoch: 1788357601,
+    updated_at_epoch: 1788357601,
+  }));
+  await assertFails(update(ref(owner, logPath), {
+    note: "Arşiv sonrası değişmemeli.",
+  }));
+  await assertFails(set(
+    ref(owner, `devices/${DEVICE_ID}/seedling/daily_logs/${id}/log-archived`),
+    {
+      log_id: "log-archived",
+      batch_id: id,
+      height_cm: 4,
+      leaf_count: 3,
+      healthy_count: 95,
+      watered: false,
+      note: "Arşiv sonrası yeni kayıt",
+      created_at_epoch: 1788357601,
+    },
+  ));
+  await assertFails(update(ref(owner, batchPath), {
+    archive_reason: "TRANSFERRED",
+  }));
+  await assertSucceeds(update(ref(owner, batchPath), {
+    status: "ACTIVE",
+    archive_reason: null,
+    archived_at_epoch: 0,
+    updated_at_epoch: 1788357602,
+  }));
+
+  const seasonId = "zone-001-seedling-batch-seedling-001";
+  await assertSucceeds(update(ref(owner, batchPath), {
+    stage: "READY",
+    status: "ARCHIVED",
+    archive_reason: "TRANSFERRED",
+    archived_at_epoch: 1788357603,
+    transferred_season_id: seasonId,
+    transferred_zone_id: "zone-001",
+    transferred_at_epoch: 1788357603,
+    updated_at_epoch: 1788357603,
+  }));
+  const claimPath = `${devicePath}/seedling/transfer_claims/${id}`;
+  await assertSucceeds(set(ref(owner, claimPath), {
+    batch_id: id,
+    zone_id: "zone-001",
+    season_id: seasonId,
+  }));
+  await assertFails(update(ref(owner, claimPath), {
+    zone_id: "zone-002",
+  }));
+  await assertSucceeds(set(
+    ref(owner, `${devicePath}/garden_journal/seasons/${seasonId}`),
+    {
+      season_id: seasonId,
+      zone_id: "zone-001",
+      status: "ACTIVE",
+      source_seedling_batch_id: id,
+    },
+  ));
+  await assertSucceeds(update(ref(owner, devicePath), {
+    [`seedling/batches/${id}/status`]: "ACTIVE",
+    [`seedling/batches/${id}/archive_reason`]: null,
+    [`seedling/batches/${id}/archived_at_epoch`]: 0,
+    [`seedling/batches/${id}/transferred_season_id`]: null,
+    [`seedling/batches/${id}/transferred_zone_id`]: null,
+    [`seedling/batches/${id}/transferred_at_epoch`]: null,
+    [`seedling/batches/${id}/updated_at_epoch`]: 1788357604,
+    [`seedling/transfer_claims/${id}`]: null,
+    [`garden_journal/seasons/${seasonId}`]: null,
   }));
 
   const unknown = validSeedlingBatch("batch-secret");

@@ -24,9 +24,12 @@ import com.alidogukan.avora.models.CropCatalogItem;
 import com.alidogukan.avora.models.GardenSeason;
 import com.alidogukan.avora.models.GardenZone;
 import com.alidogukan.avora.models.SeasonOutcome;
+import com.alidogukan.avora.models.SeedlingBatch;
+import com.alidogukan.avora.seedling.SeedlingCropCatalog;
 import com.alidogukan.avora.models.ZoneSeasonState;
 import com.alidogukan.avora.season.SeasonDisplayIdentity;
 import com.alidogukan.avora.season.ZoneAreaIdentity;
+import com.alidogukan.avora.viewmodels.SeedlingViewModel;
 import com.alidogukan.avora.viewmodels.SeasonManagementViewModel;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
@@ -44,9 +47,12 @@ import java.util.Set;
 
 /** Explicit, non-destructive lifecycle management for every garden zone season. */
 public final class SeasonManagementActivity extends EdgeToEdgeActivity {
+    public static final String EXTRA_SEEDLING_BATCH_ID = "seedling_transfer_batch_id";
     private static final String STATE_EXPANDED_ARCHIVES = "expanded_archive_zones";
 
     private SeasonManagementViewModel viewModel;
+    private SeedlingBatch transferBatch;
+    private boolean transferMode;
     private LinearLayout inactiveZoneContainer;
     private TextView inactiveZonesTitle;
     private TextView inactiveZonesDescription;
@@ -64,6 +70,8 @@ public final class SeasonManagementActivity extends EdgeToEdgeActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_season_management);
 
+        String transferBatchId = getIntent().getStringExtra(EXTRA_SEEDLING_BATCH_ID);
+        transferMode = transferBatchId != null && !transferBatchId.isBlank();
         findViewById(R.id.btnBack).setOnClickListener(view -> finish());
         zoneContainer = findViewById(R.id.layoutSeasonZones);
         emptyView = findViewById(R.id.txtSeasonEmpty);
@@ -71,6 +79,40 @@ public final class SeasonManagementActivity extends EdgeToEdgeActivity {
         inactiveZonesTitle = findViewById(R.id.txtInactiveSeasonZonesTitle);
         inactiveZonesDescription = findViewById(R.id.txtInactiveSeasonZonesDescription);
         viewModel = new ViewModelProvider(this).get(SeasonManagementViewModel.class);
+        cropCatalogItems.addAll(viewModel.mergedCrops(null));
+        if (transferMode) {
+            ((TextView) findViewById(R.id.txtSeasonManagementTitle))
+                    .setText(R.string.seedling_transfer_screen_title);
+            ((TextView) findViewById(R.id.txtSeasonManagementSubtitle))
+                    .setText(R.string.seedling_transfer_screen_subtitle);
+            ((TextView) findViewById(R.id.txtSeasonManagementInfoTitle))
+                    .setText(R.string.seedling_transfer_info_title);
+            ((TextView) findViewById(R.id.txtSeasonManagementInfoBody))
+                    .setText(R.string.seedling_transfer_info_body);
+            SeedlingViewModel seedlingViewModel =
+                    new ViewModelProvider(this).get(SeedlingViewModel.class);
+            seedlingViewModel.getBatch(transferBatchId).observe(this, value -> {
+                if (value == null) {
+                    Toast.makeText(this, R.string.seedling_transfer_batch_missing,
+                            Toast.LENGTH_LONG).show();
+                    finish();
+                    return;
+                }
+                if (value.isTransferred()) {
+                    transferBatch = value;
+                    return;
+                }
+                if (!value.isActive() || !seedlingViewModel.isReady(value)) {
+                    Toast.makeText(this, R.string.seedling_transfer_batch_not_ready,
+                            Toast.LENGTH_LONG).show();
+                    finish();
+                    return;
+                }
+                transferBatch = value;
+                lastRenderSignature = "";
+                renderIfChanged();
+            });
+        }
         if (savedInstanceState != null) {
             ArrayList<String> expanded = savedInstanceState.getStringArrayList(
                     STATE_EXPANDED_ARCHIVES);
@@ -146,7 +188,8 @@ public final class SeasonManagementActivity extends EdgeToEdgeActivity {
             zoneContainer.addView(createZoneCard(zone));
         }
 
-        int inactiveVisibility = inactiveZones.isEmpty() ? View.GONE : View.VISIBLE;
+        int inactiveVisibility = !transferMode && !inactiveZones.isEmpty()
+                ? View.VISIBLE : View.GONE;
         inactiveZonesTitle.setVisibility(inactiveVisibility);
         inactiveZonesDescription.setVisibility(inactiveVisibility);
         inactiveZoneContainer.setVisibility(inactiveVisibility);
@@ -215,6 +258,14 @@ public final class SeasonManagementActivity extends EdgeToEdgeActivity {
                     .append(season.getPhoto_count()).append('|')
                     .append(season.getPlant_assistant_analysis_count()).append(';');
         }
+        if (transferMode) {
+            value.append("T|");
+            if (transferBatch != null) {
+                value.append(transferBatch.getBatch_id()).append('|')
+                        .append(transferBatch.getStatus()).append('|')
+                        .append(transferBatch.getStage());
+            }
+        }
         return value.toString();
     }
 
@@ -264,9 +315,11 @@ public final class SeasonManagementActivity extends EdgeToEdgeActivity {
         label.setPadding(0, dp(7), 0, 0);
         content.addView(label);
 
-        content.addView(createHistoryDropdown(zone, history, false));
-        for (GardenSeason season : activeSeasons) {
-            content.addView(createActiveSeasonRow(zone, season));
+        if (!transferMode) {
+            content.addView(createHistoryDropdown(zone, history, false));
+            for (GardenSeason season : activeSeasons) {
+                content.addView(createActiveSeasonRow(zone, season));
+            }
         }
 
         MaterialButton action = new MaterialButton(
@@ -274,11 +327,15 @@ public final class SeasonManagementActivity extends EdgeToEdgeActivity {
                 null,
                 com.google.android.material.R.attr.materialButtonStyle
         );
-        action.setText(preparing
-                ? R.string.season_prepare_action
-                : (active ? R.string.season_add_crop_action : R.string.season_start_action));
-        action.setEnabled(!preparing);
-        action.setAlpha(preparing ? 0.65f : 1f);
+        action.setText(transferMode
+                ? R.string.seedling_transfer_here
+                : (preparing
+                        ? R.string.season_prepare_action
+                        : (active ? R.string.season_add_crop_action
+                                : R.string.season_start_action)));
+        boolean actionEnabled = !preparing && (!transferMode || transferBatch != null);
+        action.setEnabled(actionEnabled);
+        action.setAlpha(actionEnabled ? 1f : 0.65f);
         action.setAllCaps(false);
         action.setTextSize(14);
         action.setTypeface(action.getTypeface(), Typeface.BOLD);
@@ -310,7 +367,7 @@ public final class SeasonManagementActivity extends EdgeToEdgeActivity {
         archiveParams.topMargin = dp(8);
         archive.setLayoutParams(archiveParams);
         GardenSeason latestCompleted = latestCompletedSeason(history);
-        if (latestCompleted != null) {
+        if (!transferMode && latestCompleted != null) {
             archive.setOnClickListener(view -> openSeasonArchive(zone, latestCompleted));
             content.addView(archive);
         }
@@ -722,6 +779,10 @@ public final class SeasonManagementActivity extends EdgeToEdgeActivity {
     }
 
     private void showStartDialog(GardenZone zone, MaterialButton action) {
+        if (transferMode) {
+            showSeedlingTransferDialog(zone, action);
+            return;
+        }
         LinearLayout form = dialogForm();
 
         Spinner crop = spinnerWithLabel(form, R.string.season_start_crop_label);
@@ -825,6 +886,129 @@ public final class SeasonManagementActivity extends EdgeToEdgeActivity {
                             });
                 }));
         dialog.show();
+    }
+
+    private void showSeedlingTransferDialog(GardenZone zone, MaterialButton action) {
+        SeedlingBatch target = transferBatch;
+        if (target == null || !target.isActive()) return;
+
+        LinearLayout form = dialogForm();
+        String variety = blank(target.getVariety())
+                ? getString(R.string.seedling_transfer_variety_unspecified)
+                : target.getVariety();
+        TextView summary = text(
+                getString(
+                        R.string.seedling_transfer_summary,
+                        target.getEmoji(),
+                        target.getPlant_type(),
+                        variety,
+                        target.getHealthy_count()
+                ),
+                14,
+                R.color.textPrimary,
+                Typeface.NORMAL
+        );
+        summary.setPadding(0, 0, 0, dp(12));
+        form.addView(summary);
+
+        EditText date = field(
+                R.string.season_start_planting_date_hint,
+                InputType.TYPE_CLASS_DATETIME
+        );
+        date.setText(new SimpleDateFormat(
+                getString(R.string.date_format_dmy),
+                Locale.getDefault()
+        ).format(new Date()));
+        date.setFocusable(false);
+        date.setClickable(true);
+        date.setCompoundDrawablesWithIntrinsicBounds(
+                0, 0, android.R.drawable.ic_menu_my_calendar, 0);
+        date.setCompoundDrawablePadding(dp(8));
+        date.setOnClickListener(view -> showDatePicker(date));
+
+        EditText label = field(
+                R.string.season_start_label_hint,
+                InputType.TYPE_CLASS_TEXT
+        );
+        label.setText(getString(
+                R.string.seedling_transfer_default_label,
+                new SimpleDateFormat(
+                        getString(R.string.date_format_year),
+                        Locale.getDefault()
+                ).format(new Date()),
+                target.displayName()
+        ));
+        form.addView(date);
+        form.addView(label);
+
+        CropCatalogItem crop = cropFor(target);
+        ScrollView scroll = new ScrollView(this);
+        scroll.addView(form);
+        androidx.appcompat.app.AlertDialog dialog = new MaterialAlertDialogBuilder(this)
+                .setTitle(getString(
+                        R.string.seedling_transfer_dialog_title,
+                        com.alidogukan.avora.zones.PhysicalZoneIdentity.name(zone)
+                ))
+                .setMessage(R.string.seedling_transfer_dialog_message)
+                .setView(scroll)
+                .setNegativeButton(R.string.season_cancel, null)
+                .setPositiveButton(R.string.seedling_transfer_confirm, null)
+                .create();
+        dialog.setOnShowListener(ignored ->
+                dialog.getButton(android.content.DialogInterface.BUTTON_POSITIVE)
+                        .setOnClickListener(view -> {
+                            if (!validDate(value(date))) {
+                                Toast.makeText(this, R.string.season_invalid_date,
+                                        Toast.LENGTH_LONG).show();
+                                return;
+                            }
+                            setBusy(action, true);
+                            dialog.dismiss();
+                            viewModel.transferSeedlingToSeason(
+                                            zone,
+                                            value(date),
+                                            value(label),
+                                            crop,
+                                            target
+                                    )
+                                    .addOnSuccessListener(result -> {
+                                        setBusy(action, false);
+                                        Toast.makeText(
+                                                this,
+                                                R.string.seedling_transfer_success,
+                                                Toast.LENGTH_LONG
+                                        ).show();
+                                        finish();
+                                    })
+                                    .addOnFailureListener(error -> {
+                                        setBusy(action, false);
+                                        showError(
+                                                error,
+                                                R.string.seedling_transfer_failed
+                                        );
+                                    });
+                        }));
+        dialog.show();
+    }
+
+    private CropCatalogItem cropFor(SeedlingBatch batch) {
+        if (batch == null) return null;
+        String cropId = safe(batch.getCrop_id());
+        if (!cropId.isBlank()) {
+            for (CropCatalogItem item : cropCatalogItems) {
+                if (item != null && cropId.equals(safe(item.getCrop_id()))) return item;
+            }
+        }
+        String batchKey = SeedlingCropCatalog.cropKeyForPlant(batch.getPlant_type());
+        for (CropCatalogItem item : cropCatalogItems) {
+            if (item == null) continue;
+            String catalogValue = safe(item.getPlant_type()).isBlank()
+                    ? item.getName() : item.getPlant_type();
+            if (batchKey.equals(SeedlingCropCatalog.cropKeyForPlant(catalogValue))) {
+                return item;
+            }
+        }
+        return null;
     }
 
     private Spinner spinnerWithLabel(LinearLayout form, int labelRes) {

@@ -63,7 +63,7 @@ public final class NasSessionStore {
 
     public synchronized NasSession load() {
         long expiresAt = preferences.getLong(EXPIRES_AT, 0L);
-        if (expiresAt <= System.currentTimeMillis() / 1000L) {
+        if (expiresAt <= 0L) {
             clear();
             return null;
         }
@@ -90,6 +90,20 @@ public final class NasSessionStore {
             clear();
             return null;
         }
+    }
+
+    /**
+     * The NAS is authoritative for expiry and extends active sessions on use.
+     * Keep the encrypted local metadata aligned after a successful NAS request.
+     */
+    public synchronized void refresh(NasSession session, long lifetimeSeconds) {
+        if (session == null || lifetimeSeconds <= 0L) return;
+        NasSession stored = load();
+        if (stored == null || !stored.accessToken.equals(session.accessToken)) return;
+        preferences.edit()
+                .putLong(EXPIRES_AT,
+                        (System.currentTimeMillis() / 1000L) + lifetimeSeconds)
+                .apply();
     }
 
     public synchronized void clear() {

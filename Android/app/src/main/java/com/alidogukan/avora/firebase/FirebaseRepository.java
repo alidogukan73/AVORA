@@ -2466,6 +2466,10 @@ public class FirebaseRepository {
       values.put("token", token);
       values.put("updated_at_epoch", ServerValue.TIMESTAMP);
       values.put("platform", "android");
+      FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+      if (user != null && !user.getUid().isBlank()) {
+         values.put("firebase_uid", user.getUid());
+      }
 
       String key = stableDeviceKey(context);
 

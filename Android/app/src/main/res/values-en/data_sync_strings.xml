@@ -26,7 +26,7 @@
     <string name="data_sync_nas_invite_detail">Expires: %1$s · Single use</string>
     <string name="data_sync_nas_invite_share">Share</string>
     <string name="data_sync_nas_invite_share_chooser">Share NAS invitation</string>
-    <string name="data_sync_nas_invite_share_text">AVORA NAS invitation code: %1$s\nExpires: %2$s\n\nIn AVORA, open Settings → Data Synchronization → Connect NAS account → Create account with invitation code. Do not share your password with the person who invited you.</string>
+    <string name="data_sync_nas_invite_share_text">AVORA NAS invitation code: %1$s\nExpires: %2$s\n\nIn AVORA, open Settings → NAS Account and Security → Create account with invitation code. Do not share your password with the person who invited you.</string>
     <string name="data_sync_nas_invite_revoke">Revoke Invitation</string>
     <string name="data_sync_nas_invite_revoke_title">Revoke invitation</string>
     <string name="data_sync_nas_invite_revoke_message">This code will become invalid immediately and cannot be used later.</string>

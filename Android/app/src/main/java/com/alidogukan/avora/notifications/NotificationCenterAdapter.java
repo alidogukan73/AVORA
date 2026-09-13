@@ -635,6 +635,7 @@ public class NotificationCenterAdapter
             return R.drawable.ic_device_24;
         }
         if ("IRRIGATION".equals(type)) return R.drawable.ic_water_drop_24;
+        if ("ACCESS".equals(type)) return R.drawable.ic_nas_security_shield_24;
         if ("FERTILIZATION".equals(type)) return R.drawable.ic_fertilization_24;
         if ("STOCK".equals(type)) return R.drawable.ic_stock_warning_24;
         if ("PHOTO_FOLLOW_UP".equals(type)) return R.drawable.ic_photo_follow_up_24;

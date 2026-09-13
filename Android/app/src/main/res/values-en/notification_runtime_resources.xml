@@ -50,6 +50,10 @@
     <string name="notification_channel_normal_description">Watering, fertilization, Plant and Seedling Assistant, stock, and system notifications</string>
     <string name="notification_channel_urgent_name">AVORA critical alerts</string>
     <string name="notification_channel_urgent_description">Urgent device, critical stock, and overdue task alerts</string>
+    <string name="notification_access_request_title">New garden access request</string>
+    <string name="notification_access_request_description">A family member is waiting for your approval to access the AVORA garden.</string>
+    <string name="notification_inactive_access_title">Review family access</string>
+    <string name="notification_inactive_access_description">%1$s has not connected to the NAS for 30 days. Review whether to keep or remove garden access.</string>
     <string name="notification_remote_fallback_title">AVORA notification</string>
     <string name="notification_remote_fallback_description">There is a new update in your garden.</string>
     <string name="notification_fertilizer_due_today_title">Fertilizer application is due today</string>

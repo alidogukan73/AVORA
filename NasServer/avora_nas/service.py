@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import time
 import uuid
 from pathlib import Path
@@ -15,6 +16,7 @@ from . import __version__
 from .config import Settings
 from .database import (
     AccountDatabase,
+    AccountSummary,
     AccessRequest,
     Document,
     InvalidCurrentPasswordError,
@@ -23,6 +25,7 @@ from .database import (
     PasswordUnchangedError,
     PhotoRecord,
     Session,
+    SessionSummary,
     TenantDatabase,
     User,
 )
@@ -68,8 +71,11 @@ class AvoraService:
         password: str,
         source: str = "unknown",
         now: int | None = None,
+        device_id: str = "",
+        device_name: str = "",
     ) -> Session:
         timestamp = int(time.time()) if now is None else int(now)
+        device_id, device_name = _validated_device(device_id, device_name, False)
         account_bucket = _login_bucket("account", email)
         source_bucket = _login_bucket("source", source)
         retry_after = self.accounts.login_retry_after(
@@ -83,6 +89,8 @@ class AvoraService:
                 password,
                 self.settings.session_hours * 3600,
                 timestamp,
+                device_id,
+                device_name,
             )
         except InvalidCredentialsError:
             account_retry = self.accounts.record_login_failure(
@@ -107,7 +115,9 @@ class AvoraService:
         return session
 
     def authenticate(self, token: str) -> User:
-        return self.accounts.authenticate(token)
+        return self.accounts.authenticate(
+            token, ttl_seconds=self.settings.session_hours * 3600
+        )
 
     def logout(self, token: str) -> None:
         self.accounts.logout(token)
@@ -160,6 +170,28 @@ class AvoraService:
     def revoke_other_sessions(self, token: str, user: User) -> int:
         return self.accounts.revoke_other_sessions(user, token)
 
+    def identify_session(
+        self, token: str, user: User, device_id: str, device_name: str
+    ) -> None:
+        device_id, device_name = _validated_device(
+            device_id, device_name, True
+        )
+        self.accounts.identify_session(
+            user, token, device_id, device_name
+        )
+
+    def list_sessions(
+        self, token: str, user: User, now: int | None = None
+    ) -> list[SessionSummary]:
+        return self.accounts.list_sessions(user, token, now)
+
+    def list_accounts(
+        self, admin: User, device_id: str = "", now: int | None = None
+    ) -> list[AccountSummary]:
+        if device_id:
+            device_id = _validated_identifier(device_id, _DEVICE_ID, "device ID")
+        return self.accounts.list_accounts(admin, device_id, now)
+
     def create_invite(
         self, admin: User, valid_hours: int = 72, max_uses: int = 1
     ) -> tuple[str, int]:
@@ -175,12 +207,17 @@ class AvoraService:
         display_name: str,
         password: str,
         now: int | None = None,
+        device_id: str = "",
+        device_name: str = "",
     ) -> Session:
+        device_id, device_name = _validated_device(device_id, device_name, False)
         user = self.register(invite_code, email, display_name, password)
         return self.accounts.create_session_for_user(
             user,
             self.settings.session_hours * 3600,
             now,
+            device_id,
+            device_name,
         )
 
     def register(
@@ -210,6 +247,69 @@ class AvoraService:
     ) -> AccessRequest | None:
         request_id = _validated_identifier(request_id, _REQUEST_ID, "request ID")
         return self.accounts.approve_access_request(admin, request_id)
+
+    def keep_inactive_device_access(
+        self,
+        admin: User,
+        user_id: str,
+        device_id: str,
+        now: int | None = None,
+    ) -> bool:
+        user_id = _validated_identifier(user_id, _REQUEST_ID, "user ID")
+        device_id = _validated_identifier(device_id, _DEVICE_ID, "device ID")
+        return self.accounts.keep_inactive_device_access(
+            admin, user_id, device_id, now
+        )
+
+    def revoke_device_access(
+        self, admin: User, user_id: str, device_id: str
+    ) -> tuple[str, int] | None:
+        user_id = _validated_identifier(user_id, _REQUEST_ID, "user ID")
+        device_id = _validated_identifier(device_id, _DEVICE_ID, "device ID")
+        return self.accounts.revoke_device_access(admin, user_id, device_id)
+
+    def disable_account(
+        self, admin: User, user_id: str, now: int | None = None
+    ) -> tuple[int, int] | None:
+        user_id = _validated_identifier(user_id, _REQUEST_ID, "user ID")
+        return self.accounts.disable_account(admin, user_id, now)
+
+    def restore_account(
+        self, admin: User, user_id: str, now: int | None = None
+    ) -> bool:
+        user_id = _validated_identifier(user_id, _REQUEST_ID, "user ID")
+        return self.accounts.restore_account(admin, user_id, now)
+
+    def permanently_delete_account(
+        self,
+        admin: User,
+        user_id: str,
+        current_password: str,
+        now: int | None = None,
+    ) -> User | None:
+        user_id = _validated_identifier(user_id, _REQUEST_ID, "user ID")
+        target = self.accounts.validate_permanent_deletion(
+            admin, user_id, current_password, now
+        )
+        if target is None:
+            return None
+        staged = self._stage_user_storage(target.id)
+        try:
+            deleted = self.accounts.permanently_delete_account(
+                admin, user_id, current_password, now
+            )
+        except Exception:
+            self._restore_staged_storage(staged)
+            if staged:
+                self._cleanup_staging_container(staged[0][1].parent)
+            raise
+        if deleted is None:
+            self._restore_staged_storage(staged)
+            if staged:
+                self._cleanup_staging_container(staged[0][1].parent)
+            return None
+        self._erase_staged_storage(staged)
+        return deleted
 
     def tenant_store(self, user: User) -> TenantDatabase:
         path = tenant_database_path(self.settings.tenant_database_dir, user.id)
@@ -317,6 +417,78 @@ class AvoraService:
             raise ValueError("Symlink photo directories are not allowed.")
         return folder
 
+    def _stage_user_storage(self, user_id: str) -> list[tuple[Path, Path]]:
+        canonical_id = str(uuid.UUID(user_id))
+        if canonical_id != user_id:
+            raise ValueError("Invalid user identity.")
+        staging_root = (self.settings.data_dir / ".deletion-staging").resolve()
+        if staging_root.parent != self.settings.data_dir.resolve():
+            raise ValueError("Unsafe deletion staging directory.")
+        staging_root.mkdir(parents=True, exist_ok=True)
+        transaction = (staging_root / uuid.uuid4().hex).resolve()
+        if transaction.parent != staging_root:
+            raise ValueError("Unsafe deletion staging directory.")
+        transaction.mkdir()
+
+        database_source = tenant_database_path(
+            self.settings.tenant_database_dir, canonical_id
+        )
+        photo_root = self.settings.photo_dir.resolve()
+        photos_source = photo_root / canonical_id
+        if database_source.is_symlink() or photos_source.is_symlink():
+            raise ValueError("Symlink account storage cannot be deleted.")
+        database = database_source.resolve()
+        photos = photos_source.resolve()
+        if database.parent != self.settings.tenant_database_dir.resolve():
+            raise ValueError("Unsafe account database path.")
+        if photos.parent != photo_root:
+            raise ValueError("Unsafe photo directory.")
+
+        candidates = [database, Path(str(database) + "-wal"),
+                      Path(str(database) + "-shm"), photos]
+        staged: list[tuple[Path, Path]] = []
+        try:
+            for index, source in enumerate(candidates):
+                if not source.exists():
+                    continue
+                if source.is_symlink():
+                    raise ValueError("Symlink account storage cannot be deleted.")
+                destination = transaction / f"item-{index}"
+                os.replace(source, destination)
+                staged.append((source, destination))
+            if not staged:
+                self._cleanup_staging_container(transaction)
+            return staged
+        except Exception:
+            self._restore_staged_storage(staged)
+            self._cleanup_staging_container(transaction)
+            raise
+
+    @staticmethod
+    def _restore_staged_storage(staged: list[tuple[Path, Path]]) -> None:
+        for source, destination in reversed(staged):
+            if destination.exists() and not source.exists():
+                os.replace(destination, source)
+
+    @staticmethod
+    def _erase_staged_storage(staged: list[tuple[Path, Path]]) -> None:
+        if not staged:
+            return
+        transaction = staged[0][1].parent
+        shutil.rmtree(transaction)
+        AvoraService._cleanup_staging_container(transaction)
+
+    @staticmethod
+    def _cleanup_staging_container(transaction: Path) -> None:
+        try:
+            transaction.rmdir()
+        except OSError:
+            pass
+        try:
+            transaction.parent.rmdir()
+        except OSError:
+            pass
+
     def _storage_ready(self) -> bool:
         probe = self.settings.database_dir / ".healthcheck"
         try:
@@ -356,6 +528,24 @@ def _validated_identifier(value: str, pattern: re.Pattern[str], label: str) -> s
     if not pattern.fullmatch(normalized):
         raise ValueError(f"The {label} is invalid.")
     return normalized
+
+
+def _validated_device(
+    device_id: str, device_name: str, required: bool
+) -> tuple[str, str]:
+    if not isinstance(device_id, str) or not isinstance(device_name, str):
+        raise ValueError("The session device is invalid.")
+    normalized_id = device_id.strip()
+    normalized_name = " ".join(device_name.split())
+    if not normalized_id and not normalized_name and not required:
+        return "", ""
+    if (
+        not _DEVICE_ID.fullmatch(normalized_id)
+        or not normalized_name
+        or len(normalized_name) > 80
+    ):
+        raise ValueError("The session device is invalid.")
+    return normalized_id, normalized_name
 
 
 def _login_bucket(kind: str, value: str) -> str:

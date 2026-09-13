@@ -29,6 +29,8 @@ public class NasAuthClientTest {
                 NasAuthClient.mapErrorCode(404, "invite_not_found", true));
         assertEquals("NAS_FORBIDDEN",
                 NasAuthClient.mapErrorCode(403, "forbidden", true));
+        assertEquals("NAS_ACCOUNT_STATE_CONFLICT",
+                NasAuthClient.mapErrorCode(409, "account_state_conflict", true));
     }
 
     @Test

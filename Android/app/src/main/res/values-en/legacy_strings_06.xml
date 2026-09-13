@@ -44,7 +44,6 @@
     <string name="nav_settings">Settings</string>
     <string name="symbol_middle_dot">·</string>
     <string name="settings_hub_quick_title">Quick Settings</string>
-    <string name="settings_hub_edit">Edit</string>
     <string name="settings_quick_irrigation">Watering\nSettings</string>
     <string name="settings_quick_plants">Plants and\nZones</string>
     <string name="settings_quick_notifications">Notification\nSettings</string>
@@ -86,6 +85,8 @@
     <string name="settings_category_device_application">Device and App</string>
     <string name="settings_device_info_title">Device Information</string>
     <string name="settings_device_info_subtitle">Raspberry Pi, ESP32, sensors, and connections</string>
+    <string name="settings_nas_account_title">NAS Account and Security</string>
+    <string name="settings_nas_account_subtitle">Manage the account, password, sessions, and access</string>
     <string name="settings_sync_title">Data Synchronization</string>
     <string name="settings_sync_subtitle">View the latest synchronization status</string>
     <string name="settings_backup_title">Backup</string>

@@ -1243,7 +1243,6 @@
     <string name="date_format_year" translatable="false">yyyy</string>
     <!-- Merkezi Ayarlar menüsü -->
     <string name="settings_hub_quick_title">Hızlı Ayarlar</string>
-    <string name="settings_hub_edit">Düzenle</string>
     <string name="settings_quick_irrigation">Sulama\nAyarları</string>
     <string name="settings_quick_plants">Bitkiler ve\nBölgeler</string>
     <string name="settings_quick_notifications">Bildirim\nAyarları</string>
@@ -1289,6 +1288,8 @@
     <string name="settings_category_device_application">Cihaz ve Uygulama</string>
     <string name="settings_device_info_title">Cihaz Bilgileri</string>
     <string name="settings_device_info_subtitle">Raspberry Pi, ESP32, sensör ve bağlantılar</string>
+    <string name="settings_nas_account_title">NAS Hesabı ve Güvenlik</string>
+    <string name="settings_nas_account_subtitle">Hesap, parola, oturum ve erişim izinleri</string>
     <string name="settings_sync_title">Veri Senkronizasyonu</string>
     <string name="settings_sync_subtitle">Verilerin son eşitlenme durumunu görüntüleyin</string>
     <string name="settings_backup_title">Yedekleme</string>

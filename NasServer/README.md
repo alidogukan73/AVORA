@@ -19,8 +19,16 @@ kullanmaya devam eder; mevcut çalışma düzeni değişmez.
 - Yeni kullanıcı kaydı yalnızca süreli davet koduyla yapılır.
 - Belge güncellemeleri sürüm denetimiyle istemciler arası veri ezilmesini önler.
 - Android otomatik yedeklemesi bir güncel kopya ve son yedi güne ait dönen kopyalar tutar.
-- Oturum 30 gün sonra kendiliğinden sona erer; parola cihazda saklanmaz ve kullanıcı yeniden
-  bağlanır.
+- Oturum, kullanıldıkça güvenli biçimde 30 gün uzatılır; 30 gün hiç kullanılmazsa sona erer.
+  Parola cihazda saklanmaz.
+- Yönetici, 30 gün bağlantı kurmayan aile üyelerinin bahçe erişimini gözden geçirir.
+  “Kalsın” kararı takip süresini yeniden başlatır; yetki kaldırma hesabı ve kullanıcı
+  verilerini silmeden yalnızca bahçe erişimini ve açık NAS oturumlarını kapatır.
+- Aile hesabı yönetici tarafından devre dışı bırakıldığında bahçe erişimi ve tüm NAS
+  oturumları hemen kapatılır; hesap verileri 30 gün geri alınabilir biçimde korunur.
+- İlk 30 gün içinde hesap geri yüklenebilir. Süre dolduktan sonra kalıcı silme yalnızca
+  yöneticinin güncel parolasıyla ve ayrı bir son onayla yapılır; otomatik veri silme yoktur.
+- Yönetici hesabı bu yaşam döngüsü işlemlerinin hedefi olamaz.
 - Fotoğraf kimlikleri ve yolları dizin geçişine karşı doğrulanır.
 
 ## NAS dizinleri
@@ -80,6 +88,14 @@ POST /v1/auth/register
 GET  /v1/me
 POST /v1/account/password
 POST /v1/account/sessions/revoke-others
+POST /v1/account/session/device
+GET  /v1/account/sessions
+GET  /v1/admin/accounts?device_id={cihaz}
+POST /v1/admin/inactive-access/keep
+POST /v1/admin/device-access/revoke
+POST /v1/admin/accounts/disable
+POST /v1/admin/accounts/restore
+POST /v1/admin/accounts/delete
 POST /v1/admin/invites
 POST /v1/admin/invites/revoke
 GET  /v1/data/documents
@@ -96,6 +112,15 @@ Korunan uçlar `Authorization: Bearer <oturum-anahtarı>` ister. Parola değişi
 mevcut parolayı tekrar doğrular, bu telefondaki geçerli oturumu korur ve aynı hesaba ait
 diğer oturumları kapatır. Ayrı oturum kapatma ucu da bu telefondaki oturumu koruyarak
 yalnızca diğer cihazları çıkarır.
+
+Hesap listesi yalnızca yöneticiye açıktır; ad, e-posta, rol, hesap tarihi, son NAS
+bağlantısı, ilgili cihazın bahçe erişim durumu ve aktif oturum sayısını döndürür. Yönetici
+hesabı pasif erişim incelemesine hiçbir zaman dahil edilmez. Parola özeti ve oturum
+anahtarları bu yanıta dahil edilmez.
+
+Her hesap yalnızca kendi açık oturumlarının cihaz adı, oluşturulma, son görülme ve sona
+erme zamanlarını görebilir. Cihaz kimliği uygulama kurulumunda rastgele üretilir; donanım
+seri numarası kullanılmaz. Oturum anahtarı hiçbir liste yanıtında gösterilmez.
 
 Yeni hesaplar yalnızca yöneticinin oluşturduğu süreli ve kullanımı sınırlı davet koduyla
 açılır. Davet kodunun yalnızca özeti saklanır; kullanılmamış bir kod yönetici tarafından

@@ -35,6 +35,30 @@
         }
       }
     },
+    "access_request_notifications": {
+      "$deviceId": {
+        "$uid": {
+          ".read": false,
+          ".write": "auth != null && auth.uid == $uid && (!data.exists() || data.child('requested_at_epoch').val() <= now - 120000)",
+          ".validate": "newData.hasChildren(['request_id', 'firebase_uid', 'requested_at_epoch', 'source']) && newData.child('firebase_uid').val() == auth.uid",
+          "request_id": {
+            ".validate": "newData.isString() && newData.val().matches(/^[0-9a-fA-F-]{36}$/)"
+          },
+          "firebase_uid": {
+            ".validate": "newData.isString() && newData.val() == $uid && newData.val().matches(/^[A-Za-z0-9_-]{16,128}$/)"
+          },
+          "requested_at_epoch": {
+            ".validate": "newData.isNumber() && newData.val() >= now - 10000 && newData.val() <= now + 5000"
+          },
+          "source": {
+            ".validate": "newData.isString() && newData.val() == 'android'"
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      }
+    },
     "devices": {
       "$deviceId": {
         ".read": "auth != null && (auth.token.avora_device_id == $deviceId || root.child('device_access').child($deviceId).child(auth.uid).child('approved').val() == true)",
@@ -203,9 +227,12 @@
           },
           "batches": {
             "$batchId": {
-              ".validate": "!newData.exists() || newData.hasChildren(['batch_id', 'plant_type', 'emoji', 'variety', 'area', 'node_id', 'status', 'stage', 'sowing_date_epoch', 'estimated_emergence_epoch', 'estimated_transplant_epoch', 'seed_count', 'tray_cell_count', 'healthy_count', 'created_at_epoch', 'updated_at_epoch'])",
+              ".validate": "!newData.exists() || (newData.hasChildren(['batch_id', 'plant_type', 'emoji', 'variety', 'area', 'node_id', 'status', 'stage', 'sowing_date_epoch', 'estimated_emergence_epoch', 'estimated_transplant_epoch', 'seed_count', 'tray_cell_count', 'healthy_count', 'created_at_epoch', 'updated_at_epoch']) && (!newData.child('archive_reason').exists() || (newData.child('status').val() == 'ARCHIVED' && newData.child('archived_at_epoch').isNumber())) && (!newData.child('archive_reason').exists() || newData.child('archive_reason').val() != 'TRANSFERRED' || (newData.child('stage').val() == 'READY' && newData.hasChildren(['transferred_season_id', 'transferred_zone_id', 'transferred_at_epoch']))))",
               "batch_id": {
                 ".validate": "newData.isString() && newData.val() == $batchId && newData.val().length > 0 && newData.val().length <= 120"
+              },
+              "crop_id": {
+                ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 120"
               },
               "plant_type": {
                 ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 80"
@@ -256,10 +283,25 @@
                 ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= 10000 && newData.val() % 1 == 0"
               },
               "tray_cell_count": {
-                ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= 10000 && newData.val() % 1 == 0"
+                ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 10000 && newData.val() % 1 == 0"
               },
               "healthy_count": {
                 ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= newData.parent().child('seed_count').val() && newData.val() % 1 == 0"
+              },
+              "archived_at_epoch": {
+                ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 4102444800 && newData.val() % 1 == 0"
+              },
+              "archive_reason": {
+                ".validate": "newData.isString() && (newData.val() == 'MANUAL' || newData.val() == 'TRANSFERRED')"
+              },
+              "transferred_season_id": {
+                ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 180"
+              },
+              "transferred_zone_id": {
+                ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 120"
+              },
+              "transferred_at_epoch": {
+                ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= 4102444800 && newData.val() % 1 == 0"
               },
               "created_at_epoch": {
                 ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= 4102444800 && newData.val() % 1 == 0"
@@ -275,7 +317,7 @@
           "daily_logs": {
             "$batchId": {
               "$logId": {
-                ".validate": "!newData.exists() || (newData.hasChildren(['log_id', 'batch_id', 'height_cm', 'leaf_count', 'healthy_count', 'watered', 'note', 'created_at_epoch']) && newData.child('batch_id').val() == $batchId && root.child('devices').child($deviceId).child('seedling').child('batches').child($batchId).exists())",
+                ".validate": "!newData.exists() || (newData.hasChildren(['log_id', 'batch_id', 'height_cm', 'leaf_count', 'healthy_count', 'watered', 'note', 'created_at_epoch']) && newData.child('batch_id').val() == $batchId && root.child('devices').child($deviceId).child('seedling').child('batches').child($batchId).child('status').val() == 'ACTIVE')",
                 "log_id": {
                   ".validate": "newData.isString() && newData.val() == $logId && newData.val().length > 0 && newData.val().length <= 120"
                 },
@@ -309,6 +351,23 @@
                 "$other": {
                   ".validate": false
                 }
+              }
+            }
+          },
+          "transfer_claims": {
+            "$batchId": {
+              ".validate": "!newData.exists() || (newData.hasChildren(['batch_id', 'zone_id', 'season_id']) && (!data.exists() || (newData.child('batch_id').val() == data.child('batch_id').val() && newData.child('zone_id').val() == data.child('zone_id').val() && newData.child('season_id').val() == data.child('season_id').val())))",
+              "batch_id": {
+                ".validate": "newData.isString() && newData.val() == $batchId && newData.val().length > 0 && newData.val().length <= 120"
+              },
+              "zone_id": {
+                ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 120"
+              },
+              "season_id": {
+                ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 180"
+              },
+              "$other": {
+                ".validate": false
               }
             }
           },

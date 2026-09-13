@@ -152,6 +152,12 @@ public class PlantTimelineActivity extends EdgeToEdgeActivity {
         month.setText(tabHeading());
         month.setVisibility("compare".equals(activeTab) ? View.VISIBLE : View.GONE);
         entries.removeAllViews(); int shown = 0; String lastMonthKey = "";
+        if ("timeline".equals(activeTab) && "all".equals(activeFilter)
+                && selected != null
+                && !selected.getSource_seedling_batch_id().isBlank()) {
+            entries.addView(sourceSeedlingCard(selected));
+            shown++;
+        }
         if ("compare".equals(activeTab)) {
             shown = renderComparison();
         } else {
@@ -180,6 +186,56 @@ public class PlantTimelineActivity extends EdgeToEdgeActivity {
             filter.setCardBackgroundColor(getColor(filterSelected ? R.color.surfaceGreen : R.color.card));
             filter.setStrokeColor(getColor(filterSelected ? R.color.primary : R.color.border));
         }
+    }
+
+    private View sourceSeedlingCard(GardenSeason selected) {
+        MaterialCardView card = new MaterialCardView(this);
+        card.setRadius(dp(16));
+        card.setCardBackgroundColor(getColor(R.color.surfaceGreen));
+        card.setStrokeColor(getColor(R.color.primary));
+        card.setStrokeWidth(dp(1));
+        card.setClickable(true);
+        card.setFocusable(true);
+        LinearLayout.LayoutParams outer = new LinearLayout.LayoutParams(-1, -2);
+        outer.bottomMargin = dp(12);
+        card.setLayoutParams(outer);
+
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(dp(14), dp(12), dp(14), dp(12));
+        TextView heading = text(
+                getString(R.string.seedling_source_history_title),
+                15,
+                R.color.primary
+        );
+        heading.setTypeface(null, android.graphics.Typeface.BOLD);
+        content.addView(heading);
+        String variety = selected.getSource_seedling_variety().isBlank()
+                ? getString(R.string.seedling_transfer_variety_unspecified)
+                : selected.getSource_seedling_variety();
+        TextView detail = text(
+                getString(
+                        R.string.seedling_source_history_summary,
+                        variety,
+                        selected.getSource_seedling_healthy_count()
+                ),
+                12,
+                R.color.textSecondary
+        );
+        detail.setPadding(0, dp(4), 0, 0);
+        content.addView(detail);
+        card.addView(content);
+        card.setContentDescription(getString(
+                R.string.seedling_source_history_open_description));
+        card.setOnClickListener(view -> {
+            Intent intent = new Intent(this, SeedlingBatchDetailActivity.class);
+            intent.putExtra(
+                    SeedlingBatchDetailActivity.EXTRA_BATCH_ID,
+                    selected.getSource_seedling_batch_id()
+            );
+            startActivity(intent);
+        });
+        return card;
     }
 
     private String monthKey(long epoch) {

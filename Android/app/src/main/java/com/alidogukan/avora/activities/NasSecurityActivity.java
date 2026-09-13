@@ -2,7 +2,9 @@ package com.alidogukan.avora.activities;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Patterns;
 import android.view.View;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -16,11 +18,13 @@ import com.alidogukan.avora.nas.NasAuthClient;
 import com.alidogukan.avora.nas.NasSession;
 import com.alidogukan.avora.viewmodels.NasSecurityViewModel;
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.progressindicator.LinearProgressIndicator;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 
+import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
@@ -28,16 +32,28 @@ import java.util.Locale;
 
 /** Professional, role-aware control center for AVORA NAS account security. */
 public final class NasSecurityActivity extends EdgeToEdgeActivity {
+    public static final String EXTRA_OPEN_PENDING_REQUESTS =
+            "open_pending_access_requests";
+    public static final String EXTRA_OPEN_INACTIVE_ACCOUNTS =
+            "open_inactive_accounts";
     private TextView accountName;
     private TextView accountEmail;
     private TextView accountRole;
     private TextView pendingCount;
     private TextView memberAccessStatus;
+    private TextView currentDeviceDetail;
+    private TextView otherSessionsStatus;
+    private LinearLayout otherSessionsList;
     private TextView operationStatus;
     private TextView lastChecked;
+    private View disconnectedCard;
+    private View connectedContent;
     private View administratorCard;
     private View memberAccessCard;
+    private MaterialButton connectButton;
+    private MaterialButton registerButton;
     private MaterialButton createInviteButton;
+    private MaterialButton accountsButton;
     private MaterialButton requestsButton;
     private MaterialButton requestAccessButton;
     private MaterialButton revokeSessionsButton;
@@ -49,12 +65,26 @@ public final class NasSecurityActivity extends EdgeToEdgeActivity {
     private AlertDialog passwordDialog;
     private TextInputLayout currentPasswordLayout;
     private TextInputLayout newPasswordLayout;
-    private boolean receivedState;
+    private AlertDialog loginDialog;
+    private AlertDialog registrationDialog;
+    private AlertDialog accountsDialog;
+    private AlertDialog deleteAccountDialog;
+    private TextInputLayout deleteAdminPasswordLayout;
+    private TextInputLayout loginEmailLayout;
+    private TextInputLayout loginPasswordLayout;
+    private TextInputLayout registerInviteLayout;
+    private TextInputLayout registerPasswordLayout;
+    private boolean openPendingRequestsOnReady;
+    private boolean openInactiveAccountsOnReady;
 
     @Override
     protected void onCreate(@Nullable Bundle state) {
         super.onCreate(state);
         setContentView(R.layout.activity_nas_security);
+        openPendingRequestsOnReady = state == null
+                && getIntent().getBooleanExtra(EXTRA_OPEN_PENDING_REQUESTS, false);
+        openInactiveAccountsOnReady = state == null
+                && getIntent().getBooleanExtra(EXTRA_OPEN_INACTIVE_ACCOUNTS, false);
         viewModel = new ViewModelProvider(this).get(NasSecurityViewModel.class);
         bindViews();
         configureToolbar();
@@ -69,12 +99,21 @@ public final class NasSecurityActivity extends EdgeToEdgeActivity {
         accountEmail = findViewById(R.id.txtNasSecurityAccountEmail);
         accountRole = findViewById(R.id.txtNasSecurityRole);
         pendingCount = findViewById(R.id.txtNasSecurityPendingCount);
+        currentDeviceDetail = findViewById(R.id.txtNasSecurityThisDeviceDetail);
+        otherSessionsStatus = findViewById(
+                R.id.txtNasSecurityOtherSessionsStatus);
+        otherSessionsList = findViewById(R.id.layoutNasSecurityOtherSessions);
         memberAccessStatus = findViewById(R.id.txtNasSecurityMemberAccessStatus);
         operationStatus = findViewById(R.id.txtNasSecurityOperationStatus);
         lastChecked = findViewById(R.id.txtNasSecurityLastChecked);
+        disconnectedCard = findViewById(R.id.cardNasSecurityDisconnected);
+        connectedContent = findViewById(R.id.layoutNasSecurityConnectedContent);
+        connectButton = findViewById(R.id.btnNasSecurityConnect);
+        registerButton = findViewById(R.id.btnNasSecurityRegister);
         administratorCard = findViewById(R.id.cardNasSecurityAdministrator);
         memberAccessCard = findViewById(R.id.cardNasSecurityMemberAccess);
         createInviteButton = findViewById(R.id.btnNasSecurityCreateInvite);
+        accountsButton = findViewById(R.id.btnNasSecurityAccounts);
         requestsButton = findViewById(R.id.btnNasSecurityRequests);
         requestAccessButton = findViewById(R.id.btnNasSecurityRequestAccess);
         revokeSessionsButton = findViewById(R.id.btnNasSecurityRevokeSessions);
@@ -91,7 +130,10 @@ public final class NasSecurityActivity extends EdgeToEdgeActivity {
 
     private void configureActions() {
         createInviteButton.setOnClickListener(view -> viewModel.createInvite());
+        accountsButton.setOnClickListener(view -> viewModel.loadAccounts());
         requestsButton.setOnClickListener(view -> viewModel.loadPendingRequests());
+        connectButton.setOnClickListener(view -> showLoginDialog());
+        registerButton.setOnClickListener(view -> showRegistrationDialog());
         requestAccessButton.setOnClickListener(view -> viewModel.requestGardenAccess());
         revokeSessionsButton.setOnClickListener(view -> confirmRevokeOtherSessions());
         findViewById(R.id.rowNasSecurityPassword)
@@ -103,15 +145,15 @@ public final class NasSecurityActivity extends EdgeToEdgeActivity {
 
     private void render(NasSecurityViewModel.State state) {
         if (state == null) return;
-        boolean initialState = !receivedState;
-        receivedState = true;
         currentSession = state.session;
+        boolean connected = currentSession != null;
+        disconnectedCard.setVisibility(connected ? View.GONE : View.VISIBLE);
+        connectedContent.setVisibility(connected ? View.VISIBLE : View.GONE);
+        progress.setVisibility(state.busy ? View.VISIBLE : View.GONE);
+        connectButton.setEnabled(!state.busy);
+        registerButton.setEnabled(!state.busy);
         if (currentSession == null) {
-            if (initialState && !state.busy) {
-                Toast.makeText(this, R.string.nas_security_not_connected,
-                        Toast.LENGTH_LONG).show();
-                finish();
-            }
+            if (state.busy) showBusyStatus(state.action);
             return;
         }
 
@@ -128,15 +170,30 @@ public final class NasSecurityActivity extends EdgeToEdgeActivity {
         lastChecked.setText(getString(R.string.nas_security_last_checked,
                 formatDateTime(System.currentTimeMillis())));
 
-        progress.setVisibility(state.busy ? View.VISIBLE : View.GONE);
+        int otherSessionCount = renderSessionDevices(state);
         createInviteButton.setEnabled(!state.busy);
+        accountsButton.setEnabled(!state.busy);
         requestsButton.setEnabled(!state.busy);
         requestAccessButton.setEnabled(!state.busy);
-        revokeSessionsButton.setEnabled(!state.busy);
+        boolean canRevoke = state.sessionListStatus == -2 || otherSessionCount > 0;
+        revokeSessionsButton.setEnabled(!state.busy && canRevoke);
+        revokeSessionsButton.setText(otherSessionCount > 0
+                ? getResources().getQuantityString(
+                        R.plurals.nas_security_revoke_session_devices,
+                        otherSessionCount, otherSessionCount)
+                : getString(R.string.data_sync_nas_revoke_others));
         disconnectButton.setEnabled(!state.busy);
         findViewById(R.id.rowNasSecurityPassword).setEnabled(!state.busy);
         findViewById(R.id.rowNasSecurityDetails).setEnabled(!state.busy);
         if (state.busy) showBusyStatus(state.action);
+        if (openPendingRequestsOnReady && state.isAdministrator() && !state.busy) {
+            openPendingRequestsOnReady = false;
+            viewModel.loadPendingRequests();
+        } else if (openInactiveAccountsOnReady
+                && state.isAdministrator() && !state.busy) {
+            openInactiveAccountsOnReady = false;
+            viewModel.loadAccounts();
+        }
     }
 
     private String pendingLabel(int count) {
@@ -146,11 +203,72 @@ public final class NasSecurityActivity extends EdgeToEdgeActivity {
         return getString(R.string.nas_security_pending_count, count);
     }
 
+    private int renderSessionDevices(NasSecurityViewModel.State state) {
+        otherSessionsList.removeAllViews();
+        currentDeviceDetail.setText(R.string.nas_security_this_device_detail);
+        if (state.sessionListStatus == -1) {
+            otherSessionsStatus.setVisibility(View.VISIBLE);
+            otherSessionsStatus.setText(R.string.nas_security_sessions_checking);
+            return 0;
+        }
+        if (state.sessionListStatus == -2) {
+            otherSessionsStatus.setVisibility(View.VISIBLE);
+            otherSessionsStatus.setText(R.string.nas_security_sessions_unavailable);
+            return 0;
+        }
+        int count = 0;
+        for (NasAuthClient.SessionSummary session : state.activeSessions) {
+            if (session.current) {
+                if (!session.deviceName.isEmpty()) {
+                    currentDeviceDetail.setText(session.deviceName);
+                }
+                continue;
+            }
+            otherSessionsList.addView(createSessionRow(session, otherSessionsList));
+            count++;
+        }
+        otherSessionsStatus.setVisibility(count == 0 ? View.VISIBLE : View.GONE);
+        if (count == 0) {
+            otherSessionsStatus.setText(R.string.nas_security_sessions_none);
+        }
+        return count;
+    }
+
+    private View createSessionRow(NasAuthClient.SessionSummary session,
+                                  LinearLayout parent) {
+        View row = getLayoutInflater().inflate(
+                R.layout.item_nas_session, parent, false);
+        TextView name = row.findViewById(R.id.txtNasSessionDeviceName);
+        TextView status = row.findViewById(R.id.txtNasSessionStatus);
+        TextView details = row.findViewById(R.id.txtNasSessionDetails);
+        boolean knownDevice = !session.deviceName.isEmpty();
+        name.setText(knownDevice
+                ? session.deviceName
+                : getString(R.string.nas_security_unknown_device));
+        status.setText(R.string.nas_security_session_open);
+        details.setText(getString(
+                knownDevice
+                        ? R.string.nas_security_session_detail
+                        : R.string.nas_security_legacy_session_detail,
+                formatDateTime(session.lastSeenAt * 1000L),
+                formatDateTime(session.expiresAt * 1000L)));
+        return row;
+    }
+
     private void showBusyStatus(NasSecurityViewModel.Action action) {
         int message;
         switch (action) {
+            case LOGIN:
+                message = R.string.data_sync_nas_connecting;
+                break;
+            case REGISTER:
+                message = R.string.nas_security_registering;
+                break;
             case CREATE_INVITE:
                 message = R.string.data_sync_nas_invite_creating;
+                break;
+            case LOAD_ACCOUNTS:
+                message = R.string.nas_security_accounts_loading;
                 break;
             case LOAD_REQUESTS:
                 message = R.string.data_sync_nas_access_loading;
@@ -160,6 +278,21 @@ public final class NasSecurityActivity extends EdgeToEdgeActivity {
                 break;
             case APPROVE_ACCESS:
                 message = R.string.data_sync_nas_access_approving;
+                break;
+            case KEEP_INACTIVE_ACCESS:
+                message = R.string.nas_security_inactive_keeping;
+                break;
+            case REVOKE_DEVICE_ACCESS:
+                message = R.string.nas_security_access_revoking;
+                break;
+            case DISABLE_ACCOUNT:
+                message = R.string.nas_security_account_disabling;
+                break;
+            case RESTORE_ACCOUNT:
+                message = R.string.nas_security_account_restoring;
+                break;
+            case DELETE_ACCOUNT:
+                message = R.string.nas_security_account_deleting;
                 break;
             case CHANGE_PASSWORD:
                 message = R.string.nas_security_password_changing;
@@ -179,12 +312,31 @@ public final class NasSecurityActivity extends EdgeToEdgeActivity {
     private void handleEvent(NasSecurityViewModel.Event event) {
         if (event == null || !event.consume()) return;
         switch (event.type) {
+            case CONNECTED:
+                if (loginDialog != null && loginDialog.isShowing()) loginDialog.dismiss();
+                NasSession connected = (NasSession) event.payload;
+                Toast.makeText(this, getString(R.string.nas_security_connected_success,
+                        connected == null ? "" : connected.user.displayName),
+                        Toast.LENGTH_LONG).show();
+                break;
+            case REGISTERED:
+                if (registrationDialog != null && registrationDialog.isShowing()) {
+                    registrationDialog.dismiss();
+                }
+                NasSession registered = (NasSession) event.payload;
+                Toast.makeText(this, getString(R.string.data_sync_nas_register_success,
+                        registered == null ? "" : registered.user.displayName),
+                        Toast.LENGTH_LONG).show();
+                break;
             case INVITE_READY:
                 showInviteDialog((NasAuthClient.Invite) event.payload);
                 break;
             case INVITE_REVOKED:
                 if (inviteDialog != null && inviteDialog.isShowing()) inviteDialog.dismiss();
                 showSuccess(R.string.data_sync_nas_invite_revoked);
+                break;
+            case ACCOUNTS_READY:
+                showAccounts(NasSecurityViewModel.accountsFrom(event));
                 break;
             case REQUESTS_READY:
                 showAccessRequests(NasSecurityViewModel.requestsFrom(event));
@@ -204,6 +356,41 @@ public final class NasSecurityActivity extends EdgeToEdgeActivity {
                 showStatus(getString(R.string.data_sync_nas_access_approved,
                         String.valueOf(event.payload)), R.color.online);
                 break;
+            case INACTIVE_ACCESS_KEPT:
+                if (accountsDialog != null && accountsDialog.isShowing()) {
+                    accountsDialog.dismiss();
+                }
+                showStatus(getString(R.string.nas_security_inactive_kept,
+                        String.valueOf(event.payload)), R.color.online);
+                viewModel.loadAccounts();
+                break;
+            case DEVICE_ACCESS_REVOKED:
+                if (accountsDialog != null && accountsDialog.isShowing()) {
+                    accountsDialog.dismiss();
+                }
+                showStatus(getString(R.string.nas_security_access_revoked,
+                        String.valueOf(event.payload)), R.color.online);
+                viewModel.loadAccounts();
+                break;
+            case ACCOUNT_DISABLED:
+                dismissAccountsDialog();
+                showStatus(getString(R.string.nas_security_account_disabled_success,
+                        String.valueOf(event.payload)), R.color.online);
+                viewModel.loadAccounts();
+                break;
+            case ACCOUNT_RESTORED:
+                dismissAccountsDialog();
+                showStatus(getString(R.string.nas_security_account_restored_success,
+                        String.valueOf(event.payload)), R.color.online);
+                viewModel.loadAccounts();
+                break;
+            case ACCOUNT_DELETED:
+                dismissDeleteAccountDialog();
+                dismissAccountsDialog();
+                showStatus(getString(R.string.nas_security_account_deleted_success,
+                        String.valueOf(event.payload)), R.color.online);
+                viewModel.loadAccounts();
+                break;
             case PASSWORD_CHANGED:
                 if (passwordDialog != null && passwordDialog.isShowing()) {
                     passwordDialog.dismiss();
@@ -222,17 +409,133 @@ public final class NasSecurityActivity extends EdgeToEdgeActivity {
                 Toast.makeText(this, R.string.nas_security_disconnected,
                         Toast.LENGTH_LONG).show();
                 setResult(RESULT_OK);
-                finish();
                 break;
             case SESSION_EXPIRED:
                 Toast.makeText(this, R.string.data_sync_nas_session_expired,
                         Toast.LENGTH_LONG).show();
                 setResult(RESULT_OK);
-                finish();
                 break;
             case ERROR:
                 handleError(event);
                 break;
+        }
+    }
+
+    private void showLoginDialog() {
+        View content = getLayoutInflater().inflate(R.layout.dialog_nas_login, null, false);
+        loginEmailLayout = content.findViewById(R.id.layoutNasEmail);
+        loginPasswordLayout = content.findViewById(R.id.layoutNasPassword);
+        TextInputEditText emailInput = content.findViewById(R.id.inputNasEmail);
+        TextInputEditText passwordInput = content.findViewById(R.id.inputNasPassword);
+        loginDialog = new MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.data_sync_nas_login_title)
+                .setView(content)
+                .setNegativeButton(R.string.data_sync_nas_cancel, null)
+                .setNeutralButton(R.string.data_sync_nas_register_action,
+                        (dialog, which) -> showRegistrationDialog())
+                .setPositiveButton(R.string.data_sync_nas_account_connect, null)
+                .create();
+        loginDialog.setOnShowListener(ignored ->
+                loginDialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                        .setOnClickListener(view -> validateLogin(emailInput, passwordInput)));
+        loginDialog.show();
+    }
+
+    private void validateLogin(TextInputEditText emailInput,
+                               TextInputEditText passwordInput) {
+        loginEmailLayout.setError(null);
+        loginPasswordLayout.setError(null);
+        String email = textOf(emailInput).trim();
+        String password = textOf(passwordInput);
+        if (email.isEmpty()) {
+            loginEmailLayout.setError(getString(R.string.data_sync_nas_error_required));
+        } else if (!Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+            loginEmailLayout.setError(getString(R.string.data_sync_nas_error_email));
+        } else if (password.isEmpty()) {
+            loginPasswordLayout.setError(getString(R.string.data_sync_nas_error_required));
+        } else {
+            passwordInput.setText(null);
+            setDialogEnabled(loginDialog, false);
+            viewModel.login(email, password);
+        }
+    }
+
+    private void showRegistrationDialog() {
+        View content = getLayoutInflater().inflate(R.layout.dialog_nas_register,
+                null, false);
+        registerInviteLayout = content.findViewById(R.id.layoutNasInviteCode);
+        TextInputLayout nameLayout = content.findViewById(R.id.layoutNasRegisterName);
+        TextInputLayout emailLayout = content.findViewById(R.id.layoutNasRegisterEmail);
+        registerPasswordLayout = content.findViewById(R.id.layoutNasRegisterPassword);
+        TextInputLayout confirmLayout = content.findViewById(
+                R.id.layoutNasRegisterConfirmPassword);
+        TextInputEditText inviteInput = content.findViewById(R.id.inputNasInviteCode);
+        TextInputEditText nameInput = content.findViewById(R.id.inputNasRegisterName);
+        TextInputEditText emailInput = content.findViewById(R.id.inputNasRegisterEmail);
+        TextInputEditText passwordInput = content.findViewById(
+                R.id.inputNasRegisterPassword);
+        TextInputEditText confirmInput = content.findViewById(
+                R.id.inputNasRegisterConfirmPassword);
+        registrationDialog = new MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.data_sync_nas_register_title)
+                .setView(content)
+                .setNegativeButton(R.string.data_sync_nas_cancel, null)
+                .setPositiveButton(R.string.data_sync_nas_register_confirm, null)
+                .create();
+        registrationDialog.setOnShowListener(ignored ->
+                registrationDialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                        .setOnClickListener(view -> validateRegistration(
+                                inviteInput, nameInput, emailInput, passwordInput,
+                                confirmInput, nameLayout, emailLayout, confirmLayout)));
+        registrationDialog.show();
+    }
+
+    private void validateRegistration(TextInputEditText inviteInput,
+                                      TextInputEditText nameInput,
+                                      TextInputEditText emailInput,
+                                      TextInputEditText passwordInput,
+                                      TextInputEditText confirmInput,
+                                      TextInputLayout nameLayout,
+                                      TextInputLayout emailLayout,
+                                      TextInputLayout confirmLayout) {
+        registerInviteLayout.setError(null);
+        nameLayout.setError(null);
+        emailLayout.setError(null);
+        registerPasswordLayout.setError(null);
+        confirmLayout.setError(null);
+        String invite = textOf(inviteInput).trim();
+        String name = textOf(nameInput).trim();
+        String email = textOf(emailInput).trim();
+        String password = textOf(passwordInput);
+        String confirmation = textOf(confirmInput);
+        if (invite.isEmpty()) {
+            registerInviteLayout.setError(getString(R.string.data_sync_nas_error_required));
+        } else if (name.isEmpty()) {
+            nameLayout.setError(getString(R.string.data_sync_nas_error_required));
+        } else if (email.isEmpty() || !Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+            emailLayout.setError(getString(R.string.data_sync_nas_error_email));
+        } else if (password.length() < 12) {
+            registerPasswordLayout.setError(getString(R.string.data_sync_nas_password_policy));
+        } else if (!password.equals(confirmation)) {
+            confirmLayout.setError(getString(R.string.data_sync_nas_password_mismatch));
+        } else {
+            passwordInput.setText(null);
+            confirmInput.setText(null);
+            setDialogEnabled(registrationDialog, false);
+            viewModel.register(invite, email, name, password);
+        }
+    }
+
+    private static void setDialogEnabled(AlertDialog dialog, boolean enabled) {
+        if (dialog == null || !dialog.isShowing()) return;
+        if (dialog.getButton(AlertDialog.BUTTON_POSITIVE) != null) {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(enabled);
+        }
+        if (dialog.getButton(AlertDialog.BUTTON_NEGATIVE) != null) {
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setEnabled(enabled);
+        }
+        if (dialog.getButton(AlertDialog.BUTTON_NEUTRAL) != null) {
+            dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setEnabled(enabled);
         }
     }
 
@@ -277,6 +580,212 @@ public final class NasSecurityActivity extends EdgeToEdgeActivity {
                 .setNegativeButton(R.string.data_sync_nas_cancel, null)
                 .setPositiveButton(R.string.data_sync_nas_invite_revoke,
                         (dialog, which) -> viewModel.revokeInvite(invite))
+                .show();
+    }
+
+    private void showAccounts(List<NasAuthClient.AccountSummary> accounts) {
+        if (accounts.isEmpty()) {
+            showStatus(getString(R.string.nas_security_accounts_none), R.color.textSecondary);
+            return;
+        }
+        View content = getLayoutInflater().inflate(
+                R.layout.dialog_nas_accounts, null, false);
+        TextView summary = content.findViewById(R.id.txtNasAccountsSummary);
+        LinearLayout accountList = content.findViewById(R.id.layoutNasAccountsList);
+        int activeSessionCount = 0;
+        for (NasAuthClient.AccountSummary account : accounts) {
+            activeSessionCount += account.activeSessions;
+            accountList.addView(createAccountRow(account, accountList));
+        }
+        String accountCount = getResources().getQuantityString(
+                R.plurals.nas_security_account_count, accounts.size(), accounts.size());
+        String sessionCount = getResources().getQuantityString(
+                R.plurals.nas_security_active_sessions,
+                activeSessionCount, activeSessionCount);
+        summary.setText(getString(
+                R.string.nas_security_accounts_summary, accountCount, sessionCount));
+        accountsDialog = new MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.nas_security_accounts_title)
+                .setView(content)
+                .setPositiveButton(R.string.nas_security_ok, null)
+                .create();
+        accountsDialog.show();
+    }
+
+    private View createAccountRow(NasAuthClient.AccountSummary account,
+                                  LinearLayout parent) {
+        View row = getLayoutInflater().inflate(
+                R.layout.item_nas_account, parent, false);
+        MaterialCardView avatarCard = row.findViewById(R.id.cardNasAccountAvatar);
+        TextView avatar = row.findViewById(R.id.txtNasAccountAvatar);
+        TextView name = row.findViewById(R.id.txtNasAccountName);
+        TextView email = row.findViewById(R.id.txtNasAccountEmail);
+        TextView role = row.findViewById(R.id.txtNasAccountRole);
+        TextView current = row.findViewById(R.id.txtNasAccountCurrent);
+        TextView session = row.findViewById(R.id.txtNasAccountSession);
+        TextView created = row.findViewById(R.id.txtNasAccountCreated);
+        TextView lastActive = row.findViewById(R.id.txtNasAccountLastActive);
+        TextView lifecycle = row.findViewById(R.id.txtNasAccountLifecycle);
+        MaterialButton review = row.findViewById(R.id.btnNasAccountReview);
+        MaterialButton manage = row.findViewById(R.id.btnNasAccountManage);
+
+        boolean administrator = "admin".equals(account.role);
+        avatar.setText(initials(account.displayName));
+        avatar.setTextColor(ContextCompat.getColor(this,
+                administrator ? R.color.primary : R.color.info));
+        avatarCard.setCardBackgroundColor(ContextCompat.getColor(this,
+                administrator ? R.color.primaryLight : R.color.infoBackground));
+        name.setText(account.displayName);
+        email.setText(account.email);
+        role.setText(administrator
+                ? R.string.nas_security_role_administrator_short
+                : R.string.nas_security_role_family_short);
+        role.setTextColor(ContextCompat.getColor(this,
+                administrator ? R.color.primary : R.color.info));
+        role.setBackgroundResource(administrator
+                ? R.drawable.bg_nas_account_role_admin
+                : R.drawable.bg_nas_account_role_family);
+        boolean currentAccount = currentSession != null
+                && account.id.equals(currentSession.user.id);
+        current.setVisibility(currentAccount ? View.VISIBLE : View.GONE);
+        created.setText(getString(R.string.nas_security_account_joined,
+                formatDate(account.createdAt * 1000L)));
+        lastActive.setText(getString(R.string.nas_security_account_last_active,
+                formatDateTime(account.lastActiveAt * 1000L)));
+        review.setVisibility(account.inactiveAccess ? View.VISIBLE : View.GONE);
+        review.setOnClickListener(view -> showInactiveAccessReview(account));
+
+        if (!administrator && account.active) {
+            manage.setVisibility(View.VISIBLE);
+            manage.setText(R.string.nas_security_account_disable);
+            manage.setTextColor(ContextCompat.getColor(this, R.color.primary));
+            manage.setOnClickListener(view -> confirmDisableAccount(account));
+        } else if (!administrator && account.canRestore) {
+            lifecycle.setVisibility(View.VISIBLE);
+            lifecycle.setText(getString(R.string.nas_security_account_data_retained,
+                    formatDate(account.deleteEligibleAt * 1000L)));
+            manage.setVisibility(View.VISIBLE);
+            manage.setText(R.string.nas_security_account_restore);
+            manage.setTextColor(ContextCompat.getColor(this, R.color.primary));
+            manage.setOnClickListener(view -> confirmRestoreAccount(account));
+        } else if (!administrator && account.canPermanentlyDelete) {
+            lifecycle.setVisibility(View.VISIBLE);
+            lifecycle.setText(R.string.nas_security_account_recovery_ended);
+            manage.setVisibility(View.VISIBLE);
+            manage.setText(R.string.nas_security_account_delete_open);
+            manage.setTextColor(ContextCompat.getColor(this, R.color.offline));
+            manage.setOnClickListener(view -> showPermanentDeletePasswordDialog(account));
+        }
+
+        if (!account.active) {
+            session.setText(R.string.nas_security_account_disabled);
+            session.setTextColor(ContextCompat.getColor(this, R.color.offline));
+        } else if (account.activeSessions == 0) {
+            session.setText(R.string.nas_security_no_active_sessions);
+            session.setTextColor(ContextCompat.getColor(this, R.color.textTertiary));
+        } else {
+            String activeSessions = getResources().getQuantityString(
+                    R.plurals.nas_security_active_sessions,
+                    account.activeSessions, account.activeSessions);
+            session.setText(getString(
+                    R.string.nas_security_account_session_status, activeSessions));
+            session.setTextColor(ContextCompat.getColor(this, R.color.online));
+        }
+        return row;
+    }
+
+    private void confirmDisableAccount(NasAuthClient.AccountSummary account) {
+        new MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.nas_security_account_disable_title)
+                .setMessage(getString(R.string.nas_security_account_disable_message,
+                        account.displayName))
+                .setNegativeButton(R.string.data_sync_nas_cancel, null)
+                .setPositiveButton(R.string.nas_security_account_disable_confirm,
+                        (dialog, which) -> viewModel.disableAccount(account))
+                .show();
+    }
+
+    private void confirmRestoreAccount(NasAuthClient.AccountSummary account) {
+        new MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.nas_security_account_restore_title)
+                .setMessage(getString(R.string.nas_security_account_restore_message,
+                        account.displayName))
+                .setNegativeButton(R.string.data_sync_nas_cancel, null)
+                .setPositiveButton(R.string.nas_security_account_restore_confirm,
+                        (dialog, which) -> viewModel.restoreAccount(account))
+                .show();
+    }
+
+    private void showPermanentDeletePasswordDialog(NasAuthClient.AccountSummary account) {
+        View content = getLayoutInflater().inflate(
+                R.layout.dialog_nas_delete_account, null, false);
+        TextView message = content.findViewById(R.id.txtNasDeleteAccountMessage);
+        deleteAdminPasswordLayout = content.findViewById(
+                R.id.layoutNasDeleteAdminPassword);
+        TextInputEditText passwordInput = content.findViewById(
+                R.id.inputNasDeleteAdminPassword);
+        message.setText(getString(R.string.nas_security_account_delete_password_message,
+                account.displayName));
+        deleteAccountDialog = new MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.nas_security_account_delete_title)
+                .setView(content)
+                .setNegativeButton(R.string.data_sync_nas_cancel, null)
+                .setPositiveButton(R.string.nas_security_account_delete_continue, null)
+                .create();
+        deleteAccountDialog.setOnShowListener(ignored ->
+                deleteAccountDialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                        .setOnClickListener(view -> {
+                            deleteAdminPasswordLayout.setError(null);
+                            String password = textOf(passwordInput);
+                            if (password.isEmpty()) {
+                                deleteAdminPasswordLayout.setError(getString(
+                                        R.string.data_sync_nas_error_required));
+                                return;
+                            }
+                            passwordInput.setText(null);
+                            confirmPermanentDelete(account, password);
+                        }));
+        deleteAccountDialog.show();
+    }
+
+    private void confirmPermanentDelete(NasAuthClient.AccountSummary account,
+                                        String currentPassword) {
+        new MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.nas_security_account_delete_final_title)
+                .setMessage(getString(R.string.nas_security_account_delete_final_message,
+                        account.displayName, account.email))
+                .setNegativeButton(R.string.data_sync_nas_cancel, null)
+                .setPositiveButton(R.string.nas_security_account_delete_confirm,
+                        (dialog, which) -> {
+                            setDialogEnabled(deleteAccountDialog, false);
+                            viewModel.permanentlyDeleteAccount(account, currentPassword);
+                        })
+                .show();
+    }
+
+    private void dismissAccountsDialog() {
+        if (accountsDialog != null && accountsDialog.isShowing()) {
+            accountsDialog.dismiss();
+        }
+    }
+
+    private void dismissDeleteAccountDialog() {
+        if (deleteAccountDialog != null && deleteAccountDialog.isShowing()) {
+            deleteAccountDialog.dismiss();
+        }
+    }
+
+    private void showInactiveAccessReview(NasAuthClient.AccountSummary account) {
+        new MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.nas_security_inactive_review_title)
+                .setMessage(getString(R.string.nas_security_inactive_review_message,
+                        account.displayName,
+                        formatDateTime(account.lastActiveAt * 1000L)))
+                .setNegativeButton(R.string.data_sync_nas_cancel, null)
+                .setNeutralButton(R.string.nas_security_inactive_keep,
+                        (dialog, which) -> viewModel.keepInactiveAccess(account))
+                .setPositiveButton(R.string.nas_security_access_revoke,
+                        (dialog, which) -> viewModel.revokeDeviceAccess(account))
                 .show();
     }
 
@@ -395,13 +904,62 @@ public final class NasSecurityActivity extends EdgeToEdgeActivity {
                 .setTitle(R.string.nas_security_details_title)
                 .setMessage(getString(R.string.nas_security_details_message,
                         currentSession.user.email,
-                        role,
-                        formatDateTime(currentSession.expiresAt * 1000L)))
+                        role))
                 .setPositiveButton(R.string.nas_security_ok, null)
                 .show();
     }
 
     private void handleError(NasSecurityViewModel.Event event) {
+        if (event.action == NasSecurityViewModel.Action.DELETE_ACCOUNT
+                && deleteAccountDialog != null && deleteAccountDialog.isShowing()) {
+            setDialogEnabled(deleteAccountDialog, true);
+            if ("NAS_CURRENT_PASSWORD_INVALID".equals(event.code)) {
+                deleteAdminPasswordLayout.setError(getString(
+                        R.string.data_sync_nas_current_password_invalid));
+                return;
+            }
+        }
+        if ((event.action == NasSecurityViewModel.Action.DISABLE_ACCOUNT
+                || event.action == NasSecurityViewModel.Action.RESTORE_ACCOUNT
+                || event.action == NasSecurityViewModel.Action.DELETE_ACCOUNT)
+                && "NAS_ACCOUNT_STATE_CONFLICT".equals(event.code)) {
+            dismissDeleteAccountDialog();
+            dismissAccountsDialog();
+            showStatus(getString(R.string.nas_security_account_state_changed),
+                    R.color.warning);
+            viewModel.loadAccounts();
+            return;
+        }
+        if (event.action == NasSecurityViewModel.Action.DELETE_ACCOUNT
+                && deleteAccountDialog != null && deleteAccountDialog.isShowing()) {
+            deleteAdminPasswordLayout.setError(authenticationError(event.code));
+            return;
+        }
+        if (event.action == NasSecurityViewModel.Action.LOGIN
+                && loginDialog != null && loginDialog.isShowing()) {
+            setDialogEnabled(loginDialog, true);
+            if ("NAS_INVALID_CREDENTIALS".equals(event.code)) {
+                loginPasswordLayout.setError(getString(
+                        R.string.data_sync_nas_error_credentials));
+            } else {
+                loginEmailLayout.setError(authenticationError(event.code));
+            }
+            return;
+        }
+        if (event.action == NasSecurityViewModel.Action.REGISTER
+                && registrationDialog != null && registrationDialog.isShowing()) {
+            setDialogEnabled(registrationDialog, true);
+            if ("NAS_INVALID_INVITE".equals(event.code)) {
+                registerInviteLayout.setError(getString(
+                        R.string.data_sync_nas_invite_invalid));
+            } else if ("NAS_WEAK_PASSWORD".equals(event.code)) {
+                registerPasswordLayout.setError(getString(
+                        R.string.data_sync_nas_password_policy));
+            } else {
+                registerInviteLayout.setError(authenticationError(event.code));
+            }
+            return;
+        }
         if (event.action == NasSecurityViewModel.Action.CHANGE_PASSWORD
                 && passwordDialog != null && passwordDialog.isShowing()) {
             passwordDialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(true);
@@ -431,6 +989,16 @@ public final class NasSecurityActivity extends EdgeToEdgeActivity {
         showStatus(getString(message), R.color.warning);
     }
 
+    private String authenticationError(String code) {
+        if ("NAS_RATE_LIMITED".equals(code)) {
+            return getString(R.string.data_sync_nas_error_rate_limited);
+        }
+        if ("NAS_TIMEOUT".equals(code) || "NAS_UNAVAILABLE".equals(code)) {
+            return getString(R.string.data_sync_nas_error_connection);
+        }
+        return getString(R.string.data_sync_nas_error_generic);
+    }
+
     private void showSuccess(int messageRes) {
         showStatus(getString(messageRes), R.color.online);
     }
@@ -443,6 +1011,27 @@ public final class NasSecurityActivity extends EdgeToEdgeActivity {
 
     private static String textOf(TextInputEditText input) {
         return input.getText() == null ? "" : input.getText().toString();
+    }
+
+    private static String initials(String displayName) {
+        String normalized = displayName == null ? "" : displayName.trim();
+        if (normalized.isEmpty()) return "?";
+        String[] words = normalized.split("\\s+");
+        String first = firstCodePoint(words[0]);
+        String last = words.length > 1
+                ? firstCodePoint(words[words.length - 1]) : "";
+        return (first + last).toUpperCase(Locale.getDefault());
+    }
+
+    private static String firstCodePoint(String value) {
+        if (value == null || value.isEmpty()) return "";
+        int end = value.offsetByCodePoints(0, 1);
+        return value.substring(0, end);
+    }
+
+    private static String formatDate(long epochMillis) {
+        return DateFormat.getDateInstance(
+                DateFormat.MEDIUM, Locale.getDefault()).format(new Date(epochMillis));
     }
 
     private static String formatDateTime(long epochMillis) {

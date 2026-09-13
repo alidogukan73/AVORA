@@ -18,6 +18,7 @@ public final class RemoteNotificationEvent {
     public static final String IRRIGATION_STARTED = "IRRIGATION_STARTED";
     public static final String IRRIGATION_COMPLETED = "IRRIGATION_COMPLETED";
     public static final String IRRIGATION_INTERRUPTED = "IRRIGATION_INTERRUPTED";
+    public static final String GARDEN_ACCESS_REQUEST = "GARDEN_ACCESS_REQUEST";
 
     private final String code;
     private final String eventId;
@@ -63,6 +64,8 @@ public final class RemoteNotificationEvent {
             case DEVICE_SENSOR_UNAVAILABLE:
             case DEVICE_WARNING:
                 return "DEVICE";
+            case GARDEN_ACCESS_REQUEST:
+                return "ACCESS";
             default:
                 return "SYSTEM";
         }
@@ -73,6 +76,7 @@ public final class RemoteNotificationEvent {
             case DEVICE_SENSOR_UNAVAILABLE:
             case DEVICE_WARNING:
             case IRRIGATION_INTERRUPTED:
+            case GARDEN_ACCESS_REQUEST:
                 return "HIGH";
             default:
                 return "NORMAL";
@@ -111,6 +115,8 @@ public final class RemoteNotificationEvent {
                 return context.getString(R.string.notification_watering_completed_title);
             case IRRIGATION_INTERRUPTED:
                 return context.getString(R.string.notification_watering_interrupted_title);
+            case GARDEN_ACCESS_REQUEST:
+                return context.getString(R.string.notification_access_request_title);
             default:
                 return context.getString(R.string.notification_remote_fallback_title);
         }
@@ -134,6 +140,8 @@ public final class RemoteNotificationEvent {
                 return context.getString(
                         R.string.notification_watering_interrupted_description,
                         durationSeconds);
+            case GARDEN_ACCESS_REQUEST:
+                return context.getString(R.string.notification_access_request_description);
             default:
                 return context.getString(R.string.notification_remote_fallback_description);
         }

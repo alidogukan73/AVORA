@@ -73,7 +73,6 @@ public class DataSyncActivity extends AppCompatActivity {
     private MaterialSwitch automaticNasBackupSwitch;
     private MaterialSwitch automaticNasPhotoBackupSwitch;
     private MaterialButton syncButton;
-    private MaterialButton nasAccountButton;
     private MaterialButton nasBackupButton;
     private MaterialButton nasRestoreButton;
     private MaterialButton nasPhotoBackupButton;
@@ -144,7 +143,6 @@ public class DataSyncActivity extends AppCompatActivity {
         automaticNasBackupSwitch = findViewById(R.id.switchDataSyncNasAutomatic);
         automaticNasPhotoBackupSwitch = findViewById(R.id.switchDataSyncNasPhotosAutomatic);
         syncButton = findViewById(R.id.btnDataSyncNow);
-        nasAccountButton = findViewById(R.id.btnDataSyncNasAccount);
         nasBackupButton = findViewById(R.id.btnDataSyncNasBackup);
         nasRestoreButton = findViewById(R.id.btnDataSyncNasRestore);
         nasPhotoBackupButton = findViewById(R.id.btnDataSyncNasPhotoBackup);
@@ -219,7 +217,7 @@ public class DataSyncActivity extends AppCompatActivity {
                 suppressSwitchCallback = false;
                 Toast.makeText(this, R.string.data_sync_nas_auto_account_required,
                         Toast.LENGTH_LONG).show();
-                showNasLoginDialog();
+                startActivity(new Intent(this, NasSecurityActivity.class));
                 return;
             }
             viewModel.setAutomaticNasBackupEnabled(checked);
@@ -242,7 +240,7 @@ public class DataSyncActivity extends AppCompatActivity {
                 suppressSwitchCallback = false;
                 Toast.makeText(this, R.string.data_sync_nas_auto_account_required,
                         Toast.LENGTH_LONG).show();
-                showNasLoginDialog();
+                startActivity(new Intent(this, NasSecurityActivity.class));
                 return;
             }
             viewModel.setAutomaticNasPhotoBackupEnabled(checked);
@@ -255,11 +253,6 @@ public class DataSyncActivity extends AppCompatActivity {
 
     private void configureActions() {
         syncButton.setOnClickListener(view -> startManualSync());
-        nasAccountButton.setOnClickListener(view -> {
-            if (nasAccountBusy) return;
-            if (activeNasSession == null) showNasLoginDialog();
-            else startActivity(new Intent(this, NasSecurityActivity.class));
-        });
         nasBackupButton.setOnClickListener(view -> beginNasBackup());
         nasRestoreButton.setOnClickListener(view -> showNasRestoreSelection());
         nasPhotoBackupButton.setOnClickListener(view -> beginNasPhotoBackup());
@@ -430,15 +423,12 @@ public class DataSyncActivity extends AppCompatActivity {
         if (activeNasSession == null) {
             nasAccountValue.setText(R.string.data_sync_nas_account_not_connected);
             nasAccountValue.setTextColor(ContextCompat.getColor(this, R.color.warning));
-            nasAccountButton.setText(R.string.data_sync_nas_account_connect);
         } else {
             nasAccountValue.setText(getString(R.string.data_sync_nas_account_connected,
                     activeNasSession.user.displayName));
             nasAccountValue.setTextColor(ContextCompat.getColor(this, R.color.online));
-            nasAccountButton.setText(R.string.data_sync_nas_account_manage);
         }
         boolean anyNasBusy = nasAccountBusy || nasBackupBusy || nasRestoreBusy || nasPhotoBusy;
-        nasAccountButton.setEnabled(!anyNasBusy);
         automaticNasBackupSwitch.setEnabled(
                 !anyNasBusy);
         automaticNasPhotoBackupSwitch.setEnabled(!anyNasBusy);
@@ -806,8 +796,12 @@ public class DataSyncActivity extends AppCompatActivity {
             throws Exception {
         String firebaseUid = viewModel.currentFirebaseUserId();
         if (firebaseUid.isEmpty()) return null;
-        return NasAuthClient.requestDeviceAccess(
+        NasAuthClient.AccessRequest request = NasAuthClient.requestDeviceAccess(
                 session.accessToken, AppInfo.DEVICE_ID, firebaseUid);
+        if (request != null && "pending".equals(request.status)) {
+            viewModel.notifyGardenAccessRequest(request.id);
+        }
+        return request;
     }
 
     private void beginFamilyAccessRequest() {

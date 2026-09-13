@@ -16,6 +16,7 @@
     <string name="notification_category_photo">Fotoğraf takibi</string>
     <string name="notification_category_plant_assistant">Bitki Asistanı</string>
     <string name="notification_category_system">Sistem</string>
+    <string name="notification_category_access">Aile ve erişim</string>
     <string name="notification_priority_high">Yüksek</string>
     <string name="notification_priority_normal">Orta</string>
     <string name="notification_priority_low">Düşük</string>
@@ -30,4 +31,6 @@
     <string name="notification_action_open_device_health">Cihaz Sağlığı’nı aç</string>
     <string name="notification_action_open_seedling_assistant">Fide Asistanı’nı aç</string>
     <string name="notification_action_open_seedling_batch">Fide partisini aç</string>
+    <string name="notification_action_open_access_requests">Erişim isteklerini aç</string>
+    <string name="notification_action_review_inactive_access">Aile erişimini incele</string>
 </resources>

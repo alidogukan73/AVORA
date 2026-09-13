@@ -1,6 +1,8 @@
 package com.alidogukan.avora.notifications;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import com.alidogukan.avora.models.GardenNotification;
 
@@ -52,6 +54,24 @@ public final class NotificationActionRouterTest {
                 "SEEDLING", "NORMAL", "seedling-daily:2026-09-10", "");
         assertEquals(NotificationActionRouter.Destination.SEEDLING_ASSISTANT,
                 NotificationActionRouter.destinationFor(summary));
+    }
+
+    @Test public void gardenAccessRequestTargetsNasSecurity() {
+        GardenNotification value = notification(
+                "ACCESS", "HIGH", "access-request:request-7", "");
+        assertEquals(NotificationActionRouter.Destination.NAS_SECURITY,
+                NotificationActionRouter.destinationFor(value));
+    }
+
+    @Test public void inactiveFamilyAccessOpensTheAccountReviewFlow() {
+        GardenNotification value = notification(
+                "ACCESS", "HIGH", "inactive-access:user-7:1789000000", "");
+        assertEquals(NotificationActionRouter.Destination.NAS_SECURITY,
+                NotificationActionRouter.destinationFor(value));
+        assertTrue(NotificationActionRouter.isInactiveAccessReview(
+                value.getSource_key()));
+        assertFalse(NotificationActionRouter.isInactiveAccessReview(
+                "access-request:request-7"));
     }
 
     private static GardenNotification notification(

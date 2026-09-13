@@ -54,6 +54,78 @@
                 tools:visibility="visible" />
 
             <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardNasSecurityDisconnected"
+                style="@style/Widget.AVORA.Card.Featured"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:visibility="gone"
+                tools:visibility="visible">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_horizontal"
+                    android:orientation="vertical"
+                    android:padding="20dp">
+
+                    <com.google.android.material.card.MaterialCardView
+                        style="@style/Widget.AVORA.Settings.IconBox"
+                        android:layout_width="56dp"
+                        android:layout_height="56dp"
+                        app:cardCornerRadius="18dp">
+
+                        <androidx.appcompat.widget.AppCompatImageView
+                            android:layout_width="32dp"
+                            android:layout_height="32dp"
+                            android:layout_gravity="center"
+                            android:contentDescription="@null"
+                            android:src="@drawable/ic_nas_security_shield_24" />
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="14dp"
+                        android:gravity="center"
+                        android:text="@string/nas_security_not_connected_title"
+                        android:textAppearance="@style/TextAppearance.AVORA.CardTitle" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="5dp"
+                        android:gravity="center"
+                        android:text="@string/nas_security_not_connected_message"
+                        android:textAppearance="@style/TextAppearance.AVORA.Settings.RowSubtitle" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnNasSecurityConnect"
+                        style="@style/Widget.AVORA.Button.Primary"
+                        android:layout_width="match_parent"
+                        android:layout_height="50dp"
+                        android:layout_marginTop="18dp"
+                        android:text="@string/data_sync_nas_account_connect" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnNasSecurityRegister"
+                        style="@style/Widget.AVORA.Button.Secondary"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:layout_marginTop="10dp"
+                        android:text="@string/data_sync_nas_register_action" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <LinearLayout
+                android:id="@+id/layoutNasSecurityConnectedContent"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone"
+                tools:visibility="visible">
+
+            <com.google.android.material.card.MaterialCardView
                 style="@style/Widget.AVORA.Card.Featured"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -217,6 +289,7 @@
                                 android:textAppearance="@style/TextAppearance.AVORA.Settings.RowTitle" />
 
                             <TextView
+                                android:id="@+id/txtNasSecurityThisDeviceDetail"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="3dp"
@@ -233,12 +306,40 @@
                             android:textStyle="bold" />
                     </LinearLayout>
 
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginStart="56dp"
+                        android:layout_marginTop="14dp"
+                        android:background="@color/divider" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="14dp"
+                        android:text="@string/nas_security_other_sessions_title"
+                        android:textAppearance="@style/TextAppearance.AVORA.Settings.Category" />
+
+                    <TextView
+                        android:id="@+id/txtNasSecurityOtherSessionsStatus"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="@string/nas_security_sessions_checking"
+                        android:textAppearance="@style/TextAppearance.AVORA.Settings.RowSubtitle" />
+
+                    <LinearLayout
+                        android:id="@+id/layoutNasSecurityOtherSessions"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical" />
+
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btnNasSecurityRevokeSessions"
                         style="@style/Widget.AVORA.Button.Secondary"
                         android:layout_width="match_parent"
                         android:layout_height="48dp"
-                        android:layout_marginTop="14dp"
+                        android:layout_marginTop="12dp"
                         android:text="@string/data_sync_nas_revoke_others"
                         app:icon="@drawable/ic_nas_security_logout_24"
                         app:iconGravity="textStart"
@@ -332,11 +433,19 @@
                     </LinearLayout>
 
                     <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnNasSecurityAccounts"
+                        style="@style/Widget.AVORA.Button.Secondary"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:layout_marginTop="14dp"
+                        android:text="@string/nas_security_view_accounts" />
+
+                    <com.google.android.material.button.MaterialButton
                         android:id="@+id/btnNasSecurityCreateInvite"
                         style="@style/Widget.AVORA.Button.Primary"
                         android:layout_width="match_parent"
                         android:layout_height="50dp"
-                        android:layout_marginTop="14dp"
+                        android:layout_marginTop="10dp"
                         android:text="@string/nas_security_create_invite_short"
                         app:icon="@drawable/ic_nas_security_add_person_24"
                         app:iconGravity="textStart"
@@ -540,6 +649,7 @@
                 android:gravity="center"
                 android:textAppearance="@style/TextAppearance.AVORA.Supporting"
                 tools:text="Son güvenlik kontrolü: Şimdi" />
+            </LinearLayout>
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 </androidx.constraintlayout.widget.ConstraintLayout>

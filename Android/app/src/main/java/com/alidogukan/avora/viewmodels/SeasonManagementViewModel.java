@@ -19,6 +19,7 @@ import com.alidogukan.avora.models.GardenEvent;
 import com.alidogukan.avora.models.GardenSeason;
 import com.alidogukan.avora.models.GardenZone;
 import com.alidogukan.avora.models.SeasonOutcome;
+import com.alidogukan.avora.models.SeedlingBatch;
 import com.alidogukan.avora.models.ZoneSeasonState;
 import com.alidogukan.avora.season.SeasonRepository;
 import com.alidogukan.avora.season.SeasonArchiveRepository;
@@ -169,6 +170,41 @@ public final class SeasonManagementViewModel extends AndroidViewModel {
     ) {
         return seasonRepository.startSeason(
                 zone, plantingDate, growthStage, label, configuration);
+    }
+
+    public Task<Void> transferSeedlingToSeason(
+            GardenZone zone,
+            String plantingDate,
+            String label,
+            CropCatalogItem crop,
+            SeedlingBatch batch
+    ) {
+        String cropName = batch == null ? "" : safe(batch.getPlant_type());
+        String plantType = crop == null
+                ? SeasonStartConfiguration.customPlantType(cropName)
+                : crop.getPlant_type();
+        String emoji = batch == null || safe(batch.getEmoji()).isBlank()
+                ? (crop == null ? "🌱" : crop.getEmoji())
+                : batch.getEmoji();
+        // A missing/renamed legacy catalog entry must never disable automatic
+        // watering with the old 0..100 fallback.
+        int moistureMin = crop == null ? 40 : crop.getIdeal_moisture_min();
+        int moistureMax = crop == null ? 60 : crop.getIdeal_moisture_max();
+        SeasonStartConfiguration configuration = new SeasonStartConfiguration(
+                cropName,
+                plantType,
+                emoji,
+                moistureMin,
+                moistureMax
+        );
+        return seasonRepository.transferSeedlingToSeason(
+                zone,
+                plantingDate,
+                "SEEDLING",
+                label,
+                configuration,
+                batch
+        );
     }
 
     public Task<Void> startSeason(

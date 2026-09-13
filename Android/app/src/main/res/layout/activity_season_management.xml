@@ -33,12 +33,14 @@
                 android:orientation="vertical">
 
                 <TextView
+                    android:id="@+id/txtSeasonManagementTitle"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/season_management_title"
                     android:textAppearance="@style/TextAppearance.AVORA.ScreenTitle" />
 
                 <TextView
+                    android:id="@+id/txtSeasonManagementSubtitle"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
@@ -60,12 +62,14 @@
                 android:padding="16dp">
 
                 <TextView
+                    android:id="@+id/txtSeasonManagementInfoTitle"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/season_management_info_title"
                     android:textAppearance="@style/TextAppearance.AVORA.CardTitle" />
 
                 <TextView
+                    android:id="@+id/txtSeasonManagementInfoBody"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="5dp"

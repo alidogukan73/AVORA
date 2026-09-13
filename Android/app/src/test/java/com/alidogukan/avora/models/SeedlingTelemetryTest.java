@@ -7,8 +7,19 @@ import org.junit.Test;
 
 public final class SeedlingTelemetryTest {
     @Test public void smallFutureClockDifferenceDoesNotMakeLiveReadingStale() {
-        SeedlingTelemetry telemetry = telemetry(true, 10_005L);
+        SeedlingTelemetry telemetry = telemetry(
+                true,
+                10_000L + SeedlingTelemetry.MAX_FUTURE_SKEW_SECONDS
+        );
         assertTrue(telemetry.isFresh(10_000L, 45L));
+    }
+
+    @Test public void timestampBeyondClockSkewLimitIsRejected() {
+        SeedlingTelemetry telemetry = telemetry(
+                true,
+                10_000L + SeedlingTelemetry.MAX_FUTURE_SKEW_SECONDS + 1L
+        );
+        assertFalse(telemetry.isFresh(10_000L, 45L));
     }
 
     @Test public void oldOrOfflineReadingIsNotFresh() {

@@ -35,6 +35,7 @@ public class NotificationDetailActivity extends EdgeToEdgeActivity {
     private static final String TYPE_PLANT_ASSISTANT = "PLANT_ASSISTANT";
     private static final String TYPE_WEATHER = "WEATHER";
     private static final String TYPE_DEVICE = "DEVICE";
+    private static final String TYPE_ACCESS = "ACCESS";
     private static final String TYPE_SEEDLING = "SEEDLING";
     private static final String TYPE_SEEDLING_ASSISTANT = "SEEDLING_ASSISTANT";
 
@@ -273,6 +274,7 @@ public class NotificationDetailActivity extends EdgeToEdgeActivity {
         if (TYPE_PLANT.equalsIgnoreCase(type) || TYPE_PLANT_ASSISTANT.equalsIgnoreCase(type)) return getString(R.string.notification_category_plant_assistant);
         if (TYPE_WEATHER.equalsIgnoreCase(type)) return getString(R.string.notification_category_weather);
         if (TYPE_DEVICE.equalsIgnoreCase(type)) return getString(R.string.notification_category_device);
+        if (TYPE_ACCESS.equalsIgnoreCase(type)) return getString(R.string.notification_category_access);
         if (TYPE_SEEDLING.equalsIgnoreCase(type)
                 || TYPE_SEEDLING_ASSISTANT.equalsIgnoreCase(type)) {
             return getString(R.string.notification_category_seedling);
@@ -300,6 +302,7 @@ public class NotificationDetailActivity extends EdgeToEdgeActivity {
         if (TYPE_PLANT.equalsIgnoreCase(type) || TYPE_PLANT_ASSISTANT.equalsIgnoreCase(type)) return getString(R.string.symbol_sparkle);
         if (TYPE_WEATHER.equalsIgnoreCase(type)) return getString(R.string.symbol_sun);
         if (TYPE_DEVICE.equalsIgnoreCase(type)) return getString(R.string.symbol_notification);
+        if (TYPE_ACCESS.equalsIgnoreCase(type)) return "🔐";
         if (TYPE_SEEDLING.equalsIgnoreCase(type)
                 || TYPE_SEEDLING_ASSISTANT.equalsIgnoreCase(type)) return "🌱";
         return getString(R.string.symbol_bullet);

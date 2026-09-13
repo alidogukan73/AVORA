@@ -56,6 +56,7 @@ public final class NotificationPolicy {
                 return "weather";
             case "DEVICE":
             case "SYSTEM":
+            case "ACCESS":
                 return "device";
             case "PLANT":
             case "PLANT_ASSISTANT":

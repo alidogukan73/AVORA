@@ -26,6 +26,11 @@ public final class SeedlingRepository {
             .getReference("devices").child(AppInfo.DEVICE_ID).child("seedling");
 
     public LiveData<List<SeedlingBatch>> observeBatches() {
+        return observeBatches(() -> { });
+    }
+
+    public LiveData<List<SeedlingBatch>> observeBatches(
+            @NonNull Runnable errorHandler) {
         DatabaseReference reference = root.child("batches");
         FirebaseLiveData<List<SeedlingBatch>> result = new FirebaseLiveData<>(reference);
         result.setEventListener(new ValueEventListener() {
@@ -41,13 +46,18 @@ public final class SeedlingRepository {
                 result.setValue(values);
             }
             @Override public void onCancelled(@NonNull DatabaseError error) {
-                result.setValue(new ArrayList<>());
+                errorHandler.run();
             }
         });
         return result;
     }
 
     public LiveData<SeedlingBatch> observeBatch(String batchId) {
+        return observeBatch(batchId, () -> { });
+    }
+
+    public LiveData<SeedlingBatch> observeBatch(
+            String batchId, @NonNull Runnable errorHandler) {
         DatabaseReference reference = root.child("batches").child(safeId(batchId));
         FirebaseLiveData<SeedlingBatch> result = new FirebaseLiveData<>(reference);
         result.setEventListener(new ValueEventListener() {
@@ -60,24 +70,38 @@ public final class SeedlingRepository {
                 }
                 result.setValue(value);
             }
-            @Override public void onCancelled(@NonNull DatabaseError error) { result.setValue(null); }
+            @Override public void onCancelled(@NonNull DatabaseError error) {
+                errorHandler.run();
+            }
         });
         return result;
     }
 
     public LiveData<SeedlingNodeState> observeNode(String nodeId) {
+        return observeNode(nodeId, () -> { });
+    }
+
+    public LiveData<SeedlingNodeState> observeNode(
+            String nodeId, @NonNull Runnable errorHandler) {
         DatabaseReference reference = root.child("nodes").child(safeId(nodeId));
         FirebaseLiveData<SeedlingNodeState> result = new FirebaseLiveData<>(reference);
         result.setEventListener(new ValueEventListener() {
             @Override public void onDataChange(@NonNull DataSnapshot snapshot) {
                 result.setValue(snapshot.getValue(SeedlingNodeState.class));
             }
-            @Override public void onCancelled(@NonNull DatabaseError error) { result.setValue(null); }
+            @Override public void onCancelled(@NonNull DatabaseError error) {
+                errorHandler.run();
+            }
         });
         return result;
     }
 
     public LiveData<List<SeedlingDailyLog>> observeLogs(String batchId) {
+        return observeLogs(batchId, () -> { });
+    }
+
+    public LiveData<List<SeedlingDailyLog>> observeLogs(
+            String batchId, @NonNull Runnable errorHandler) {
         DatabaseReference reference = root.child("daily_logs").child(safeId(batchId));
         FirebaseLiveData<List<SeedlingDailyLog>> result = new FirebaseLiveData<>(reference);
         result.setEventListener(new ValueEventListener() {
@@ -91,7 +115,7 @@ public final class SeedlingRepository {
                 result.setValue(values);
             }
             @Override public void onCancelled(@NonNull DatabaseError error) {
-                result.setValue(new ArrayList<>());
+                errorHandler.run();
             }
         });
         return result;
@@ -112,29 +136,74 @@ public final class SeedlingRepository {
     }
 
     public Task<Void> create(SeedlingBatch batch) {
-        if (batch == null || batch.getPlant_type().isBlank() || batch.getSeed_count() <= 0
-                || batch.getTray_cell_count() <= 0) {
+        if (!SeedlingValidation.isValidNewBatch(batch)) {
             return Tasks.forException(new IllegalArgumentException("Fide partisi bilgileri eksik."));
         }
         FirebaseDatabase.getInstance().goOnline();
         String key = root.child("batches").push().getKey();
         if (key == null) return Tasks.forException(new IllegalStateException("Parti kimliği üretilemedi."));
         batch.setBatch_id(key);
-        return root.child("batches").child(key).setValue(batch);
+        return root.child("batches").child(key).setValue(batchCreateValues(batch));
+    }
+
+    /**
+     * Creates a bounded Firebase payload without serialising empty lifecycle
+     * fields. Empty transfer fields are invalid according to the live schema.
+     */
+    static Map<String, Object> batchCreateValues(SeedlingBatch batch) {
+        Map<String, Object> values = new HashMap<>();
+        values.put("batch_id", batch.getBatch_id());
+        if (!batch.getCrop_id().isBlank()) values.put("crop_id", batch.getCrop_id());
+        values.put("plant_type", batch.getPlant_type());
+        values.put("emoji", batch.getEmoji());
+        values.put("variety", batch.getVariety());
+        values.put("area", batch.getArea());
+        values.put("node_id", batch.getNode_id());
+        values.put("status", SeedlingBatch.STATUS_ACTIVE);
+        values.put("stage", SeedlingStagePolicy.normalize(batch.getStage()));
+        values.put("sowing_date_epoch", batch.getSowing_date_epoch());
+        values.put("estimated_emergence_epoch", batch.getEstimated_emergence_epoch());
+        values.put("estimated_transplant_epoch", batch.getEstimated_transplant_epoch());
+        values.put("seed_count", batch.getSeed_count());
+        values.put("tray_cell_count", batch.getTray_cell_count());
+        values.put("healthy_count", batch.getHealthy_count());
+        values.put("created_at_epoch", batch.getCreated_at_epoch());
+        values.put("updated_at_epoch", batch.getUpdated_at_epoch());
+        return values;
     }
 
     public Task<Void> saveLog(SeedlingDailyLog log) {
         if (log == null || log.getBatch_id().isBlank()) {
             return Tasks.forException(new IllegalArgumentException("Fide partisi gerekli."));
         }
-        String key = root.child("daily_logs").child(log.getBatch_id()).push().getKey();
-        if (key == null) return Tasks.forException(new IllegalStateException("Günlük kimliği üretilemedi."));
-        log.setLog_id(key);
-        Map<String, Object> updates = new HashMap<>();
-        updates.put("daily_logs/" + log.getBatch_id() + "/" + key, log);
-        updates.put("batches/" + log.getBatch_id() + "/healthy_count", log.getHealthy_count());
-        updates.put("batches/" + log.getBatch_id() + "/updated_at_epoch", log.getCreated_at_epoch());
-        return root.updateChildren(updates);
+        final String batchId;
+        try {
+            batchId = safeId(log.getBatch_id());
+        } catch (IllegalArgumentException error) {
+            return Tasks.forException(error);
+        }
+        FirebaseDatabase.getInstance().goOnline();
+        return root.child("batches").child(batchId).get().continueWithTask(task -> {
+            if (!task.isSuccessful()) return failedRead(task.getException());
+            SeedlingBatch batch = task.getResult().getValue(SeedlingBatch.class);
+            if (batch == null) {
+                return Tasks.forException(new IllegalStateException("Fide partisi bulunamadı."));
+            }
+            if (!batch.isActive()) return Tasks.forException(new BatchReadOnlyException());
+            if (!SeedlingValidation.isValidLog(log, batch)) {
+                return Tasks.forException(new IllegalArgumentException("Günlük bilgileri geçersiz."));
+            }
+            String key = root.child("daily_logs").child(batchId).push().getKey();
+            if (key == null) {
+                return Tasks.forException(new IllegalStateException("Günlük kimliği üretilemedi."));
+            }
+            log.setLog_id(key);
+            Map<String, Object> updates = new HashMap<>();
+            updates.put("daily_logs/" + batchId + "/" + key, log);
+            updates.put("batches/" + batchId + "/healthy_count", log.getHealthy_count());
+            updates.put("batches/" + batchId + "/updated_at_epoch", log.getCreated_at_epoch());
+            return root.updateChildren(updates);
+        });
     }
 
     /** Updates one observation without changing its original observation time. */
@@ -151,14 +220,25 @@ public final class SeedlingRepository {
             return Tasks.forException(error);
         }
         FirebaseDatabase.getInstance().goOnline();
-        return root.child("daily_logs").child(batchId).get().continueWithTask(task -> {
+        return root.get().continueWithTask(task -> {
             if (!task.isSuccessful()) {
                 Exception error = task.getException();
                 return Tasks.forException(error == null
                         ? new IllegalStateException("Günlük kaydı kontrol edilemedi.")
                         : error);
             }
-            List<SeedlingDailyLog> current = logsFrom(task.getResult());
+            DataSnapshot snapshot = task.getResult();
+            SeedlingBatch batch = snapshot.child("batches").child(batchId)
+                    .getValue(SeedlingBatch.class);
+            if (batch == null) {
+                return Tasks.forException(new IllegalStateException("Fide partisi bulunamadı."));
+            }
+            if (!batch.isActive()) return Tasks.forException(new BatchReadOnlyException());
+            if (!SeedlingValidation.isValidLog(log, batch)) {
+                return Tasks.forException(new IllegalArgumentException("Günlük bilgileri geçersiz."));
+            }
+            List<SeedlingDailyLog> current = logsFrom(
+                    snapshot.child("daily_logs").child(batchId));
             boolean exists = false;
             for (SeedlingDailyLog value : current) {
                 if (logId.equals(value.getLog_id())) {
@@ -204,6 +284,10 @@ public final class SeedlingRepository {
             if (!batchSnapshot.exists() || !logSnapshot.exists()) {
                 return Tasks.forException(new IllegalStateException("Günlük kaydı bulunamadı."));
             }
+            SeedlingBatch persistedBatch = batchSnapshot.getValue(SeedlingBatch.class);
+            if (persistedBatch == null || !persistedBatch.isActive()) {
+                return Tasks.forException(new BatchReadOnlyException());
+            }
 
             List<SeedlingDailyLog> current = logsFrom(
                     snapshot.child("daily_logs").child(batchId));
@@ -233,8 +317,8 @@ public final class SeedlingRepository {
 
     private Task<Void> updateStage(String batchId, String stage, boolean recordReachedAt) {
         long nowEpoch = System.currentTimeMillis() / 1000L;
-        return root.child("batches").child(safeId(batchId))
-                .updateChildren(stageUpdateValues(stage, nowEpoch, recordReachedAt));
+        return updateActiveBatch(batchId,
+                stageUpdateValues(stage, nowEpoch, recordReachedAt));
     }
 
     static Map<String, Object> stageUpdateValues(String stage, long nowEpoch,
@@ -340,20 +424,94 @@ public final class SeedlingRepository {
         return Math.max(previous, Math.min(estimate, upper));
     }
 
+    /** Hides a batch from active tracking without deleting its history. */
+    public Task<Void> archiveBatch(String batchId) {
+        long now = System.currentTimeMillis() / 1000L;
+        return updateActiveBatch(batchId, manualArchiveUpdateValues(now));
+    }
+
+    /** Restores only manually archived batches; transferred batches stay linked to their season. */
+    public Task<Void> restoreBatch(SeedlingBatch batch) {
+        if (batch == null || !batch.isArchived()) {
+            return Tasks.forException(new IllegalArgumentException(
+                    "Arşivlenmiş fide partisi gerekli."));
+        }
+        if (batch.isTransferred()) {
+            return Tasks.forException(new IllegalStateException(
+                    "Sezona aktarılmış fide partisi doğrudan geri alınamaz."));
+        }
+        final String id;
+        try {
+            id = safeId(batch.getBatch_id());
+        } catch (IllegalArgumentException error) {
+            return Tasks.forException(error);
+        }
+        FirebaseDatabase.getInstance().goOnline();
+        return root.child("batches").child(id).get().continueWithTask(task -> {
+            if (!task.isSuccessful()) return failedRead(task.getException());
+            SeedlingBatch persisted = task.getResult().getValue(SeedlingBatch.class);
+            if (persisted == null || !persisted.isArchived()) {
+                return Tasks.forException(new IllegalStateException(
+                        "Arşivlenmiş fide partisi bulunamadı."));
+            }
+            if (persisted.isTransferred()) {
+                return Tasks.forException(new IllegalStateException(
+                        "Sezona aktarılmış fide partisi doğrudan geri alınamaz."));
+            }
+            return root.child("batches").child(id).updateChildren(
+                    restoreUpdateValues(System.currentTimeMillis() / 1000L));
+        });
+    }
+
+    static Map<String, Object> manualArchiveUpdateValues(long nowEpoch) {
+        long now = Math.max(0L, nowEpoch);
+        Map<String, Object> values = new HashMap<>();
+        values.put("status", SeedlingBatch.STATUS_ARCHIVED);
+        values.put("archive_reason", SeedlingBatch.ARCHIVE_REASON_MANUAL);
+        values.put("archived_at_epoch", now);
+        values.put("updated_at_epoch", now);
+        return values;
+    }
+
+    static Map<String, Object> restoreUpdateValues(long nowEpoch) {
+        long now = Math.max(0L, nowEpoch);
+        Map<String, Object> values = new HashMap<>();
+        values.put("status", SeedlingBatch.STATUS_ACTIVE);
+        values.put("archive_reason", null);
+        values.put("archived_at_epoch", 0L);
+        values.put("updated_at_epoch", now);
+        return values;
+    }
+
     /** Deletes an empty batch, while preserving every batch that owns a daily log. */
     public Task<Void> deleteBatch(String batchId) {
         FirebaseDatabase.getInstance().goOnline();
-        return hasDailyLogs(batchId).continueWithTask(task -> {
+        final String id;
+        try {
+            id = safeId(batchId);
+        } catch (IllegalArgumentException error) {
+            return Tasks.forException(error);
+        }
+        return root.get().continueWithTask(task -> {
             if (!task.isSuccessful()) {
                 Exception error = task.getException();
                 return Tasks.forException(error == null
                         ? new IllegalStateException("Günlük kayıtları kontrol edilemedi.")
                         : error);
             }
-            if (Boolean.TRUE.equals(task.getResult())) {
+            DataSnapshot snapshot = task.getResult();
+            SeedlingBatch persisted = snapshot.child("batches").child(id)
+                    .getValue(SeedlingBatch.class);
+            if (persisted == null) {
+                return Tasks.forException(new IllegalStateException("Fide partisi bulunamadı."));
+            }
+            if (persisted.isTransferred()) {
+                return Tasks.forException(new BatchTransferredException());
+            }
+            if (snapshot.child("daily_logs").child(id).hasChildren()) {
                 return Tasks.forException(new BatchHasDailyLogsException());
             }
-            return root.updateChildren(batchDeletionUpdates(batchId));
+            return root.updateChildren(batchDeletionUpdates(id));
         });
     }
 
@@ -407,6 +565,43 @@ public final class SeedlingRepository {
         public BatchHasDailyLogsException() {
             super("Günlük kaydı bulunan fide partisi silinemez.");
         }
+    }
+
+    public static final class BatchTransferredException extends IllegalStateException {
+        public BatchTransferredException() {
+            super("Sezona bağlı fide partisi doğrudan silinemez.");
+        }
+    }
+
+    public static final class BatchReadOnlyException extends IllegalStateException {
+        public BatchReadOnlyException() {
+            super("Arşivlenmiş fide partisinin günlükleri değiştirilemez.");
+        }
+    }
+
+    private static Task<Void> failedRead(Exception error) {
+        return Tasks.forException(error == null
+                ? new IllegalStateException("Fide partisi kontrol edilemedi.") : error);
+    }
+
+    private Task<Void> updateActiveBatch(String batchId, Map<String, Object> values) {
+        final String id;
+        try {
+            id = safeId(batchId);
+        } catch (IllegalArgumentException error) {
+            return Tasks.forException(error);
+        }
+        FirebaseDatabase.getInstance().goOnline();
+        DatabaseReference reference = root.child("batches").child(id);
+        return reference.get().continueWithTask(task -> {
+            if (!task.isSuccessful()) return failedRead(task.getException());
+            SeedlingBatch persisted = task.getResult().getValue(SeedlingBatch.class);
+            if (persisted == null) {
+                return Tasks.forException(new IllegalStateException("Fide partisi bulunamadı."));
+            }
+            if (!persisted.isActive()) return Tasks.forException(new BatchReadOnlyException());
+            return reference.updateChildren(values);
+        });
     }
 
     private static String safeId(String value) {

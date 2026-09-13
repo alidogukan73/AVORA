@@ -17,6 +17,7 @@ import com.alidogukan.avora.R;
 import com.alidogukan.avora.models.CropCatalogItem;
 import com.alidogukan.avora.seedling.SeedlingCropCatalog;
 import com.alidogukan.avora.seedling.SeedlingPlantingGuide;
+import com.alidogukan.avora.seedling.SeedlingValidation;
 import com.alidogukan.avora.seedling.SeedlingVarietyCatalog;
 import com.alidogukan.avora.viewmodels.SeedlingViewModel;
 import com.google.android.material.button.MaterialButton;
@@ -33,6 +34,11 @@ import java.util.Locale;
 public final class SeedlingBatchEditorActivity extends EdgeToEdgeActivity {
     private static final DateTimeFormatter DATE_FORMAT =
             DateTimeFormatter.ofPattern("dd.MM.yyyy", Locale.forLanguageTag("tr-TR"));
+    private static final String STATE_CROP_ID = "seedling_editor_crop_id";
+    private static final String STATE_VARIETY = "seedling_editor_variety";
+    private static final String STATE_AREA = "seedling_editor_area";
+    private static final String STATE_SOWING_DAY = "seedling_editor_sowing_day";
+    private static final String STATE_PRESERVED_TRAY = "seedling_editor_preserved_tray";
 
     private final List<CropCatalogItem> crops = new ArrayList<>();
     private SeedlingViewModel viewModel;
@@ -54,6 +60,7 @@ public final class SeedlingBatchEditorActivity extends EdgeToEdgeActivity {
     private String selectedArea = "";
     private LocalDate sowingDate = LocalDate.now();
     private int preservedTrayCellCount = 100;
+    private String pendingCropId = "";
 
     @Override protected void onCreate(@Nullable Bundle state) {
         super.onCreate(state);
@@ -74,9 +81,18 @@ public final class SeedlingBatchEditorActivity extends EdgeToEdgeActivity {
         trayCells = findViewById(R.id.inputSeedlingTrayCells);
         create = findViewById(R.id.btnCreateSeedlingBatch);
 
-        seedCount.setText(R.string.seedling_form_seed_hint);
-        trayCells.setText(R.string.seedling_form_tray_hint);
-        selectedArea = getResources().getStringArray(R.array.seedling_area_options)[0];
+        if (state == null) {
+            seedCount.setText(R.string.seedling_form_seed_hint);
+            trayCells.setText(R.string.seedling_form_tray_hint);
+            selectedArea = getResources().getStringArray(R.array.seedling_area_options)[0];
+        } else {
+            pendingCropId = state.getString(STATE_CROP_ID, "");
+            selectedVariety = state.getString(STATE_VARIETY, "");
+            selectedArea = state.getString(STATE_AREA, "");
+            sowingDate = LocalDate.ofEpochDay(state.getLong(
+                    STATE_SOWING_DAY, LocalDate.now().toEpochDay()));
+            preservedTrayCellCount = state.getInt(STATE_PRESERVED_TRAY, 100);
+        }
 
         findViewById(R.id.btnBack).setOnClickListener(view -> finish());
         findViewById(R.id.rowSeedlingPlant).setOnClickListener(view -> showCropPicker());
@@ -85,14 +101,15 @@ public final class SeedlingBatchEditorActivity extends EdgeToEdgeActivity {
         findViewById(R.id.rowSeedlingArea).setOnClickListener(view -> showAreaPicker());
         create.setOnClickListener(view -> submit());
 
-        updateCrops(viewModel.mergedCrops(null), false);
+        updateCrops(viewModel.mergedCrops(null), state != null);
         viewModel.getCropCatalogItems().observe(this,
                 values -> updateCrops(viewModel.mergedCrops(values), true));
     }
 
     private void updateCrops(List<CropCatalogItem> values, boolean preserveSelection) {
-        String selectedId = preserveSelection && selectedCrop != null
-                ? selectedCrop.getCrop_id() : null;
+        String selectedId = preserveSelection
+                ? (selectedCrop == null ? pendingCropId : selectedCrop.getCrop_id())
+                : null;
         crops.clear();
         if (values != null) crops.addAll(values);
         selectedCrop = findCrop(selectedId);
@@ -101,7 +118,7 @@ public final class SeedlingBatchEditorActivity extends EdgeToEdgeActivity {
         List<String> varieties = varietiesForSelectedCrop();
         String preservedVariety = SeedlingVarietyCatalog.find(varieties, selectedVariety);
         if (!preserveSelection || preservedVariety == null) {
-            selectedVariety = varieties.get(0);
+            selectedVariety = varieties.isEmpty() ? "" : varieties.get(0);
         } else {
             selectedVariety = preservedVariety;
         }
@@ -132,8 +149,9 @@ public final class SeedlingBatchEditorActivity extends EdgeToEdgeActivity {
                 .setTitle(R.string.seedling_plant_type)
                 .setSingleChoiceItems(labels, selectedIndex, (dialog, which) -> {
                     selectedCrop = crops.get(which);
+                    pendingCropId = selectedCrop.getCrop_id();
                     List<String> varieties = varietiesForSelectedCrop();
-                    selectedVariety = varieties.get(0);
+                    selectedVariety = varieties.isEmpty() ? "" : varieties.get(0);
                     renderSelection();
                     dialog.dismiss();
                 })
@@ -290,6 +308,8 @@ public final class SeedlingBatchEditorActivity extends EdgeToEdgeActivity {
                 SeedlingPlantingGuide.forCrop(selectedCrop);
         if (selectedCrop == null || selectedVariety.isBlank()
                 || seedValue <= 0
+                || seedValue > SeedlingValidation.MAX_SEED_COUNT
+                || trayValue > SeedlingValidation.MAX_TRAY_CELL_COUNT
                 || (plantingGuide.isTrayCountRequired() && trayValue <= 0)) {
             Toast.makeText(this, plantingGuide.isTrayCountRequired()
                             ? R.string.seedling_required_fields
@@ -328,5 +348,15 @@ public final class SeedlingBatchEditorActivity extends EdgeToEdgeActivity {
 
     private static long epoch(LocalDate value) {
         return value.atStartOfDay(ZoneId.systemDefault()).toEpochSecond();
+    }
+
+    @Override protected void onSaveInstanceState(Bundle state) {
+        state.putString(STATE_CROP_ID, selectedCrop == null
+                ? pendingCropId : selectedCrop.getCrop_id());
+        state.putString(STATE_VARIETY, selectedVariety);
+        state.putString(STATE_AREA, selectedArea);
+        state.putLong(STATE_SOWING_DAY, sowingDate.toEpochDay());
+        state.putInt(STATE_PRESERVED_TRAY, preservedTrayCellCount);
+        super.onSaveInstanceState(state);
     }
 }

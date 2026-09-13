@@ -50,6 +50,10 @@
     <string name="notification_channel_normal_description">Sulama, gübreleme, Bitki ve Fide Asistanı, stok ve sistem bildirimleri</string>
     <string name="notification_channel_urgent_name">AVORA kritik uyarıları</string>
     <string name="notification_channel_urgent_description">Acil cihaz, kritik stok ve gecikmiş işlem uyarıları</string>
+    <string name="notification_access_request_title">Yeni bahçe erişim isteği</string>
+    <string name="notification_access_request_description">Bir aile üyesi AVORA bahçesine erişmek için onayınızı bekliyor.</string>
+    <string name="notification_inactive_access_title">Aile erişimini gözden geçirin</string>
+    <string name="notification_inactive_access_description">%1$s 30 gündür NAS’a bağlanmadı. Bahçe erişimini korumak veya kaldırmak için inceleyin.</string>
     <string name="notification_remote_fallback_title">AVORA bildirimi</string>
     <string name="notification_remote_fallback_description">Bahçenizde yeni bir gelişme var.</string>
     <string name="notification_fertilizer_due_today_title">Gübre uygulaması bugün</string>

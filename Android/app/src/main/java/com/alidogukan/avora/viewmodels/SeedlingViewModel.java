@@ -6,32 +6,36 @@ import android.net.Uri;
 import androidx.annotation.NonNull;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.AndroidViewModel;
+import androidx.lifecycle.MutableLiveData;
+import com.alidogukan.avora.R;
 import com.alidogukan.avora.crop.CropCatalog;
 import com.alidogukan.avora.firebase.FirebaseRepository;
 import com.alidogukan.avora.models.CropCatalogItem;
 import com.alidogukan.avora.models.SeedlingBatch;
 import com.alidogukan.avora.models.SeedlingDailyLog;
 import com.alidogukan.avora.models.SeedlingNodeState;
-import com.alidogukan.avora.models.SeedlingRecommendation;
 import com.alidogukan.avora.models.GardenPhoto;
 import com.alidogukan.avora.models.SeedlingPhotoUpload;
-import com.alidogukan.avora.seedling.SeedlingRecommendationTiming;
 import com.alidogukan.avora.seedling.SeedlingRepository;
 import com.alidogukan.avora.seedling.SeedlingStagePolicy;
 import com.alidogukan.avora.seedling.SeedlingCropCatalog;
 import com.alidogukan.avora.seedling.SeedlingDailyPhotoStore;
 import com.alidogukan.avora.seedling.SeedlingVarietyCatalog;
 import com.alidogukan.avora.seedling.SeedlingVarietyStore;
+import com.alidogukan.avora.season.SeasonRepository;
 import com.google.android.gms.tasks.Task;
 import java.util.List;
 
 /** Owns all seedling data operations; screens only validate and render input. */
 public final class SeedlingViewModel extends AndroidViewModel {
     private final SeedlingRepository repository = new SeedlingRepository();
+    private final SeasonRepository seasonRepository = new SeasonRepository();
     private final SeedlingDailyPhotoStore photoStore;
     private final FirebaseRepository firebaseRepository = new FirebaseRepository();
     private final SeedlingVarietyStore varietyStore;
-    private final LiveData<List<SeedlingBatch>> batches = repository.observeBatches();
+    private final MutableLiveData<OneShotEvent<Integer>> readError = new MutableLiveData<>();
+    private final LiveData<List<SeedlingBatch>> batches =
+            repository.observeBatches(this::reportReadError);
     private final LiveData<List<CropCatalogItem>> cropCatalogItems =
             firebaseRepository.observeCropCatalogItems();
 
@@ -42,6 +46,7 @@ public final class SeedlingViewModel extends AndroidViewModel {
     }
 
     public LiveData<List<SeedlingBatch>> getBatches() { return batches; }
+    public LiveData<OneShotEvent<Integer>> getReadError() { return readError; }
     public LiveData<List<CropCatalogItem>> getCropCatalogItems() { return cropCatalogItems; }
     public List<CropCatalogItem> mergedCrops(List<CropCatalogItem> values) {
         return CropCatalog.merge(values);
@@ -62,10 +67,20 @@ public final class SeedlingViewModel extends AndroidViewModel {
         if (crop != null) varietyStore.add(crop.getCrop_id(), normalized);
         return normalized;
     }
-    public LiveData<SeedlingBatch> getBatch(String id) { return repository.observeBatch(id); }
-    public LiveData<SeedlingNodeState> getNode(String id) { return repository.observeNode(id); }
-    public LiveData<List<SeedlingDailyLog>> getLogs(String id) { return repository.observeLogs(id); }
+    public LiveData<SeedlingBatch> getBatch(String id) {
+        return repository.observeBatch(id, this::reportReadError);
+    }
+    public LiveData<SeedlingNodeState> getNode(String id) {
+        return repository.observeNode(id, this::reportReadError);
+    }
+    public LiveData<List<SeedlingDailyLog>> getLogs(String id) {
+        return repository.observeLogs(id, this::reportReadError);
+    }
     public Task<Boolean> hasDailyLogs(String id) { return repository.hasDailyLogs(id); }
+
+    private void reportReadError() {
+        readError.postValue(new OneShotEvent<>(R.string.seedling_read_failed));
+    }
 
     public Task<Void> createBatch(CropCatalogItem crop, String variety, String area,
                                   int seedCount, int trayCells, long sowingEpoch,
@@ -76,6 +91,7 @@ public final class SeedlingViewModel extends AndroidViewModel {
         }
         long now = System.currentTimeMillis() / 1000L;
         SeedlingBatch batch = new SeedlingBatch();
+        batch.setCrop_id(crop.getCrop_id());
         batch.setPlant_type(crop.getName());
         batch.setEmoji(crop.getEmoji());
         batch.setVariety(variety);
@@ -164,23 +180,28 @@ public final class SeedlingViewModel extends AndroidViewModel {
         return repository.deleteBatch(batchId);
     }
 
+    public Task<Void> archiveBatch(String batchId) {
+        return repository.archiveBatch(batchId);
+    }
+
+    public Task<Void> restoreBatch(SeedlingBatch batch) {
+        return repository.restoreBatch(batch);
+    }
+
+    public Task<Void> undoSeasonTransfer(SeedlingBatch batch) {
+        return seasonRepository.undoSeedlingTransfer(batch);
+    }
+
     public boolean isDeletionBlockedByLogs(Throwable error) {
         Throwable current = error;
         while (current != null) {
-            if (current instanceof SeedlingRepository.BatchHasDailyLogsException) return true;
+            if (current instanceof SeedlingRepository.BatchHasDailyLogsException
+                    || current instanceof SeedlingRepository.BatchTransferredException) {
+                return true;
+            }
             current = current.getCause();
         }
         return false;
-    }
-
-    public String recommendationAction(SeedlingRecommendation advice) {
-        return SeedlingRecommendationTiming.actionForDisplay(
-                advice, System.currentTimeMillis());
-    }
-
-    public String recommendationMessage(SeedlingRecommendation advice) {
-        return SeedlingRecommendationTiming.messageForDisplay(
-                advice, System.currentTimeMillis());
     }
 
     public boolean canAdvance(SeedlingBatch batch) {
@@ -202,6 +223,14 @@ public final class SeedlingViewModel extends AndroidViewModel {
                 SeedlingStagePolicy.normalize(batch.getStage()));
     }
 
+    public boolean isActive(SeedlingBatch batch) {
+        return batch != null && batch.isActive();
+    }
+
+    public boolean isArchived(SeedlingBatch batch) {
+        return batch != null && batch.isArchived();
+    }
+
     public int progress(SeedlingBatch batch) {
         return batch == null ? 1 : SeedlingStagePolicy.progress(batch.getStage());
     }
@@ -213,12 +242,18 @@ public final class SeedlingViewModel extends AndroidViewModel {
 
     public String stageLabel(String stage) {
         switch (SeedlingStagePolicy.normalize(stage)) {
-            case SeedlingStagePolicy.GERMINATING: return "Çimlenme";
-            case SeedlingStagePolicy.COTYLEDON: return "İlk yaprak";
-            case SeedlingStagePolicy.TRUE_LEAVES: return "2–3 gerçek yaprak";
-            case SeedlingStagePolicy.HARDENING: return "Şaşırtma / alıştırma";
-            case SeedlingStagePolicy.READY: return "Dikime hazır";
-            default: return "Ekim";
+            case SeedlingStagePolicy.GERMINATING:
+                return getApplication().getString(R.string.seedling_stage_germination);
+            case SeedlingStagePolicy.COTYLEDON:
+                return getApplication().getString(R.string.seedling_stage_first_leaf);
+            case SeedlingStagePolicy.TRUE_LEAVES:
+                return getApplication().getString(R.string.seedling_stage_true_leaves);
+            case SeedlingStagePolicy.HARDENING:
+                return getApplication().getString(R.string.seedling_stage_hardening);
+            case SeedlingStagePolicy.READY:
+                return getApplication().getString(R.string.seedling_stage_ready_plain);
+            default:
+                return getApplication().getString(R.string.seedling_stage_sowing);
         }
     }
 
