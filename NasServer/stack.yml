@@ -50,7 +50,7 @@ services:
   avora-tunnel:
     image: tailscale/tailscale:stable
     container_name: avora-tailscale
-    restart: unless-stopped
+    restart: always
     network_mode: "service:avora-api"
     depends_on:
       avora-api:
