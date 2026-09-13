@@ -23,19 +23,12 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.lifecycle.ViewModelProvider;
 
 import com.alidogukan.avora.R;
-import com.alidogukan.avora.backup.AvoraBackupManager;
 import com.alidogukan.avora.config.AppInfo;
 import com.alidogukan.avora.nas.NasApiClient;
 import com.alidogukan.avora.nas.NasAuthClient;
-import com.alidogukan.avora.nas.NasAutomaticBackupScheduler;
-import com.alidogukan.avora.nas.NasAutomaticBackupSettings;
 import com.alidogukan.avora.nas.NasBackupArchive;
 import com.alidogukan.avora.nas.NasDocumentClient;
-import com.alidogukan.avora.nas.NasPhotoBackupManager;
-import com.alidogukan.avora.nas.NasPhotoBackupScheduler;
-import com.alidogukan.avora.nas.NasPhotoBackupSettings;
 import com.alidogukan.avora.nas.NasSession;
-import com.alidogukan.avora.nas.NasSessionStore;
 import com.alidogukan.avora.ui.PrimaryBottomNavigation;
 import com.alidogukan.avora.viewmodels.DataSyncViewModel;
 import com.alidogukan.avora.viewmodels.BackupViewModel;
@@ -88,15 +81,10 @@ public class DataSyncActivity extends AppCompatActivity {
     private LinearProgressIndicator progress;
     private DataSyncViewModel viewModel;
     private BackupViewModel backupViewModel;
-    private NasSessionStore nasSessionStore;
-    private NasAutomaticBackupSettings nasAutomaticBackupSettings;
-    private NasPhotoBackupSettings nasPhotoBackupSettings;
-    private AvoraBackupManager nasBackupManager;
-    private NasPhotoBackupManager nasPhotoBackupManager;
     private NasSession activeNasSession;
     private JSONObject nasBackupData;
     private List<NasBackupEntry> nasBackups = Collections.emptyList();
-    private NasPhotoBackupManager.Inspection nasPhotoInspection;
+    private DataSyncViewModel.PhotoInspection nasPhotoInspection;
     private long nasBackupUpdatedAt;
     private int nasBackupZoneCount;
     private int nasBackupRecordCount;
@@ -133,11 +121,6 @@ public class DataSyncActivity extends AppCompatActivity {
         setContentView(R.layout.activity_data_sync);
         viewModel = new ViewModelProvider(this).get(DataSyncViewModel.class);
         backupViewModel = new ViewModelProvider(this).get(BackupViewModel.class);
-        nasSessionStore = new NasSessionStore(this);
-        nasAutomaticBackupSettings = new NasAutomaticBackupSettings(this);
-        nasPhotoBackupSettings = new NasPhotoBackupSettings(this);
-        nasBackupManager = new AvoraBackupManager(this);
-        nasPhotoBackupManager = new NasPhotoBackupManager(this);
         applyWindowInsets();
         bindViews();
         configureToolbar();
@@ -226,7 +209,7 @@ public class DataSyncActivity extends AppCompatActivity {
 
     private void configureAutomaticNasBackup() {
         suppressSwitchCallback = true;
-        automaticNasBackupSwitch.setChecked(nasAutomaticBackupSettings.isEnabled());
+        automaticNasBackupSwitch.setChecked(viewModel.automaticNasBackupEnabled());
         suppressSwitchCallback = false;
         automaticNasBackupSwitch.setOnCheckedChangeListener((button, checked) -> {
             if (suppressSwitchCallback) return;
@@ -239,13 +222,7 @@ public class DataSyncActivity extends AppCompatActivity {
                 showNasLoginDialog();
                 return;
             }
-            nasAutomaticBackupSettings.setEnabled(checked);
-            if (checked) {
-                NasAutomaticBackupScheduler.schedule(this);
-                NasAutomaticBackupScheduler.runNow(this);
-            } else {
-                NasAutomaticBackupScheduler.cancel(this);
-            }
+            viewModel.setAutomaticNasBackupEnabled(checked);
             Toast.makeText(this, checked
                     ? R.string.data_sync_nas_auto_enabled
                     : R.string.data_sync_nas_auto_disabled,
@@ -255,7 +232,7 @@ public class DataSyncActivity extends AppCompatActivity {
 
     private void configureAutomaticNasPhotoBackup() {
         suppressSwitchCallback = true;
-        automaticNasPhotoBackupSwitch.setChecked(nasPhotoBackupSettings.isEnabled());
+        automaticNasPhotoBackupSwitch.setChecked(viewModel.automaticNasPhotoBackupEnabled());
         suppressSwitchCallback = false;
         automaticNasPhotoBackupSwitch.setOnCheckedChangeListener((button, checked) -> {
             if (suppressSwitchCallback) return;
@@ -268,13 +245,7 @@ public class DataSyncActivity extends AppCompatActivity {
                 showNasLoginDialog();
                 return;
             }
-            nasPhotoBackupSettings.setEnabled(checked);
-            if (checked) {
-                NasPhotoBackupScheduler.schedule(this);
-                NasPhotoBackupScheduler.runNow(this);
-            } else {
-                NasPhotoBackupScheduler.cancel(this);
-            }
+            viewModel.setAutomaticNasPhotoBackupEnabled(checked);
             Toast.makeText(this, checked
                     ? R.string.data_sync_nas_photo_auto_enabled
                     : R.string.data_sync_nas_photo_auto_disabled,
@@ -446,7 +417,7 @@ public class DataSyncActivity extends AppCompatActivity {
     }
 
     private void restoreNasSession() {
-        activeNasSession = nasSessionStore.load();
+        activeNasSession = viewModel.loadNasSession();
         resetNasBackupStatus();
         renderNasAccount();
         if (activeNasSession != null) {
@@ -611,7 +582,7 @@ public class DataSyncActivity extends AppCompatActivity {
                 }
                 boolean finalAccessPending = accessPending;
                 boolean finalAccessRequestFailed = accessRequestFailed;
-                nasSessionStore.save(session);
+                viewModel.saveNasSession(session);
                 handler.post(() -> {
                     if (isFinishing() || isDestroyed()) return;
                     activeNasSession = session;
@@ -621,14 +592,7 @@ public class DataSyncActivity extends AppCompatActivity {
                     if (dialog.isShowing()) dialog.dismiss();
                     loadNasBackupStatus();
                     loadNasPhotoStatus();
-                    if (nasAutomaticBackupSettings.isEnabled()) {
-                        NasAutomaticBackupScheduler.schedule(this);
-                        NasAutomaticBackupScheduler.runNow(this);
-                    }
-                    if (nasPhotoBackupSettings.isEnabled()) {
-                        NasPhotoBackupScheduler.schedule(this);
-                        NasPhotoBackupScheduler.runNow(this);
-                    }
+                    viewModel.refreshAutomaticNasSchedules();
                     if (finalAccessRequestFailed) {
                         showOperation(R.string.data_sync_nas_access_request_error,
                                 R.color.warning);
@@ -749,7 +713,7 @@ public class DataSyncActivity extends AppCompatActivity {
                 }
                 boolean finalAccessPending = accessPending;
                 boolean finalAccessRequestFailed = accessRequestFailed;
-                nasSessionStore.save(session);
+                viewModel.saveNasSession(session);
                 handler.post(() -> {
                     if (isFinishing() || isDestroyed()) return;
                     activeNasSession = session;
@@ -1289,15 +1253,12 @@ public class DataSyncActivity extends AppCompatActivity {
     private void disconnectNasAccount() {
         NasSession session = activeNasSession;
         activeNasSession = null;
-        nasAutomaticBackupSettings.setEnabled(false);
-        NasAutomaticBackupScheduler.cancel(this);
-        nasPhotoBackupSettings.setEnabled(false);
-        NasPhotoBackupScheduler.cancel(this);
+        viewModel.disableAutomaticNasSchedules();
         suppressSwitchCallback = true;
         automaticNasBackupSwitch.setChecked(false);
         automaticNasPhotoBackupSwitch.setChecked(false);
         suppressSwitchCallback = false;
-        nasSessionStore.clear();
+        viewModel.clearNasSession();
         resetNasBackupStatus();
         renderNasAccount();
         if (session == null) return;
@@ -1342,8 +1303,8 @@ public class DataSyncActivity extends AppCompatActivity {
                 List<NasBackupEntry> validBackups = new ArrayList<>();
                 boolean invalidBackupFound = false;
                 for (NasDocumentClient.Document document : documents) {
-                    AvoraBackupManager.ValidationResult validation =
-                            nasBackupManager.validate(document.data);
+                    DataSyncViewModel.BackupValidation validation =
+                            viewModel.validateNasBackup(document.data);
                     if (validation.valid) {
                         validBackups.add(new NasBackupEntry(document, validation));
                     } else {
@@ -1385,8 +1346,8 @@ public class DataSyncActivity extends AppCompatActivity {
         renderNasAccount();
         nasExecutor.execute(() -> {
             try {
-                NasPhotoBackupManager.Inspection inspection =
-                        nasPhotoBackupManager.inspect(session.accessToken);
+                DataSyncViewModel.PhotoInspection inspection =
+                        viewModel.inspectNasPhotos(session.accessToken);
                 handler.post(() -> {
                     if (isFinishing() || isDestroyed() || activeNasSession != session) return;
                     nasPhotoStatusLoading = false;
@@ -1409,11 +1370,11 @@ public class DataSyncActivity extends AppCompatActivity {
         showOperation(R.string.data_sync_nas_photo_backup_preparing, R.color.textSecondary);
         nasExecutor.execute(() -> {
             try {
-                NasPhotoBackupManager.BackupResult result =
-                        nasPhotoBackupManager.backup(session.accessToken);
-                NasPhotoBackupManager.Inspection inspection =
-                        nasPhotoBackupManager.inspect(session.accessToken);
-                nasPhotoBackupSettings.recordSuccess(
+                DataSyncViewModel.PhotoBackupResult result =
+                        viewModel.backupNasPhotos(session.accessToken);
+                DataSyncViewModel.PhotoInspection inspection =
+                        viewModel.inspectNasPhotos(session.accessToken);
+                viewModel.recordNasPhotoBackupSuccess(
                         result.completedAtEpochMs, result.remoteCount);
                 handler.post(() -> {
                     if (isFinishing() || isDestroyed() || activeNasSession != session) return;
@@ -1433,7 +1394,7 @@ public class DataSyncActivity extends AppCompatActivity {
     }
 
     private void confirmNasPhotoRestore() {
-        NasPhotoBackupManager.Inspection inspection = nasPhotoInspection;
+        DataSyncViewModel.PhotoInspection inspection = nasPhotoInspection;
         if (inspection == null || inspection.missingOnPhoneCount <= 0 || nasPhotoBusy) {
             Toast.makeText(this, R.string.data_sync_nas_photo_restore_none,
                     Toast.LENGTH_LONG).show();
@@ -1460,10 +1421,10 @@ public class DataSyncActivity extends AppCompatActivity {
         showOperation(R.string.data_sync_nas_photo_restoring, R.color.textSecondary);
         nasExecutor.execute(() -> {
             try {
-                NasPhotoBackupManager.RestoreResult result =
-                        nasPhotoBackupManager.restoreMissing(session.accessToken);
-                NasPhotoBackupManager.Inspection inspection =
-                        nasPhotoBackupManager.inspect(session.accessToken);
+                DataSyncViewModel.PhotoRestoreResult result =
+                        viewModel.restoreMissingNasPhotos(session.accessToken);
+                DataSyncViewModel.PhotoInspection inspection =
+                        viewModel.inspectNasPhotos(session.accessToken);
                 handler.post(() -> {
                     if (isFinishing() || isDestroyed() || activeNasSession != session) return;
                     nasPhotoBusy = false;
@@ -1508,7 +1469,7 @@ public class DataSyncActivity extends AppCompatActivity {
         nasBackupStatusFailed = false;
         renderNasAccount();
         showOperation(R.string.data_sync_nas_backup_preparing, R.color.textSecondary);
-        nasBackupManager.createBackup()
+        viewModel.createNasBackup()
                 .addOnSuccessListener(backup -> uploadNasBackup(session, backup))
                 .addOnFailureListener(error -> finishNasBackupFailure(session, error));
     }
@@ -1518,8 +1479,8 @@ public class DataSyncActivity extends AppCompatActivity {
             try {
                 NasDocumentClient.Document document = NasBackupArchive.save(
                         session.accessToken, AppInfo.DEVICE_ID, backup);
-                AvoraBackupManager.ValidationResult validation =
-                        nasBackupManager.validate(document.data);
+                DataSyncViewModel.BackupValidation validation =
+                        viewModel.validateNasBackup(document.data);
                 if (!validation.valid) {
                     throw new IllegalStateException("NAS_BACKUP_INVALID");
                 }
@@ -1553,7 +1514,7 @@ public class DataSyncActivity extends AppCompatActivity {
     }
 
     private void applyNasBackupValidation(
-            @Nullable AvoraBackupManager.ValidationResult validation) {
+            @Nullable DataSyncViewModel.BackupValidation validation) {
         nasBackupValidated = validation != null && validation.valid;
         nasBackupInvalid = validation != null && !validation.valid;
         if (nasBackupValidated) {
@@ -1598,7 +1559,7 @@ public class DataSyncActivity extends AppCompatActivity {
         String[] labels = new String[nasBackups.size()];
         for (int index = 0; index < nasBackups.size(); index++) {
             NasBackupEntry entry = nasBackups.get(index);
-            AvoraBackupManager.ValidationResult validation = entry.validation;
+            DataSyncViewModel.BackupValidation validation = entry.validation;
             labels[index] = getString(R.string.data_sync_nas_history_item,
                     formatDateTime(validation.createdAtEpochMs),
                     validation.appVersion,
@@ -1615,7 +1576,7 @@ public class DataSyncActivity extends AppCompatActivity {
 
     private void showNasRestorePreview(JSONObject backup) {
         if (backup == null || nasRestoreBusy) return;
-        AvoraBackupManager.ValidationResult validation = nasBackupManager.validate(backup);
+        DataSyncViewModel.BackupValidation validation = viewModel.validateNasBackup(backup);
         if (!validation.valid) {
             nasBackupInvalid = true;
             nasBackupValidated = false;
@@ -1651,7 +1612,7 @@ public class DataSyncActivity extends AppCompatActivity {
     }
 
     private void beginNasRestore(JSONObject backup) {
-        AvoraBackupManager.ValidationResult validation = nasBackupManager.validate(backup);
+        DataSyncViewModel.BackupValidation validation = viewModel.validateNasBackup(backup);
         if (!validation.valid || activeNasSession == null) {
             showOperation(R.string.data_sync_nas_restore_invalid, R.color.warning);
             return;
@@ -1681,7 +1642,7 @@ public class DataSyncActivity extends AppCompatActivity {
 
     private void expireNasSession() {
         activeNasSession = null;
-        nasSessionStore.clear();
+        viewModel.clearNasSession();
         resetNasBackupStatus();
         renderNasAccount();
         showOperation(R.string.data_sync_nas_session_expired, R.color.warning);
@@ -1767,10 +1728,10 @@ public class DataSyncActivity extends AppCompatActivity {
 
     private static final class NasBackupEntry {
         final NasDocumentClient.Document document;
-        final AvoraBackupManager.ValidationResult validation;
+        final DataSyncViewModel.BackupValidation validation;
 
         NasBackupEntry(NasDocumentClient.Document document,
-                       AvoraBackupManager.ValidationResult validation) {
+                       DataSyncViewModel.BackupValidation validation) {
             this.document = document;
             this.validation = validation;
         }
