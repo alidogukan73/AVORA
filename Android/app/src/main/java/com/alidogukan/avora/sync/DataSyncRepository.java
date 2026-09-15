@@ -54,8 +54,11 @@ public final class DataSyncRepository {
         preferences.edit().putBoolean(AUTO_SYNC, enabled).apply();
         deviceRef.child("status").keepSynced(enabled);
         deviceRef.child("health").keepSynced(enabled);
-        deviceRef.child("zones").keepSynced(enabled);
-        deviceRef.child("weather").keepSynced(enabled);
+        // Large, frequently changing branches are read by their screens when
+        // needed. Keeping them hot in the background wastes mobile/database
+        // traffic without improving irrigation safety on the Raspberry Pi.
+        deviceRef.child("zones").keepSynced(false);
+        deviceRef.child("weather").keepSynced(false);
     }
 
     public void goOnline() { database.goOnline(); }

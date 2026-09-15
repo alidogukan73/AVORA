@@ -29,6 +29,8 @@ public class GardenZone {
     private int order;
     private int moisture_limit = 40;
     private int pump_duration = 10;
+    private int manual_watering_duration_seconds = 30;
+    private long manual_watering_duration_updated_at_epoch;
     private int cooldown_seconds = 600;
     private int restart_delta = 10;
     private int moisture;
@@ -260,6 +262,22 @@ public class GardenZone {
 
     public void setPump_duration(int pumpDuration) {
         this.pump_duration = pumpDuration;
+    }
+
+    public int getManual_watering_duration_seconds() {
+        return manual_watering_duration_seconds;
+    }
+
+    public void setManual_watering_duration_seconds(int durationSeconds) {
+        this.manual_watering_duration_seconds = durationSeconds;
+    }
+
+    public long getManual_watering_duration_updated_at_epoch() {
+        return manual_watering_duration_updated_at_epoch;
+    }
+
+    public void setManual_watering_duration_updated_at_epoch(long updatedAtEpoch) {
+        this.manual_watering_duration_updated_at_epoch = updatedAtEpoch;
     }
 
     public int getCooldown_seconds() {

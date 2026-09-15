@@ -5,8 +5,6 @@ import android.content.SharedPreferences;
 
 import com.alidogukan.avora.models.DisplayUnitSettings;
 
-import java.text.DecimalFormat;
-
 /**
  * Stores display-only units. Sensor, irrigation and Firebase measurements keep their
  * canonical metric values so changing a unit can never change an automation decision.
@@ -29,6 +27,7 @@ public final class UnitPreferences {
     private static final String KEY_LENGTH = "length";
     private static final String KEY_VOLUME = "volume";
     private static final String KEY_WEIGHT = "weight";
+    private static final String KEY_UPDATED_AT = "updated_at_epoch";
 
     private final SharedPreferences preferences;
 
@@ -37,13 +36,15 @@ public final class UnitPreferences {
     }
 
     public DisplayUnitSettings load() {
-        return new DisplayUnitSettings(
+        DisplayUnitSettings settings = new DisplayUnitSettings(
                 preferences.getString(KEY_TEMPERATURE, CELSIUS),
                 preferences.getString(KEY_AREA, SQUARE_METER),
                 preferences.getString(KEY_LENGTH, CENTIMETER),
                 preferences.getString(KEY_VOLUME, LITER),
                 preferences.getString(KEY_WEIGHT, GRAM)
         );
+        settings.setUpdated_at_epoch(preferences.getLong(KEY_UPDATED_AT, 0L));
+        return settings;
     }
 
     public boolean hasSavedValues() {
@@ -60,6 +61,7 @@ public final class UnitPreferences {
                 .putString(KEY_LENGTH, safe(settings.getLength(), CENTIMETER))
                 .putString(KEY_VOLUME, safe(settings.getVolume(), LITER))
                 .putString(KEY_WEIGHT, safe(settings.getWeight(), GRAM))
+                .putLong(KEY_UPDATED_AT, Math.max(0L, settings.getUpdated_at_epoch()))
                 .apply();
     }
 
@@ -68,49 +70,38 @@ public final class UnitPreferences {
     }
 
     public double areaFromSquareMeters(double value) {
-        return DECARE.equals(load().getArea()) ? value / 1000d : value;
+        return formatter().areaFromSquareMeters(value);
     }
 
     public double areaToSquareMeters(double displayedValue) {
-        return DECARE.equals(load().getArea()) ? displayedValue * 1000d : displayedValue;
+        return formatter().areaToSquareMeters(displayedValue);
     }
 
     public String areaSymbol() {
-        return DECARE.equals(load().getArea()) ? "da" : "m²";
+        return formatter().areaSymbol();
     }
 
     public String formatTemperature(double celsius) {
-        DisplayUnitSettings value = load();
-        double displayed = FAHRENHEIT.equals(value.getTemperature())
-                ? (celsius * 9d / 5d) + 32d : celsius;
-        return number(displayed) + (FAHRENHEIT.equals(value.getTemperature()) ? " °F" : " °C");
+        return formatter().formatTemperature(celsius);
     }
 
     public String formatArea(double squareMeters) {
-        return number(areaFromSquareMeters(squareMeters)) + " " + areaSymbol();
+        return formatter().formatArea(squareMeters);
     }
 
     public String formatLength(double centimeters) {
-        DisplayUnitSettings value = load();
-        double displayed = METER.equals(value.getLength()) ? centimeters / 100d : centimeters;
-        return number(displayed) + (METER.equals(value.getLength()) ? " m" : " cm");
+        return formatter().formatLength(centimeters);
     }
 
     public String formatVolume(double liters) {
-        DisplayUnitSettings value = load();
-        double displayed = CUBIC_METER.equals(value.getVolume()) ? liters / 1000d : liters;
-        return number(displayed) + (CUBIC_METER.equals(value.getVolume()) ? " m³" : " L");
+        return formatter().formatVolume(liters);
     }
 
     public String formatWeight(double grams) {
-        DisplayUnitSettings value = load();
-        double displayed = KILOGRAM.equals(value.getWeight()) ? grams / 1000d : grams;
-        return number(displayed) + (KILOGRAM.equals(value.getWeight()) ? " kg" : " g");
+        return formatter().formatWeight(grams);
     }
 
-    private String number(double value) {
-        return new DecimalFormat("0.##").format(value);
-    }
+    public DisplayUnitFormatter formatter() { return new DisplayUnitFormatter(load()); }
 
     private String safe(String value, String fallback) {
         return value == null || value.trim().isEmpty() ? fallback : value;

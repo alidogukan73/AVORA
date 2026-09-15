@@ -263,6 +263,7 @@ public class HomeZonePagerAdapter extends RecyclerView.Adapter<HomeZonePagerAdap
                     irrigation.isWatering_active(),
                     zone.getValve_id(),
                     status != null && status.isValveOpen(),
+                    status != null && status.isRelay(),
                     status == null ? "" : status.getActiveValveId(),
                     status == null ? 0L : status.getLastSeenEpoch(),
                     System.currentTimeMillis() / 1000L,

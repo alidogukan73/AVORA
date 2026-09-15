@@ -9,6 +9,8 @@ import com.alidogukan.avora.models.SeedlingNodeState;
 import com.alidogukan.avora.models.SeedlingTelemetry;
 import com.alidogukan.avora.seedling.SeedlingConditionSummary;
 import com.alidogukan.avora.seedling.SeedlingEnvironmentGuide;
+import com.alidogukan.avora.settings.DisplayUnitFormatter;
+import com.alidogukan.avora.settings.UnitPreferences;
 
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
@@ -259,7 +261,7 @@ public final class SeedlingNotificationCoordinator {
         switch (item.getMetric()) {
             case AIR_TEMPERATURE:
             case ROOT_TEMPERATURE:
-                return context.getString(R.string.seedling_temperature_value, value);
+                return units(context).formatTemperature(value);
             case AIR_HUMIDITY:
             case SOIL_MOISTURE:
                 return context.getString(R.string.seedling_percent_value, value);
@@ -276,7 +278,7 @@ public final class SeedlingNotificationCoordinator {
         switch (item.getMetric()) {
             case AIR_TEMPERATURE:
             case ROOT_TEMPERATURE:
-                return context.getString(R.string.seedling_metric_range_temperature,
+                return units(context).formatTemperatureRange(
                         range.getMinimum(), range.getMaximum());
             case AIR_HUMIDITY:
             case SOIL_MOISTURE:
@@ -287,6 +289,10 @@ public final class SeedlingNotificationCoordinator {
                 return context.getString(R.string.seedling_metric_range_light,
                         range.getMinimum(), range.getMaximum());
         }
+    }
+
+    private static DisplayUnitFormatter units(Context context) {
+        return new UnitPreferences(context).formatter();
     }
 
     private static int milestoneTitle(SeedlingNotificationPolicy.Milestone milestone) {

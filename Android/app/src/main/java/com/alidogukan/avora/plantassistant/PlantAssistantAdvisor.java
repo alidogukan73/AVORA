@@ -6,6 +6,7 @@ import com.alidogukan.avora.models.GardenZone;
 import com.alidogukan.avora.models.WeatherForecast;
 
 import java.util.List;
+import com.alidogukan.avora.settings.DisplayUnitFormatter;
 
 /**
  * Explainable field screening. This class deliberately produces a likelihood,
@@ -17,6 +18,14 @@ public final class PlantAssistantAdvisor {
     public static PlantAssistantResult assess(GardenZone zone, List<String> symptoms,
                                            String note, WeatherForecast weather,
                                            boolean hasPhoto, boolean growthStatusRequested) {
+        return assess(zone, symptoms, note, weather, hasPhoto,
+                growthStatusRequested, DisplayUnitFormatter.metric());
+    }
+
+    public static PlantAssistantResult assess(GardenZone zone, List<String> symptoms,
+                                           String note, WeatherForecast weather,
+                                           boolean hasPhoto, boolean growthStatusRequested,
+                                           DisplayUnitFormatter units) {
         int moisture = zone.getMoisture();
         int limit = zone.getMoisture_limit();
         long nowEpoch = System.currentTimeMillis() / 1000L;
@@ -40,7 +49,7 @@ public final class PlantAssistantAdvisor {
                 ? "Toprak nemi ölçümü güncel değil · sensör verisi güncel değil"
                 : "Toprak nemi bekleniyor · sensör verisi bekleniyor";
         String context = moistureContext
-                + weatherContext(trustedWeather)
+                + weatherContext(trustedWeather, units)
                 + " · " + (fertilizerDue ? "gübreleme planı gecikmiş" : "gübreleme planı güncel")
                 + " · " + (hasPhoto ? "fotoğraf eklendi" : "fotoğraf eklenmedi");
 
@@ -129,9 +138,10 @@ public final class PlantAssistantAdvisor {
         return false;
     }
 
-    private static String weatherContext(WeatherForecast weather) {
+    private static String weatherContext(WeatherForecast weather,
+                                         DisplayUnitFormatter units) {
         if (weather == null || weather.getCurrentTemperature() == null) return " · hava verisi bekleniyor";
-        return " · hava " + Math.round(weather.getCurrentTemperature()) + "°C"
+        return " · hava " + units.formatTemperature(weather.getCurrentTemperature())
                 + (weather.getCurrentHumidity() == null ? "" : " / nem %" + Math.round(weather.getCurrentHumidity()))
                 + (weather.getTodayRainProbability() == null ? "" : " / yağış %" + Math.round(weather.getTodayRainProbability()));
     }

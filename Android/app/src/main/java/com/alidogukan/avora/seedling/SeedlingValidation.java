@@ -49,7 +49,35 @@ public final class SeedlingValidation {
 
     public static boolean isValidLog(@Nullable SeedlingDailyLog log,
                                      @Nullable SeedlingBatch batch) {
-        if (log == null || batch == null || !batch.isActive()) return false;
+        return batch != null && batch.isActive() && hasValidLogValues(log, batch);
+    }
+
+    /** Allows correcting an existing observation even after its batch is archived. */
+    public static boolean isValidLogUpdate(@Nullable SeedlingDailyLog log,
+                                           @Nullable SeedlingBatch batch,
+                                           @Nullable SeedlingDailyLog persisted) {
+        return canEditLog(batch, persisted)
+                && log != null
+                && log.getLog_id().equals(persisted.getLog_id())
+                && log.getBatch_id().equals(persisted.getBatch_id())
+                && log.getCreated_at_epoch() == persisted.getCreated_at_epoch()
+                && hasValidLogValues(log, batch);
+    }
+
+    /** Existing records stay correctable; new records still require an active batch. */
+    public static boolean canEditLog(@Nullable SeedlingBatch batch,
+                                     @Nullable SeedlingDailyLog log) {
+        return batch != null
+                && (batch.isActive() || batch.isArchived())
+                && log != null
+                && !log.getLog_id().isBlank()
+                && !log.getBatch_id().isBlank()
+                && log.getBatch_id().equals(batch.getBatch_id());
+    }
+
+    private static boolean hasValidLogValues(@Nullable SeedlingDailyLog log,
+                                             SeedlingBatch batch) {
+        if (log == null) return false;
         return Double.isFinite(log.getHeight_cm())
                 && log.getHeight_cm() >= 0d && log.getHeight_cm() <= MAX_HEIGHT_CM
                 && log.getLeaf_count() >= 0 && log.getLeaf_count() <= MAX_LEAF_COUNT

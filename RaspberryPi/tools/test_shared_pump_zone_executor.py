@@ -71,6 +71,9 @@ def main() -> None:
     pump = FakePump()
     valves = ValveController()
     valves.initialize()
+    # Keep one explicit simulation channel for the fail-closed scenario even
+    # though the production deployment now approves all eight valves.
+    valves.configure_physical_valves({"valve-001"})
     executor = SharedPumpZoneExecutor(pump, valves)
 
     result = executor.execute(
@@ -85,6 +88,8 @@ def main() -> None:
     assert pump.is_on is False
     assert valves.active_valve_id is None
     assert executor.active_zone_id is None
+
+    valves.configure_physical_valves({"valve-001", "valve-002"})
 
     zero = executor.execute(
         zone_id="zone-001",

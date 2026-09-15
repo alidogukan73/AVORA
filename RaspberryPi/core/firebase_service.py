@@ -23,7 +23,10 @@ from core.config import IrrigationConfig
 from core.config import SensorConfig
 from core.logger import AppLogger
 from core.device_control import DeviceControl
-from core.zone_capacity import validate_zone_configurations
+from core.zone_capacity import (
+    validate_zone_configurations,
+    validate_zone_valve_configurations,
+)
 from hardware.esp32_sensor_config_publisher import (
     Esp32SensorConfigPublisher,
 )
@@ -92,10 +95,15 @@ class FirebaseService:
 
         self._zone_by_sensor_id: dict[str, str] = {}
         self._zone_config_by_sensor_id: dict[str, dict] = {}
+        self._zone_config_by_zone_id: dict[str, dict] = {}
         self._zone_map_refreshed_at = 0.0
         self._zone_map_refresh_seconds = max(
             10.0,
             FirebaseConfig.ZONE_MAP_REFRESH_INTERVAL_SECONDS,
+        )
+        self._zone_sensor_publish_interval_seconds = max(
+            5.0,
+            FirebaseConfig.SENSOR_CLOUD_PUBLISH_INTERVAL_SECONDS,
         )
         self._zone_map_signature: tuple[tuple[str, str], ...] | None = None
         self._published_sensor_configs: dict[
@@ -104,7 +112,7 @@ class FirebaseService:
         ] = {}
         self._published_valve_hardware_map: dict[
             str,
-            tuple[int, int],
+            tuple[int, int, bool],
         ] = {}
         self._published_zone_sensor_signatures: dict[
             str,
@@ -114,6 +122,8 @@ class FirebaseService:
         self._last_push_sent_at: dict[str, float] = {}
         self._owner_uid_cache: dict[str, tuple[bool, float]] = {}
         self._active_error_incident_id = ""
+        self._watering_records_cache: dict[tuple, tuple[float, list]] = {}
+        self._watering_records_cache_seconds = 60.0
         self._sensor_config_publisher = (
             Esp32SensorConfigPublisher(
                 broker=SensorConfig.MQTT_BROKER,
@@ -392,6 +402,7 @@ class FirebaseService:
             {
                 "relay": relay,
                 "last_seen": datetime.now().isoformat(),
+                "last_seen_epoch": int(time.time()),
             },
         )
 
@@ -402,6 +413,7 @@ class FirebaseService:
         zone_id: str | None = None,
         hardware_valve_id: str | None = None,
         is_physical: bool | None = None,
+        watering_active: bool | None = None,
     ) -> None:
         """
         Publish the selected valve state for UI and simulation tests.
@@ -443,15 +455,18 @@ class FirebaseService:
             {
                 **valve_status,
                 "last_seen": updated_at,
+                "last_seen_epoch": int(time.time()),
             },
         )
 
         if zone_id:
+            # An open valve is preparation, not proof that water is flowing.
+            effective_watering_active = bool(watering_active)
             self._device_ref().child(
                 f"zones/{zone_id}/irrigation_status",
             ).update(
                 {
-                    "watering_active": is_open,
+                    "watering_active": effective_watering_active,
                     "updated_at": datetime.now().isoformat(),
                 },
             )
@@ -464,6 +479,25 @@ class FirebaseService:
                     ),
                 },
             )
+
+    def update_zone_watering_active(
+        self,
+        zone_id: str,
+        active: bool,
+    ) -> None:
+        """Publish pump-confirmed watering state for exactly one zone."""
+
+        normalized_zone_id = str(zone_id or "").strip()
+        if not normalized_zone_id:
+            return
+        self._device_ref().child(
+            f"zones/{normalized_zone_id}/irrigation_status",
+        ).update(
+            {
+                "watering_active": bool(active),
+                "updated_at": datetime.now().isoformat(),
+            },
+        )
 
     def reset_all_zone_watering_states(self) -> None:
         """Clear stale per-zone watering flags after startup or safe shutdown."""
@@ -714,11 +748,18 @@ class FirebaseService:
                 sensor_id,
                 0.0,
             )
+            elapsed = current_time - last_published_at
             heartbeat_due = (
-                current_time - last_published_at
-                >= SensorConfig.MQTT_STALE_AFTER_SECONDS
+                elapsed >= SensorConfig.MQTT_STALE_AFTER_SECONDS
             )
             if signature == last_signature and not heartbeat_due:
+                continue
+            minimum_interval = float(getattr(
+                self,
+                "_zone_sensor_publish_interval_seconds",
+                15.0,
+            ))
+            if last_signature is not None and elapsed < minimum_interval:
                 continue
             publishable_readings[sensor_id] = reading
             publishable_signatures[sensor_id] = signature
@@ -816,6 +857,10 @@ class FirebaseService:
             zones,
             self._logger.warning,
         )
+        zone_config_by_zone_id = validate_zone_valve_configurations(
+            zones,
+            self._logger.warning,
+        )
 
         map_signature = self._zone_sensor_map_signature(
             zone_by_sensor_id,
@@ -828,6 +873,7 @@ class FirebaseService:
         self._zone_config_by_sensor_id = (
             zone_config_by_sensor_id
         )
+        self._zone_config_by_zone_id = zone_config_by_zone_id
         self._zone_map_signature = map_signature
         self._zone_map_refreshed_at = (
             time.monotonic()
@@ -837,7 +883,7 @@ class FirebaseService:
             zone_config_by_sensor_id,
         )
         self._publish_valve_hardware_map(
-            zone_config_by_sensor_id,
+            zone_config_by_zone_id,
         )
 
         if map_changed:
@@ -941,13 +987,13 @@ class FirebaseService:
 
     def _publish_valve_hardware_map(
         self,
-        zones_by_sensor: dict[str, dict],
+        zones_by_zone: dict[str, dict],
     ) -> None:
         """Expose the fixed Pi wiring map to the app without making it editable."""
         from core.config import ValveConfig
 
         updates: dict[str, object] = {}
-        for zone in zones_by_sensor.values():
+        for zone in zones_by_zone.values():
             zone_id = str(zone.get("zone_id", "")).strip()
             valve_id = str(zone.get("valve_id", "")).strip()
             gpio = ValveConfig.GPIO_PINS.get(valve_id)
@@ -955,13 +1001,20 @@ class FirebaseService:
             if not zone_id or gpio is None or physical_pin is None:
                 continue
 
-            current = (gpio, physical_pin)
+            hardware_ready = (
+                str(zone.get("valve_mode", "SIMULATION")).strip().upper()
+                == "PHYSICAL"
+                and valve_id in ValveConfig.PHYSICAL_VALVE_IDS
+                and not ValveConfig.SIMULATION_MODE
+            )
+            current = (gpio, physical_pin, hardware_ready)
             if self._published_valve_hardware_map.get(zone_id) == current:
                 continue
 
             path = f"zones/{zone_id}/"
             updates[path + "valve_gpio_bcm"] = gpio
             updates[path + "valve_gpio_physical_pin"] = physical_pin
+            updates[path + "irrigation_status/hardware_ready"] = hardware_ready
             self._published_valve_hardware_map[zone_id] = current
 
         if updates:
@@ -996,6 +1049,13 @@ class FirebaseService:
             for sensor_id, zone
             in self._zone_config_by_sensor_id.items()
         }
+
+    def get_zone_valve_config(self, zone_id: str) -> dict | None:
+        """Return a valve-capable zone even before its sensor is installed."""
+
+        normalized_zone_id = str(zone_id or "").strip()
+        zone = self._zone_config_by_zone_id.get(normalized_zone_id)
+        return dict(zone) if isinstance(zone, dict) else None
 
     @staticmethod
     def _active_season_ids_from_zone(zone: object) -> tuple[str, ...]:
@@ -1113,13 +1173,21 @@ class FirebaseService:
 
     def get_physical_valve_ids(self) -> set[str]:
         """Return only zones explicitly approved for real valve control."""
-        return {
+        from core.config import ValveConfig
+
+        configurations = getattr(self, "_zone_config_by_zone_id", None)
+        if not configurations:
+            configurations = self._zone_config_by_sensor_id
+        requested = {
             str(zone.get("valve_id", "")).strip()
-            for zone in self._zone_config_by_sensor_id.values()
+            for zone in configurations.values()
             if str(zone.get("valve_mode", "SIMULATION")).upper()
             == "PHYSICAL"
             and str(zone.get("valve_id", "")).strip()
         }
+        # Firebase may choose only among valves approved by the deployment.
+        # An app-side flag must never energize an untested GPIO output.
+        return requested.intersection(ValveConfig.PHYSICAL_VALVE_IDS)
 
     def update_zone_irrigation_decisions(
         self,
@@ -1147,10 +1215,11 @@ class FirebaseService:
         self,
         states: dict[str, dict],
         garden_summary: dict,
+        cleared_zone_ids: set[str] | None = None,
     ) -> None:
         """Publish every zone AI state and the separate garden summary."""
 
-        if not states and not garden_summary:
+        if not states and not garden_summary and not cleared_zone_ids:
             return
 
         updates: dict[str, object] = {}
@@ -1162,6 +1231,10 @@ class FirebaseService:
                 updates[f"{prefix}/{field}"] = value
             updates[f"{prefix}/updated_at"] = updated_at
 
+        for zone_id in cleared_zone_ids or set():
+            if zone_id not in states:
+                updates[f"zones/{zone_id}/ai"] = None
+
         if garden_summary:
             prefix = "ai/garden_summary"
             for field, value in garden_summary.items():
@@ -1169,6 +1242,17 @@ class FirebaseService:
             updates[f"{prefix}/updated_at"] = updated_at
 
         self._device_ref().update(updates)
+
+    def clear_zone_ai_states(self, zone_ids: set[str]) -> None:
+        """Remove stale AI output for zones no longer in the active scope."""
+
+        updates = {
+            f"zones/{zone_id}/ai": None
+            for zone_id in zone_ids
+            if str(zone_id or "").strip()
+        }
+        if updates:
+            self._device_ref().update(updates)
 
     def update_zone_cooldown(
         self,
@@ -1212,6 +1296,11 @@ class FirebaseService:
             .push()
         )
 
+        learning_scope_id = self._learning_scope_id(
+            entry.zone_id,
+            entry.sensor_id,
+        )
+
         history_ref.set(
             {
                 "moisture":
@@ -1219,6 +1308,12 @@ class FirebaseService:
 
                 "sensor_id":
                     entry.sensor_id,
+
+                "zone_id":
+                    entry.zone_id,
+
+                "learning_scope_id":
+                    learning_scope_id,
 
                 "voltage":
                     round(
@@ -1258,11 +1353,22 @@ class FirebaseService:
             },
         )
 
+    @staticmethod
+    def _learning_scope_id(zone_id: str, sensor_id: str) -> str:
+        """Build the exact zone/sensor key used by learning queries."""
+
+        normalized_zone = str(zone_id or "").strip()
+        normalized_sensor = str(sensor_id or "").strip()
+        if not normalized_zone or not normalized_sensor:
+            return ""
+        return f"{normalized_zone}|{normalized_sensor}"
+
     def load_recent_sensor_history(
         self,
         *,
         limit: int = 20,
         sensor_id: str = "",
+        zone_id: str = "",
     ) -> list[tuple[int, str]]:
         """
         Load valid persisted observations for AI learning recovery.
@@ -1271,13 +1377,38 @@ class FirebaseService:
         if limit <= 0:
             return []
 
-        data = (
-            self._device_ref()
-            .child("sensor_history")
-            .order_by_key()
-            .limit_to_last(max(limit * 5, 100))
-            .get()
-        ) or {}
+        history_ref = self._device_ref().child("sensor_history")
+        scope_id = self._learning_scope_id(zone_id, sensor_id)
+        data = {}
+        if scope_id:
+            data = (
+                history_ref
+                .order_by_child("learning_scope_id")
+                .equal_to(scope_id)
+                .limit_to_last(limit)
+                .get()
+            ) or {}
+
+        # Compatibility window for observations written before zone-scoped
+        # learning existed. Those records were produced only for the primary
+        # sensor; a record with an explicit different zone is never accepted.
+        if len(data) < limit:
+            if sensor_id:
+                legacy_data = (
+                    history_ref
+                    .order_by_child("sensor_id")
+                    .equal_to(sensor_id)
+                    .limit_to_last(max(limit * 5, 100))
+                    .get()
+                ) or {}
+            else:
+                legacy_data = (
+                    history_ref
+                    .order_by_key()
+                    .limit_to_last(max(limit * 5, 100))
+                    .get()
+                ) or {}
+            data = {**legacy_data, **data}
 
         history: list[tuple[int, str]] = []
 
@@ -1289,6 +1420,10 @@ class FirebaseService:
             if sensor_id and item_sensor_id and item_sensor_id != sensor_id:
                 continue
 
+            item_zone_id = str(item.get("zone_id", "")).strip()
+            if zone_id and item_zone_id and item_zone_id != zone_id:
+                continue
+
             try:
                 moisture = int(item.get("moisture", -1))
                 recorded_at = str(item.get("recorded_at", ""))
@@ -1298,6 +1433,7 @@ class FirebaseService:
             if 0 <= moisture <= 100 and recorded_at:
                 history.append((moisture, recorded_at))
 
+        history.sort(key=lambda item: item[1])
         return history[-limit:]
 
     # -------------------------------------------------
@@ -1530,6 +1666,11 @@ class FirebaseService:
 
             "sensor_id":
                 record.sensor_id,
+
+            "learning_scope_id": self._learning_scope_id(
+                record.zone_id,
+                record.sensor_id,
+            ),
         }
 
         updates = {
@@ -1546,6 +1687,7 @@ class FirebaseService:
         self._device_ref().update(
             updates,
         )
+        self._watering_records_cache.clear()
 
         if record.completed:
             self._send_push_notification(
@@ -1863,13 +2005,71 @@ class FirebaseService:
         if limit <= 0:
             return []
 
-        data = (
-            self._device_ref()
-            .child("watering_history")
-            .order_by_key()
-            .limit_to_last(max(limit * 5, 100))
-            .get()
-        ) or {}
+        sensor_id = str(sensor_id or "").strip()
+        zone_id = str(zone_id or "").strip()
+        includes_legacy = True
+        active_season_ids: set[str] = set()
+        if zone_id:
+            _, _, includes_legacy = self.get_zone_season_scope(zone_id)
+            active_season_ids = set(
+                self.get_zone_active_season_ids(zone_id)
+            )
+
+        cache_key = (
+            int(limit),
+            sensor_id,
+            zone_id,
+            tuple(sorted(active_season_ids)),
+            bool(includes_legacy),
+        )
+        now = time.monotonic()
+        cached = self._watering_records_cache.get(cache_key)
+        if (
+            cached is not None
+            and now - cached[0] < self._watering_records_cache_seconds
+        ):
+            return list(cached[1])
+
+        history_ref = self._device_ref().child("watering_history")
+        scope_id = self._learning_scope_id(zone_id, sensor_id)
+        data = {}
+        if scope_id:
+            data = (
+                history_ref
+                .order_by_child("learning_scope_id")
+                .equal_to(scope_id)
+                .limit_to_last(limit)
+                .get()
+            ) or {}
+
+        # Existing installations contain records from before the compound
+        # scope field. Query by the narrowest indexed identity, never by a
+        # shared 100-record garden window that can starve a quiet zone.
+        if len(data) < limit:
+            if zone_id:
+                compatible = (
+                    history_ref
+                    .order_by_child("zone_id")
+                    .equal_to(zone_id)
+                    .limit_to_last(max(limit * 5, 100))
+                    .get()
+                ) or {}
+            elif sensor_id:
+                compatible = (
+                    history_ref
+                    .order_by_child("sensor_id")
+                    .equal_to(sensor_id)
+                    .limit_to_last(max(limit * 5, 100))
+                    .get()
+                ) or {}
+            else:
+                compatible = (
+                    history_ref
+                    .order_by_key()
+                    .limit_to_last(limit)
+                    .get()
+                ) or {}
+            data = {**compatible, **data}
 
         records: list[WateringRecord] = []
 
@@ -2011,12 +2211,6 @@ class FirebaseService:
                     continue
 
                 if zone_id:
-                    _, _, includes_legacy = (
-                        self.get_zone_season_scope(zone_id)
-                    )
-                    active_season_ids = set(
-                        self.get_zone_active_season_ids(zone_id)
-                    )
                     record_season_ids = set(record.season_ids)
                     if record.season_id:
                         record_season_ids.add(record.season_id)
@@ -2049,7 +2243,9 @@ class FirebaseService:
             key=lambda record: record.finished_at
         )
 
-        return records[-limit:]
+        result = records[-limit:]
+        self._watering_records_cache[cache_key] = (now, list(result))
+        return result
         
     # -------------------------------------------------
     # Commands
@@ -2154,6 +2350,41 @@ class FirebaseService:
 
         return default
 
+    def _string_list_command(
+        self,
+        *,
+        commands: dict,
+        field: str,
+        maximum_items: int,
+    ) -> tuple[str, ...]:
+        """Accept a small, unique list of non-empty Firebase strings."""
+
+        value = commands.get(field, [])
+        if isinstance(value, dict):
+            raw_items = list(value.values())
+        elif isinstance(value, (list, tuple)):
+            raw_items = list(value)
+        else:
+            self._logger.warning(
+                "Invalid Firebase string-list command ignored. "
+                "field=%s value=%r",
+                field,
+                value,
+            )
+            return ()
+
+        items: list[str] = []
+        for raw_item in raw_items:
+            if not isinstance(raw_item, str):
+                continue
+            item = raw_item.strip()
+            if not item or len(item) > 64 or item in items:
+                continue
+            items.append(item)
+            if len(items) >= maximum_items:
+                break
+        return tuple(items)
+
     def get_commands(self) -> CommandState:
         """
         Read commands from Firebase.
@@ -2204,6 +2435,10 @@ class FirebaseService:
         zone_test = commands.get("zone_test", {})
         if not isinstance(zone_test, dict):
             zone_test = {}
+
+        manual_watering = commands.get("manual_watering", {})
+        if not isinstance(manual_watering, dict):
+            manual_watering = {}
 
         network_configuration = commands.get(
             "network_configuration",
@@ -2293,6 +2528,35 @@ class FirebaseService:
             zone_test_requested_at_ms=int(
                 zone_test.get("requested_at", 0) or 0
             ),
+            manual_watering_requested=self._boolean_command(
+                commands=manual_watering,
+                field="requested",
+                default=False,
+            ),
+            manual_watering_request_id=str(
+                manual_watering.get("request_id", ""),
+            ),
+            manual_watering_zone_id=str(
+                manual_watering.get("zone_id", ""),
+            ),
+            manual_watering_valve_id=str(
+                manual_watering.get("valve_id", ""),
+            ),
+            manual_watering_duration=self._bounded_command_int(
+                commands=manual_watering,
+                field="duration_seconds",
+                default=30,
+                minimum=5,
+                maximum=IrrigationConfig.MAX_MANUAL_PUMP_DURATION_SECONDS,
+            ),
+            manual_watering_cancel_requested=self._boolean_command(
+                commands=manual_watering,
+                field="cancel_requested",
+                default=False,
+            ),
+            manual_watering_requested_at_ms=int(
+                manual_watering.get("requested_at", 0) or 0
+            ),
             irrigation_assistant_reset_requested=(
                 self._boolean_command(
                     commands=assistant_reset,
@@ -2305,6 +2569,11 @@ class FirebaseService:
             ),
             irrigation_assistant_reset_zone_id=str(
                 assistant_reset.get("zone_id", ""),
+            ),
+            irrigation_assistant_reset_zone_ids=self._string_list_command(
+                commands=assistant_reset,
+                field="zone_ids",
+                maximum_items=8,
             ),
             irrigation_assistant_reset_requested_at_ms=int(
                 assistant_reset.get("requested_at", 0) or 0
@@ -2402,6 +2671,7 @@ class FirebaseService:
         request_id: str,
         zone_id: str,
         result: str,
+        zone_ids: tuple[str, ...] = (),
     ) -> None:
         """Complete a one-shot selected-zone assistant reset command."""
 
@@ -2413,6 +2683,49 @@ class FirebaseService:
                 "result": result,
                 "completed_request_id": request_id,
                 "completed_zone_id": zone_id,
+                "completed_zone_ids": list(zone_ids),
+                "completed_at": datetime.now().isoformat(),
+            },
+        )
+
+    def acknowledge_manual_watering(
+        self,
+        *,
+        request_id: str,
+        result: str,
+        active: bool = False,
+        duration_seconds: int = 0,
+    ) -> None:
+        """Publish the authoritative result of one manual watering request."""
+
+        updates = {
+            "requested": False,
+            "active": active,
+            "result": result,
+            "duration_seconds": max(0, int(duration_seconds)),
+            "completed_request_id": request_id,
+        }
+        if active:
+            updates["started_at"] = datetime.now().isoformat()
+        else:
+            updates["cancel_requested"] = False
+            updates["completed_at"] = datetime.now().isoformat()
+
+        self._device_ref().child("commands").child(
+            "manual_watering",
+        ).update(updates)
+
+    def reset_manual_watering_after_restart(self) -> None:
+        """Clear stale manual-watering UI state after a service restart."""
+
+        self._device_ref().child("commands").child(
+            "manual_watering",
+        ).update(
+            {
+                "requested": False,
+                "cancel_requested": False,
+                "active": False,
+                "result": "SERVICE_RESTARTED",
                 "completed_at": datetime.now().isoformat(),
             },
         )
@@ -2420,7 +2733,13 @@ class FirebaseService:
     def get_user_feedback(self) -> dict[str, dict]:
         """Return structured Android feedback records."""
 
-        values = self._device_ref().child("user_feedback").get()
+        values = (
+            self._device_ref()
+            .child("user_feedback")
+            .order_by_child("created_at")
+            .limit_to_last(50)
+            .get()
+        )
         if not isinstance(values, dict):
             return {}
 

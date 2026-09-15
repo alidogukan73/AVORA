@@ -121,6 +121,21 @@ def make_service(reference: FakeDeviceReference) -> FirebaseService:
 def main() -> None:
     commands = FakeCommandReference(command_payload())
     service = make_service(FakeDeviceReference(commands))
+
+    multi_zone_payload = command_payload()
+    multi_zone_payload["irrigation_assistant_reset"] = {
+        "requested": True,
+        "request_id": "reset-multiple",
+        "zone_id": "zone-001",
+        "zone_ids": ["zone-001", "zone-003", "zone-001", 7],
+        "requested_at": int(time.time() * 1000),
+    }
+    parsed = service._parse_commands(multi_zone_payload)
+    assert parsed.irrigation_assistant_reset_zone_ids == (
+        "zone-001",
+        "zone-003",
+    )
+
     service.start_command_sync()
 
     assert commands.callback is not None

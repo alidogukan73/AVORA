@@ -7,7 +7,7 @@
     <string name="notification_weather_rain_title">Yağış riski yüksek</string>
     <string name="notification_weather_rain_description" tools:ignore="PluralsCandidate">Tahminde %%%1$d yağış olasılığı var. Sulama öncesi toprak nemini yeniden kontrol edin.</string>
     <string name="notification_weather_heat_title">Yüksek sıcaklık uyarısı</string>
-    <string name="notification_weather_heat_description">Tahminde %1$d°C görülüyor. Toprak nemini ve yapraklarda solmayı takip edin.</string>
+    <string name="notification_weather_heat_description">Tahminde %1$s görülüyor. Toprak nemini ve yapraklarda solmayı takip edin.</string>
     <string name="notification_weather_wind_title">Kuvvetli rüzgâr uyarısı</string>
     <string name="notification_weather_wind_description">Rüzgâr yaklaşık %1$d km/sa. Toprak nemi daha hızlı düşebilir.</string>
 

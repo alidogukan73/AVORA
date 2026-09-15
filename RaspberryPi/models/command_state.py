@@ -42,10 +42,21 @@ class CommandState:
     zone_test_cancel_requested: bool = False
     zone_test_requested_at_ms: int = 0
 
-    # One-shot reset of one zone's transient irrigation-assistant state.
+    # One-shot, bounded manual watering command from Android.  Unlike a
+    # valve test this command owns the complete valve -> pump -> close cycle.
+    manual_watering_requested: bool = False
+    manual_watering_request_id: str = ""
+    manual_watering_zone_id: str = ""
+    manual_watering_valve_id: str = ""
+    manual_watering_duration: int = 30
+    manual_watering_cancel_requested: bool = False
+    manual_watering_requested_at_ms: int = 0
+
+    # One-shot reset of one or more zones' transient assistant state.
     irrigation_assistant_reset_requested: bool = False
     irrigation_assistant_reset_request_id: str = ""
     irrigation_assistant_reset_zone_id: str = ""
+    irrigation_assistant_reset_zone_ids: tuple[str, ...] = ()
     irrigation_assistant_reset_requested_at_ms: int = 0
 
     # One-shot, validated Raspberry Pi IPv4 configuration request.

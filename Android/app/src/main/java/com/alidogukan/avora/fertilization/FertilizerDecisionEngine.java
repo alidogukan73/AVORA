@@ -5,6 +5,7 @@ import com.alidogukan.avora.models.FertilizerApplication;
 import com.alidogukan.avora.models.FertilizerProduct;
 import com.alidogukan.avora.models.GardenZone;
 import com.alidogukan.avora.models.WeatherForecast;
+import com.alidogukan.avora.settings.DisplayUnitFormatter;
 
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
@@ -34,6 +35,16 @@ public final class FertilizerDecisionEngine {
                                            List<FertilizerApplication> history,
                                            long now,
                                            boolean preferOrganicInputs) {
+        return advise(zone, products, weather, history, now, preferOrganicInputs,
+                DisplayUnitFormatter.metric());
+    }
+
+    public static FertilizerAdvice advise(GardenZone zone, List<FertilizerProduct> products,
+                                           WeatherForecast weather,
+                                           List<FertilizerApplication> history,
+                                           long now,
+                                           boolean preferOrganicInputs,
+                                           DisplayUnitFormatter units) {
         FertilizationProfile profile = zone.getFertilization();
         String title = com.alidogukan.avora.zones.PhysicalZoneIdentity.name(zone);
         String normalizedStage = profile == null
@@ -45,7 +56,7 @@ public final class FertilizerDecisionEngine {
                     "", new ArrayList<>(),
                     combinedRisks(zone, products, weather, history, now));
         }
-        String context = buildContext(zone, profile, weather, now);
+        String context = buildContext(zone, profile, weather, now, units);
         if (FertilizerStagePolicy.SEASON_END.equals(normalizedStage)) {
             return new FertilizerAdvice(title, FertilizerAdvice.STATUS_SEASON_COMPLETED,
                     "Besleme gübresi önerilmez. Gelecek sezon için toprak analizi, organik madde ve taban gübresi planını hazırlayın.",
@@ -70,7 +81,8 @@ public final class FertilizerDecisionEngine {
                         FertilizerPerformanceAdvisor.evaluate(
                                 zone, product, history, now
                         ),
-                        preferOrganicInputs
+                        preferOrganicInputs,
+                        units
                 ));
             }
         }
@@ -237,7 +249,8 @@ public final class FertilizerDecisionEngine {
             FertilizationProfile profile,
             long waitDays,
             FertilizerPerformanceAdvisor.Result performance,
-            boolean preferOrganicInputs
+            boolean preferOrganicInputs,
+            DisplayUnitFormatter units
     ) {
         String text = (safe(product.getName(), "") + " " + safe(product.getNpk(), "")).toLowerCase(Locale.ROOT);
         FertilizerNutrientProfile nutrients = FertilizerNutrientProfile.from(product);
@@ -329,11 +342,13 @@ public final class FertilizerDecisionEngine {
         return new Candidate(product.getProduct_id(), product.getName(),
                 applicationType(product),
                 Math.max(0, Math.min(100, score)), role, stock,
-                doseSummary(product), zoneDoseSummary(product, profile), waitDays,
+                doseSummary(product), zoneDoseSummary(product, profile, units), waitDays,
                 readiness, performance);
     }
 
-    private static String buildContext(GardenZone zone, FertilizationProfile profile, WeatherForecast weather, long now) {
+    private static String buildContext(GardenZone zone, FertilizationProfile profile,
+                                       WeatherForecast weather, long now,
+                                       DisplayUnitFormatter units) {
         List<String> parts = new ArrayList<>();
         long age = plantAge(profile.getPlanting_date());
         if (age >= 0) parts.add(age + " günlük");
@@ -346,7 +361,9 @@ public final class FertilizerDecisionEngine {
             parts.add("son uygulama " + days + " gün önce");
         }
         if (FertilizerDataFreshnessPolicy.isWeatherFresh(weather, now)
-                && weather.getTomorrowTemperatureMax() != null) parts.add("yarın " + Math.round(weather.getTomorrowTemperatureMax()) + "°C");
+                && weather.getTomorrowTemperatureMax() != null) parts.add(
+                        "yarın " + units.formatTemperature(
+                                weather.getTomorrowTemperatureMax()));
         return String.join(" · ", parts);
     }
 
@@ -441,26 +458,28 @@ public final class FertilizerDecisionEngine {
     }
 
     private static String zoneDoseSummary(FertilizerProduct product,
-                                          FertilizationProfile profile) {
+                                          FertilizationProfile profile,
+                                          DisplayUnitFormatter units) {
         FertilizerApplicationSafety.Dose dose =
                 FertilizerApplicationSafety.calculateDose(product, profile);
         if (!dose.isSupported()) return "";
-        String amount = dose.getMaxAmount() > dose.getMinAmount()
-                ? trim(dose.getMinAmount()) + "–" + trim(dose.getMaxAmount())
-                : trim(dose.getMinAmount());
+        String amount = displayDoseRange(dose.getMinAmount(),
+                dose.getMaxAmount(), dose.getUnit(), units);
         String sourceUnit = safe(product.getDosage_unit(), "");
         String method = applicationNote(sourceUnit);
-        String scope = dose.isTankBased() ? trim(profile.getTank_liters()) + " L tank için"
-                : trim(profile.getArea_m2()) + " m² için";
+        String scope = dose.isTankBased()
+                ? units.formatVolume(profile.getTank_liters()) + " tank için"
+                : units.formatArea(profile.getArea_m2()) + " için";
         String areaOrTank = (dose.isTankBased() ? "Tank dozu: " : "Alan dozu: ")
-                + amount + " " + dose.getUnit() + " · " + scope;
-        String tankMix = tankMixSummary(product, profile, sourceUnit);
+                + amount + " · " + scope;
+        String tankMix = tankMixSummary(product, profile, sourceUnit, units);
         if (!tankMix.isBlank()) return areaOrTank + "\n" + tankMix;
         return areaOrTank + (method.isBlank() ? "" : " · " + method);
     }
     private static String tankMixSummary(FertilizerProduct product,
                                          FertilizationProfile profile,
-                                         String sourceUnit) {
+                                         String sourceUnit,
+                                         DisplayUnitFormatter units) {
         if (profile.getTank_liters() <= 0 || !sourceUnit.toLowerCase(Locale.ROOT)
                 .replace(" ", "").contains("tonsu")) return "";
         double min = product.getLabel_dosage_min() > 0
@@ -484,13 +503,32 @@ public final class FertilizerDecisionEngine {
         }
         double tankMin = min * profile.getTank_liters() * factor;
         double tankMax = max * profile.getTank_liters() * factor;
-        String amount = tankMax > tankMin ? trim(tankMin) + "–" + trim(tankMax)
-                : trim(tankMin);
+        String amount = displayDoseRange(tankMin, tankMax, unit, units);
         String applicationVolume = profile.getArea_m2() > 0
-                ? " · bu bölge için yaklaşık " + trim(profile.getArea_m2()) + " L çözelti uygulayın"
+                ? " · bu bölge için yaklaşık "
+                + units.formatVolume(profile.getArea_m2()) + " çözelti uygulayın"
                 : "";
-        return "Tank karışımı: " + amount + " " + unit + " · "
-                + trim(profile.getTank_liters()) + " L tank için" + applicationVolume;
+        return "Tank karışımı: " + amount + " · "
+                + units.formatVolume(profile.getTank_liters())
+                + " tank için" + applicationVolume;
+    }
+    private static String displayDoseRange(double minimum, double maximum,
+                                           String unit,
+                                           DisplayUnitFormatter units) {
+        if ("g".equalsIgnoreCase(unit)) {
+            return maximum > minimum
+                    ? units.formatWeight(minimum) + "–" + units.formatWeight(maximum)
+                    : units.formatWeight(minimum);
+        }
+        if ("ml".equalsIgnoreCase(unit)) {
+            return maximum > minimum
+                    ? units.formatVolume(minimum / 1000d) + "–"
+                    + units.formatVolume(maximum / 1000d)
+                    : units.formatVolume(minimum / 1000d);
+        }
+        String amount = maximum > minimum
+                ? trim(minimum) + "–" + trim(maximum) : trim(minimum);
+        return amount + " " + unit;
     }
     private static String applicationNote(String unit) {
         int separator = unit.indexOf('·');

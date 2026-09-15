@@ -64,6 +64,7 @@ def make_service(
     }
     service._zone_map_refreshed_at = time.monotonic()
     service._zone_map_refresh_seconds = 10.0
+    service._zone_sensor_publish_interval_seconds = 15.0
     service._published_zone_sensor_signatures = {}
     service._zone_sensor_published_at = {}
     service._device_ref = lambda: reference
@@ -106,6 +107,13 @@ def main() -> None:
 
     service.update_zone_sensors(
         {"soil-004": reading("soil-004", 41)}
+    )
+    assert len(reference.updates) == 1
+
+    # Even changed telemetry is cloud-throttled; local irrigation reads are
+    # not routed through this upload method.
+    service.update_zone_sensors(
+        {"soil-004": reading("soil-004", 42)}
     )
     assert len(reference.updates) == 1
 

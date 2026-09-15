@@ -78,10 +78,11 @@
     <string name="label_voltage">Voltage</string>
     <string name="label_raw_value">Raw Value</string>
     <string name="title_watering_control">Irrigation Control</string>
-    <string name="menu_watering_control_description">Pump and automatic irrigation management</string>
-    <string name="manual_valves_title">Manual Valve Control</string>
-    <string name="manual_valves_simulation">Simulation mode — real pump is protected</string>
-    <string name="manual_valves_physical">At least one valve must be open for the pump.</string>
+    <string name="menu_manual_watering_title">Manual Watering</string>
+    <string name="menu_watering_control_description">Run the pump and valves manually</string>
+    <string name="manual_valves_title">Manual Watering</string>
+    <string name="manual_valves_simulation">No verified physical valve — the real pump is protected</string>
+    <string name="manual_valves_physical">Choose a zone; the valve and pump run automatically in the safe order.</string>
     <string name="subtitle_pump_and_mode">Pump status and operating mode</string>
     <string name="label_pump_status">Pump Status</string>
     <string name="pump_running">● Pump Running</string>

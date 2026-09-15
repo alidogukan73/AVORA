@@ -77,6 +77,7 @@
     <string name="seedling_light_value">%1$,.0f</string>
     <string name="seedling_lux_unit" translatable="false">lux</string>
     <string name="seedling_metric_target_temperature">Target %1$.0f–%2$.0f°C</string>
+    <string name="seedling_metric_target_value">Target %1$s</string>
     <string name="seedling_metric_target_percent">Target %%%1$.0f–%%%2$.0f</string>
     <string name="seedling_metric_target_light">Target %1$,.0f–%2$,.0f lux</string>
     <string name="seedling_metric_state_normal">Normal</string>
@@ -159,12 +160,14 @@
     <string name="seedling_logs_heading">Recent daily records</string>
     <string name="seedling_no_logs">No daily observation yet.</string>
     <plurals name="seedling_log_meta">
-        <item quantity="one">%1$.1f cm · %2$d leaf · %3$d healthy</item>
-        <item quantity="other">%1$.1f cm · %2$d leaves · %3$d healthy</item>
+        <item quantity="one">%1$s · %2$d leaf · %3$d healthy</item>
+        <item quantity="other">%1$s · %2$d leaves · %3$d healthy</item>
     </plurals>
     <string name="seedling_watered_yes">Watering: Done</string>
     <string name="seedling_watered_no">Watering: Not done</string>
     <string name="seedling_log_swipe_hint">Swipe left to edit or delete the record from %1$s</string>
+    <string name="seedling_log_tap_or_swipe_hint">Tap to edit the record from %1$s; swipe left to delete it</string>
+    <string name="seedling_log_tap_edit_hint">Tap to edit the record from %1$s</string>
     <string name="seedling_log_edit">Edit</string>
     <string name="seedling_log_delete">Delete</string>
     <string name="seedling_log_delete_title">Delete daily record?</string>
@@ -185,7 +188,7 @@
     <string name="seedling_daily_photo_change">Change</string>
     <string name="seedling_daily_photo_delete">Delete</string>
     <string name="seedling_daily_photo_uploading">Preparing photo…</string>
-    <string name="seedling_daily_photo_load_failed">Photo could not be loaded. Check the connection and try again.</string>
+    <string name="seedling_daily_photo_load_failed">This photo is not on this phone. Edit the record to choose a new photo.</string>
     <string name="seedling_daily_photo_required_for_view">You can zoom and rotate the photo after saving it.</string>
     <string name="seedling_height">Height</string>
     <string name="seedling_leaf_count">Leaf count</string>
@@ -349,6 +352,7 @@
     <string name="seedling_archive_filter">Archive (%1$d)</string>
     <string name="seedling_no_archived_batches">There are no archived seedling batches yet.</string>
     <string name="seedling_archived_status">Archived</string>
+    <string name="seedling_archived_telemetry_disabled">This batch is archived. Live sensor tracking is stopped; daily records and photos are preserved.</string>
     <string name="seedling_transferred_status">Transferred to season</string>
     <string name="seedling_batch_archived_meta">%1$d healthy seedlings · History preserved</string>
     <string name="seedling_batch_transferred_meta">%1$d seedlings · Linked to season</string>

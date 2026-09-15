@@ -17,6 +17,8 @@ import com.alidogukan.avora.models.Command;
 import com.alidogukan.avora.models.GardenAISummary;
 import com.alidogukan.avora.models.GardenSeason;
 import com.alidogukan.avora.models.GardenZone;
+import com.alidogukan.avora.models.IrrigationTimingSettings;
+import com.alidogukan.avora.zones.ManualWateringDurationPolicy;
 import com.alidogukan.avora.models.MoisturePrediction;
 import com.alidogukan.avora.models.PredictionAccuracy;
 import com.alidogukan.avora.models.PredictionValidationStatus;
@@ -38,6 +40,7 @@ import com.alidogukan.avora.plantassistant.PlantAssistantHomeRecommendation;
 import com.alidogukan.avora.plantassistant.PlantAssistantRecommendationStore;
 import com.alidogukan.avora.season.SeasonRepository;
 import com.alidogukan.avora.season.SeasonScope;
+import com.alidogukan.avora.settings.UnitPreferences;
 
 import java.util.List;
 
@@ -65,6 +68,7 @@ public class MainViewModel extends AndroidViewModel {
     private final LiveData<SoilLearningProfile> soilLearningProfile;
     private final LiveData<List<GardenZone>> gardenZones;
     private final LiveData<List<GardenSeason>> gardenSeasons;
+    private final LiveData<IrrigationTimingSettings> irrigationTimingSettings;
     private final LiveData<GardenAISummary> gardenAISummary;
     private final LiveData<WeatherForecast> weatherForecast;
     private final LiveData<List<WateringHistory>> wateringHistory;
@@ -96,6 +100,7 @@ public class MainViewModel extends AndroidViewModel {
         soilLearningProfile = repository.observeSoilLearningProfile();
         gardenZones = repository.observeGardenZones();
         gardenSeasons = new SeasonRepository().observeAllSeasons();
+        irrigationTimingSettings = repository.observeIrrigationTimingSettings();
         gardenAISummary = repository.observeGardenAISummary();
         weatherForecast = repository.observeWeatherForecast();
         wateringHistory = repository.observeWateringHistory();
@@ -104,6 +109,9 @@ public class MainViewModel extends AndroidViewModel {
     public LiveData<Sensor> getSensor() { return sensorLiveData; }
     public LiveData<Status> getStatus() { return statusLiveData; }
     public LiveData<Command> getCommand() { return commandLiveData; }
+    public LiveData<IrrigationTimingSettings> getIrrigationTimingSettings() {
+        return irrigationTimingSettings;
+    }
     public LiveData<String> getError() { return errorLiveData; }
     public LiveData<AdaptiveRecommendation> getAdaptiveRecommendation() {
         return adaptiveRecommendation;
@@ -210,6 +218,7 @@ public class MainViewModel extends AndroidViewModel {
                 irrigation.isWatering_active(),
                 zone.getValve_id(),
                 status != null && status.isValveOpen(),
+                status != null && status.isRelay(),
                 status == null ? "" : status.getActiveValveId(),
                 status == null ? 0L : status.getLastSeenEpoch(),
                 nowEpoch,
@@ -230,7 +239,8 @@ public class MainViewModel extends AndroidViewModel {
     public PlantAssistantHomeRecommendation.Recommendation plantRecommendation(
             List<GardenZone> zones, WeatherForecast weather, long nowEpoch) {
         return PlantAssistantHomeRecommendation.evaluateWithSignals(zones, weather,
-                PlantAssistantRecommendationStore.healthSignals(getApplication()), nowEpoch);
+                PlantAssistantRecommendationStore.healthSignals(getApplication()), nowEpoch,
+                new UnitPreferences(getApplication()).formatter());
     }
 
     public int unreadNotificationCount() {
@@ -249,6 +259,46 @@ public class MainViewModel extends AndroidViewModel {
         repository.requestZoneValveTest(zone, 10800);
     }
     public void closeManualValve() { repository.cancelZoneValveTest(); }
+    public int defaultManualWateringSafetyLimit() {
+        return ManualWateringDurationPolicy.DEFAULT_SAFETY_LIMIT_SECONDS;
+    }
+    public int configuredManualWateringSafetyLimit(IrrigationTimingSettings settings) {
+        return ManualWateringDurationPolicy.configuredLimitOrDefault(
+                settings == null ? 0 : settings.getManualWateringMaxDurationSeconds());
+    }
+    public int configuredManualWateringDuration(GardenZone zone, int safetyLimitSeconds) {
+        return ManualWateringDurationPolicy.configuredDurationOrDefault(
+                zone == null ? 0 : zone.getManual_watering_duration_seconds(),
+                safetyLimitSeconds);
+    }
+    public int manualWateringDurationFromParts(
+            int hours,
+            int minutes,
+            int seconds,
+            int safetyLimitSeconds
+    ) {
+        return ManualWateringDurationPolicy.fromHoursMinutesAndSeconds(
+                hours, minutes, seconds, safetyLimitSeconds);
+    }
+    public boolean requiresExtendedManualWateringConfirmation(int durationSeconds) {
+        return ManualWateringDurationPolicy.requiresExtendedConfirmation(durationSeconds);
+    }
+    public void startManualWatering(
+            GardenZone zone,
+            int durationSeconds,
+            int safetyLimitSeconds
+    ) {
+        repository.requestManualWatering(zone, durationSeconds, safetyLimitSeconds)
+                .addOnFailureListener(error -> errorLiveData.postValue(
+                        getApplication().getString(
+                                R.string.manual_watering_request_failed)));
+    }
+    public void cancelManualWatering() {
+        repository.cancelManualWatering()
+                .addOnFailureListener(error -> errorLiveData.postValue(
+                        getApplication().getString(
+                                R.string.manual_watering_cancel_failed)));
+    }
     public void setZoneValvePhysicalMode(GardenZone zone, boolean physical) {
         if (zone == null || zone.getZone_id() == null) return;
         repository.updateGardenZoneValveMode(zone.getZone_id(), physical);

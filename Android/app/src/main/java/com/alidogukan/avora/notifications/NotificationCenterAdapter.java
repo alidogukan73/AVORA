@@ -11,6 +11,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.appcompat.widget.AppCompatImageView;
 
@@ -24,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 
 public class NotificationCenterAdapter
         extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
@@ -98,15 +100,94 @@ public class NotificationCenterAdapter
             }
         }
 
-        int previousCount = rows.size();
+        List<Row> previousRows = new ArrayList<>(rows);
+        DiffUtil.DiffResult difference = DiffUtil.calculateDiff(
+                new DiffUtil.Callback() {
+                    @Override
+                    public int getOldListSize() {
+                        return previousRows.size();
+                    }
+
+                    @Override
+                    public int getNewListSize() {
+                        return updatedRows.size();
+                    }
+
+                    @Override
+                    public boolean areItemsTheSame(
+                            int oldItemPosition,
+                            int newItemPosition
+                    ) {
+                        return sameItem(
+                                previousRows.get(oldItemPosition),
+                                updatedRows.get(newItemPosition)
+                        );
+                    }
+
+                    @Override
+                    public boolean areContentsTheSame(
+                            int oldItemPosition,
+                            int newItemPosition
+                    ) {
+                        return sameContent(
+                                previousRows.get(oldItemPosition),
+                                updatedRows.get(newItemPosition)
+                        );
+                    }
+                },
+                false
+        );
+
         rows.clear();
-        if (previousCount > 0) {
-            notifyItemRangeRemoved(0, previousCount);
-        }
         rows.addAll(updatedRows);
-        if (!rows.isEmpty()) {
-            notifyItemRangeInserted(0, rows.size());
+        difference.dispatchUpdatesTo(this);
+    }
+
+    private static boolean sameItem(Row before, Row after) {
+        if (before.notification == null || after.notification == null) {
+            return before.notification == null
+                    && after.notification == null
+                    && Objects.equals(before.header, after.header);
         }
+
+        String beforeId = before.notification.getId();
+        String afterId = after.notification.getId();
+        if (!beforeId.isEmpty() || !afterId.isEmpty()) {
+            return Objects.equals(beforeId, afterId);
+        }
+
+        return before.notification.getCreated_at_epoch()
+                        == after.notification.getCreated_at_epoch()
+                && Objects.equals(
+                        before.notification.getSource_key(),
+                        after.notification.getSource_key()
+                )
+                && Objects.equals(
+                        before.notification.getTitle(),
+                        after.notification.getTitle()
+                );
+    }
+
+    private static boolean sameContent(Row before, Row after) {
+        if (before.notification == null || after.notification == null) {
+            return before.notification == null
+                    && after.notification == null
+                    && Objects.equals(before.header, after.header);
+        }
+
+        GardenNotification left = before.notification;
+        GardenNotification right = after.notification;
+        return Objects.equals(left.getId(), right.getId())
+                && Objects.equals(left.getType(), right.getType())
+                && Objects.equals(left.getPriority(), right.getPriority())
+                && Objects.equals(left.getZone_id(), right.getZone_id())
+                && Objects.equals(left.getSeason_id(), right.getSeason_id())
+                && Objects.equals(left.getTitle(), right.getTitle())
+                && Objects.equals(left.getDescription(), right.getDescription())
+                && Objects.equals(left.getSource_key(), right.getSource_key())
+                && left.getCreated_at_epoch() == right.getCreated_at_epoch()
+                && left.isRead() == right.isRead()
+                && left.isSaved() == right.isSaved();
     }
 
     public GardenNotification getNotificationAt(

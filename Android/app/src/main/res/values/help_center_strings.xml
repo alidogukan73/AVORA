@@ -22,7 +22,7 @@
     <string name="help_q_low_moisture_wait">Nem düşük olduğu hâlde neden bekliyor?</string>
     <string name="help_a_low_moisture_wait">Sulama sonrasında suyun kök bölgesine yayılması için bekleme süresi uygulanır. Nem hâlâ düşükse yeniden başlatma farkı ve çevrim sınırı kontrol edilir. Bu koruma arka arkaya gereksiz sulamayı önler.</string>
     <string name="help_q_manual_valve">Pompa veya vanayı elle nasıl test ederim?</string>
-    <string name="help_a_manual_valve">Ayarlar > Sulama Ayarları içinden Sulama Kontrolü’nü açın. Önce fiziksel bir vanayı açın, ardından pompayı çalıştırın. Açık fiziksel vana yoksa güvenlik kilidi pompayı engeller.</string>
+    <string name="help_a_manual_valve">Ayarlar > Sulama Ayarları içinden Manuel Sulama’yı açın. Fiziksel bir bölge seçip süreyi ayarlayın; vana ve pompa güvenli sırayla çalışır.</string>
     <string name="help_q_ai_tools">Dört AI aracı arasındaki fark nedir?</string>
     <string name="help_a_ai_tools">AI Bitki Asistanı fotoğraf, belirti, sensör ve hava verilerini birlikte değerlendirir. AI Fide Asistanı fide partilerini, gelişim aşamalarını ve NodeMCU sensörlerini takip eder. AI Gübre Asistanı gelişim dönemi, uygulama geçmişi, stok ve ürün etiketlerine göre öneri ve plan hazırlar. AI Sulama Asistanı nem davranışını ve sulama geçmişini izler.</string>
     <string name="help_q_ai_remote">AI Bitki Asistanı uzaktan çalışır mı?</string>

@@ -52,6 +52,9 @@
             android:name=".activities.FeedbackActivity"
             android:exported="false" />
         <activity
+            android:name=".activities.SuperadminDataActivity"
+            android:exported="false" />
+        <activity
             android:name=".activities.RainSettingsActivity"
             android:exported="false" />
 

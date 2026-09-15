@@ -3,6 +3,7 @@ package com.alidogukan.avora.plantassistant;
 import com.alidogukan.avora.models.GardenZone;
 import com.alidogukan.avora.models.WeatherForecast;
 import com.alidogukan.avora.fertilization.FertilizerDataFreshnessPolicy;
+import com.alidogukan.avora.settings.DisplayUnitFormatter;
 
 import java.util.Collections;
 import java.util.List;
@@ -61,6 +62,17 @@ public final class PlantAssistantHomeRecommendation {
             List<PlantAssistantHealthSignal> recentAnalyses,
             long nowEpoch
     ) {
+        return evaluateWithSignals(zones, weather, recentAnalyses, nowEpoch,
+                DisplayUnitFormatter.metric());
+    }
+
+    public static Recommendation evaluateWithSignals(
+            List<GardenZone> zones,
+            WeatherForecast weather,
+            List<PlantAssistantHealthSignal> recentAnalyses,
+            long nowEpoch,
+            DisplayUnitFormatter units
+    ) {
         if (zones == null || zones.isEmpty()) {
             return recommendation(
                     "Bahçe bölgesi bekleniyor. Bitki önerisi için bir bölge ekleyin.",
@@ -100,8 +112,8 @@ public final class PlantAssistantHomeRecommendation {
         if (dryInHeat != null && heat != null && heat >= 32D) {
             return recommendation(
                     zoneName(dryInHeat) + " için nem %" + dryInHeat.getMoisture()
-                            + "; sıcaklık " + Math.round(heat)
-                            + "°C bekleniyor. Yapraklarda sıcaklık stresi kontrolü öneriliyor.",
+                            + "; sıcaklık " + units.formatTemperature(heat)
+                            + " bekleniyor. Yapraklarda sıcaklık stresi kontrolü öneriliyor.",
                     Level.WARNING
             );
         }
@@ -118,7 +130,7 @@ public final class PlantAssistantHomeRecommendation {
         if (heat != null && heat >= 38D) {
             GardenZone zone = firstActiveZone(zones);
             return recommendation(
-                    Math.round(heat) + "°C sıcaklık bekleniyor. " + zoneName(zone)
+                    units.formatTemperature(heat) + " sıcaklık bekleniyor. " + zoneName(zone)
                             + " için öğle saatlerinde solma ve yaprak yanığı gözlemi öneriliyor.",
                     Level.FOLLOW_UP
             );

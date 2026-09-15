@@ -134,6 +134,7 @@ class WateringController:
         duration: int,
         get_commands: Callable[[], CommandState],
         on_relay_changed: Callable[[bool], None] | None = None,
+        on_progress: Callable[[], None] | None = None,
     ) -> WateringResult:
         """
         Water for the specified duration.
@@ -166,6 +167,9 @@ class WateringController:
                 - started
                 < duration
             ):
+
+                if on_progress is not None:
+                    on_progress()
 
                 commands = get_commands()
 
@@ -275,6 +279,7 @@ class WateringController:
         get_commands: Callable[[], CommandState],
         on_relay_changed: Callable[[bool], None] | None = None,
         on_valve_changed: Callable[[str | None, bool], None] | None = None,
+        on_progress: Callable[[], None] | None = None,
     ) -> WateringResult:
         """
         Water one zone using the safe valve/pump sequence.
@@ -310,12 +315,29 @@ class WateringController:
 
             # The UI is notified immediately after relay output changes,
             # while the pump still waits for the valve's mechanical travel.
-            self._valves.wait_for_opening(valve_id)
+            while not self._valves.is_ready_for_pump(valve_id):
+                if on_progress is not None:
+                    on_progress()
+                commands = get_commands()
+                if not commands.enabled:
+                    return WateringResult(
+                        completed=False,
+                        stop_reason="SYSTEM_DISABLED",
+                        duration=0,
+                    )
+                if not commands.auto_mode:
+                    return WateringResult(
+                        completed=False,
+                        stop_reason="MANUAL_MODE",
+                        duration=0,
+                    )
+                time.sleep(0.2)
 
             return self.water(
                 duration=duration,
                 get_commands=get_commands,
                 on_relay_changed=on_relay_changed,
+                on_progress=on_progress,
             )
 
         finally:

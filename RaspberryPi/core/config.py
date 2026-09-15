@@ -12,7 +12,7 @@ class AppConfig:
 
     DEVICE_ID = "avora-001"
 
-    VERSION = "2.11.2"
+    VERSION = "2.12.2"
 
     LOOP_DELAY_SECONDS = 2.0
 
@@ -39,9 +39,12 @@ class FirebaseConfig:
     # than the connection heartbeat.
     HEALTH_UPDATE_INTERVAL_SECONDS = 60
 
-    # Sensor-to-zone routing must remain responsive and is independent from
-    # the device heartbeat frequency.
-    ZONE_MAP_REFRESH_INTERVAL_SECONDS = 10
+    # Sensor-to-zone routing changes rarely. Local irrigation still evaluates
+    # every two seconds; this only limits the Firebase configuration refresh.
+    ZONE_MAP_REFRESH_INTERVAL_SECONDS = 60
+
+    # Keep local sensor safety fast while reducing cloud telemetry churn.
+    SENSOR_CLOUD_PUBLISH_INTERVAL_SECONDS = 15
 
     # Normal command delivery uses one long-lived Firebase stream. This
     # interval is used only if that stream cannot be started.
@@ -145,7 +148,9 @@ class ValveConfig:
     # prevents an unfinished zone from ever starting the shared pump.
     SIMULATION_MODE = False
 
-    ACTIVE_LOW = False
+    # The installed eight-channel valve relay board is LOW-triggered:
+    # HIGH keeps a channel safely OFF; LOW energizes only the selected valve.
+    ACTIVE_LOW = True
 
     GPIO_PINS = {
         "valve-001": 5,
@@ -171,12 +176,18 @@ class ValveConfig:
         "valve-008": 40,
     }
 
-    # Only valve-001 has a real relay/valve test planned right now.  Add a
-    # valve id here only after its GPIO relay and 12 V valve wiring pass the
-    # valve-only test.  The first five *garden zones* remain active in the
-    # app; this list is strictly a physical-hardware safety interlock.
+    # All eight LOW-trigger valve relay inputs are connected for on-site
+    # commissioning.  Automatic irrigation remains independently disabled on
+    # unconfigured zones; this list only permits explicit valve operation.
     PHYSICAL_VALVE_IDS = frozenset({
         "valve-001",
+        "valve-002",
+        "valve-003",
+        "valve-004",
+        "valve-005",
+        "valve-006",
+        "valve-007",
+        "valve-008",
     })
 
     OPENING_DELAY_SECONDS = 8.0
@@ -236,4 +247,5 @@ class IrrigationConfig:
     MIN_COOLDOWN_SECONDS = 60
     MAX_COOLDOWN_SECONDS = 86400
 
-    MAX_MANUAL_PUMP_DURATION_SECONDS = 120
+    DEFAULT_MANUAL_PUMP_DURATION_LIMIT_SECONDS = 4 * 60 * 60
+    MAX_MANUAL_PUMP_DURATION_SECONDS = 12 * 60 * 60

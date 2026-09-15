@@ -7,7 +7,7 @@
     <string name="notification_weather_rain_title">High rain risk</string>
     <string name="notification_weather_rain_description" tools:ignore="PluralsCandidate">The forecast shows a %%%1$d chance of rain. Check soil moisture again before watering.</string>
     <string name="notification_weather_heat_title">High temperature warning</string>
-    <string name="notification_weather_heat_description">The forecast shows %1$d°C. Monitor soil moisture and leaf wilting.</string>
+    <string name="notification_weather_heat_description">The forecast shows %1$s. Monitor soil moisture and leaf wilting.</string>
     <string name="notification_weather_wind_title">Strong wind warning</string>
     <string name="notification_weather_wind_description">Wind is around %1$d km/h. Soil moisture may drop faster.</string>
 

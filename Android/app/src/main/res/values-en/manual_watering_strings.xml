@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="manual_watering_zone_action">Manually water %1$s</string>
+    <string name="manual_watering_dialog_title">%1$s · Manual watering</string>
+    <string name="manual_watering_dialog_message">The Pi opens the physical valve first, waits for it to become safe, then runs the pump for the duration you set. This duration is remembered for the zone.</string>
+    <string name="manual_watering_hours">Hours</string>
+    <string name="manual_watering_minutes">Minutes</string>
+    <string name="manual_watering_seconds">Seconds</string>
+    <string name="manual_watering_duration_hint">Use hours and minutes for drip irrigation, or seconds for short hardware tests.</string>
+    <string name="manual_watering_duration_invalid">Enter a duration between 5 seconds and the administrator safety limit.</string>
+    <string name="manual_watering_limit_message">Maximum duration allowed for this watering: %1$s</string>
+    <string name="manual_watering_extended_title">Confirm long watering duration</string>
+    <string name="manual_watering_extended_message">The pump will run for %1$s. Confirm that you checked the water line, drainage and valve.</string>
+    <string name="manual_watering_extended_confirm">Checked, start</string>
+    <string name="manual_watering_safety_title">Irrigation safety</string>
+    <string name="manual_watering_safety_description">The Pi forcibly stops manual watering when the duration set here expires.</string>
+    <string name="manual_watering_safety_limit_title">Maximum manual watering</string>
+    <string name="manual_watering_safety_owner_hint">Tap to set hours, minutes and seconds.</string>
+    <string name="manual_watering_safety_family_hint">Only the administrator can change this safety limit.</string>
+    <string name="manual_watering_safety_default_value">4 hours</string>
+    <string name="manual_watering_safety_dialog_title">Maximum manual watering</string>
+    <string name="manual_watering_safety_dialog_message">This is the upper limit for every zone. The Pi closes the pump and valve when time expires, even if the app is closed.</string>
+    <string name="manual_watering_safety_invalid">Enter a valid limit between 5 seconds and 12 hours.</string>
+    <string name="manual_watering_safety_extended_title">High safety limit</string>
+    <string name="manual_watering_safety_extended_message">Limits above four hours increase overflow and equipment damage risk. Save %1$s as the upper limit?</string>
+    <string name="manual_watering_safety_save">Save limit</string>
+    <string name="manual_watering_safety_saved">Manual watering safety limit saved.</string>
+    <string name="manual_watering_safety_save_failed">Safety limit could not be saved. Only the administrator can change it.</string>
+    <string name="manual_watering_duration_hours_format">%1$d hr</string>
+    <string name="manual_watering_duration_minutes_format">%1$d min</string>
+    <string name="manual_watering_duration_seconds_format">%1$d sec</string>
+    <string name="manual_watering_duration_hours_minutes_format">%1$d hr %2$d min</string>
+    <string name="manual_watering_duration_minutes_seconds_format">%1$d min %2$d sec</string>
+    <string name="manual_watering_duration_full_format">%1$d hr %2$d min %3$d sec</string>
+    <string name="manual_watering_dialog_start">Start watering</string>
+    <string name="manual_watering_dialog_cancel">Cancel</string>
+    <string name="manual_watering_command_sent">Manual watering request sent.</string>
+    <string name="manual_watering_cancel_sent">Stopping manual watering.</string>
+    <string name="manual_watering_hardware_unverified">Physical connection not verified</string>
+    <string name="manual_watering_completed">Manual watering completed.</string>
+    <string name="manual_watering_cancelled">Manual watering stopped safely.</string>
+    <string name="manual_watering_rejected">Manual watering could not start. Check the system and physical valve status.</string>
+    <string name="manual_watering_open">Open manual watering</string>
+    <string name="manual_watering_request_failed">Manual watering request could not be sent. Check the connection and try again.</string>
+    <string name="manual_watering_cancel_failed">Stop request could not be sent. Check the connection.</string>
+</resources>

@@ -59,10 +59,71 @@
         }
       }
     },
+    "superadmin_devices": {
+      "$deviceId": {
+        ".read": "auth != null && auth.token.avora_device_id == $deviceId",
+        "commands": {
+          ".indexOn": ["status", "completed_at_epoch"],
+          "$commandId": {
+            ".write": "auth != null && auth.token.avora_device_id == $deviceId && !data.exists()",
+            ".validate": "newData.hasChildren(['id', 'operation', 'category', 'record_id', 'requested_by_uid', 'requested_at', 'expires_at', 'source', 'status']) && ((newData.child('operation').val() == 'update' && newData.child('replacement_json').exists() && newData.child('expected_record_json').exists() && !newData.child('backup_id').exists() && !newData.child('preview_token').exists()) || (newData.child('operation').val() == 'delete' && newData.child('preview_token').exists() && !newData.child('replacement_json').exists() && !newData.child('expected_record_json').exists() && !newData.child('backup_id').exists()) || (newData.child('operation').val() == 'preview_delete' && !newData.child('preview_token').exists() && !newData.child('replacement_json').exists() && !newData.child('expected_record_json').exists() && !newData.child('backup_id').exists()) || (newData.child('operation').val() == 'restore' && newData.child('backup_id').exists() && !newData.child('replacement_json').exists() && !newData.child('expected_record_json').exists() && !newData.child('preview_token').exists()))",
+            "id": {
+              ".validate": "newData.isString() && newData.val() == $commandId && newData.val().matches(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/)"
+            },
+            "operation": {
+              ".validate": "newData.isString() && (newData.val() == 'preview_delete' || newData.val() == 'delete' || newData.val() == 'update' || newData.val() == 'restore')"
+            },
+            "category": {
+              ".validate": "newData.isString() && (newData.val() == 'zones' || newData.val() == 'seasons' || newData.val() == 'seedling_batches' || newData.val() == 'journal_events' || newData.val() == 'photos' || newData.val() == 'watering' || newData.val() == 'fertilizer' || newData.val() == 'notifications' || newData.val() == 'feedback')"
+            },
+            "record_id": {
+              ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 180 && !newData.val().matches(/.*[.\\/#$\\[\\]].*/)"
+            },
+            "replacement_json": {
+              ".validate": "newData.isString() && newData.val().length >= 2 && newData.val().length <= 131072"
+            },
+            "expected_record_json": {
+              ".validate": "newData.isString() && newData.val().length >= 2 && newData.val().length <= 131072"
+            },
+            "backup_id": {
+              ".validate": "newData.isString() && newData.val().matches(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/)"
+            },
+            "preview_token": {
+              ".validate": "newData.isString() && newData.val().matches(/^[0-9a-f]{64}$/)"
+            },
+            "requested_by_uid": {
+              ".validate": "newData.isString() && newData.val() == auth.uid"
+            },
+            "requested_at": {
+              ".validate": "newData.isNumber() && newData.val() >= now - 10000 && newData.val() <= now + 5000"
+            },
+            "expires_at": {
+              ".validate": "newData.isNumber() && newData.val() > now && newData.val() <= now + 300000"
+            },
+            "source": {
+              ".validate": "newData.isString() && newData.val() == 'android'"
+            },
+            "status": {
+              ".validate": "newData.isString() && newData.val() == 'pending'"
+            },
+            "$other": {
+              ".validate": false
+            }
+          }
+        },
+        "audit": {
+          ".indexOn": "completed_at_epoch",
+          ".write": false
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
     "devices": {
       "$deviceId": {
         ".read": "auth != null && (auth.token.avora_device_id == $deviceId || root.child('device_access').child($deviceId).child(auth.uid).child('approved').val() == true)",
-        ".write": "auth != null && (auth.token.avora_device_id == $deviceId || root.child('device_access').child($deviceId).child(auth.uid).child('approved').val() == true) && newData.child('user_feedback_email_state/activation_epoch').val() == data.child('user_feedback_email_state/activation_epoch').val()",
+        ".write": "auth != null && (auth.token.avora_device_id == $deviceId || (root.child('device_access').child($deviceId).child(auth.uid).child('approved').val() == true && newData.child('superadmin').val() == data.child('superadmin').val())) && newData.child('user_feedback_email_state/activation_epoch').val() == data.child('user_feedback_email_state/activation_epoch').val() && (auth.token.avora_device_id == $deviceId || newData.child('weather/irrigation_settings/manual_watering_max_duration_seconds').val() == data.child('weather/irrigation_settings/manual_watering_max_duration_seconds').val())",
         "user_feedback_email_state": {
           "activation_epoch": {
             ".validate": "newData.val() == data.val()"
@@ -113,6 +174,65 @@
             "$other": {
               ".validate": false
             }
+          }
+        },
+        "superadmin": {
+          ".validate": "!newData.exists()",
+          "commands": {
+            ".indexOn": ["status", "completed_at_epoch"],
+            "$commandId": {
+              ".write": "auth != null && auth.token.avora_device_id == $deviceId && !data.exists()",
+              ".validate": "newData.hasChildren(['id', 'operation', 'category', 'record_id', 'requested_by_uid', 'requested_at', 'expires_at', 'source', 'status']) && ((newData.child('operation').val() == 'update' && newData.child('replacement_json').exists() && newData.child('expected_record_json').exists() && !newData.child('backup_id').exists() && !newData.child('preview_token').exists()) || (newData.child('operation').val() == 'delete' && newData.child('preview_token').exists() && !newData.child('replacement_json').exists() && !newData.child('expected_record_json').exists() && !newData.child('backup_id').exists()) || (newData.child('operation').val() == 'preview_delete' && !newData.child('preview_token').exists() && !newData.child('replacement_json').exists() && !newData.child('expected_record_json').exists() && !newData.child('backup_id').exists()) || (newData.child('operation').val() == 'restore' && newData.child('backup_id').exists() && !newData.child('replacement_json').exists() && !newData.child('expected_record_json').exists() && !newData.child('preview_token').exists()))",
+              "id": {
+                ".validate": "newData.isString() && newData.val() == $commandId && newData.val().matches(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/)"
+              },
+              "operation": {
+                ".validate": "newData.isString() && (newData.val() == 'preview_delete' || newData.val() == 'delete' || newData.val() == 'update' || newData.val() == 'restore')"
+              },
+              "category": {
+                ".validate": "newData.isString() && (newData.val() == 'zones' || newData.val() == 'seasons' || newData.val() == 'seedling_batches' || newData.val() == 'journal_events' || newData.val() == 'photos' || newData.val() == 'watering' || newData.val() == 'fertilizer' || newData.val() == 'notifications' || newData.val() == 'feedback')"
+              },
+              "record_id": {
+                ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 180 && !newData.val().matches(/.*[.\\/#$\\[\\]].*/)"
+              },
+              "replacement_json": {
+                ".validate": "newData.isString() && newData.val().length >= 2 && newData.val().length <= 131072"
+              },
+              "expected_record_json": {
+                ".validate": "newData.isString() && newData.val().length >= 2 && newData.val().length <= 131072"
+              },
+              "backup_id": {
+                ".validate": "newData.isString() && newData.val().matches(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/)"
+              },
+              "preview_token": {
+                ".validate": "newData.isString() && newData.val().matches(/^[0-9a-f]{64}$/)"
+              },
+              "requested_by_uid": {
+                ".validate": "newData.isString() && newData.val() == auth.uid"
+              },
+              "requested_at": {
+                ".validate": "newData.isNumber() && newData.val() >= now - 10000 && newData.val() <= now + 5000"
+              },
+              "expires_at": {
+                ".validate": "newData.isNumber() && newData.val() > now && newData.val() <= now + 300000"
+              },
+              "source": {
+                ".validate": "newData.isString() && newData.val() == 'android'"
+              },
+              "status": {
+                ".validate": "newData.isString() && newData.val() == 'pending'"
+              },
+              "$other": {
+                ".validate": false
+              }
+            }
+          },
+          "audit": {
+            ".indexOn": "completed_at_epoch",
+            ".write": false
+          },
+          "$other": {
+            ".validate": false
           }
         },
         "user_feedback": {
@@ -219,6 +339,28 @@
             }
           }
         },
+        "zones": {
+          ".indexOn": "updated_at_epoch"
+        },
+        "weather": {
+          "irrigation_settings": {
+            "manual_watering_max_duration_seconds": {
+              ".validate": "newData.isNumber() && newData.val() >= 5 && newData.val() <= 43200 && newData.val() % 1 == 0"
+            }
+          }
+        },
+        "watering_history": {
+          ".indexOn": ["started_at_epoch", "completed_at_epoch", "zone_id", "sensor_id", "learning_scope_id"]
+        },
+        "sensor_history": {
+          ".indexOn": ["sensor_id", "zone_id", "learning_scope_id"]
+        },
+        "fertilizer_history": {
+          ".indexOn": "applied_at_epoch"
+        },
+        "notifications": {
+          ".indexOn": "created_at_epoch"
+        },
         "seedling": {
           "nodes": {
             "$nodeId": {
@@ -226,6 +368,7 @@
             }
           },
           "batches": {
+            ".indexOn": "updated_at_epoch",
             "$batchId": {
               ".validate": "!newData.exists() || (newData.hasChildren(['batch_id', 'plant_type', 'emoji', 'variety', 'area', 'node_id', 'status', 'stage', 'sowing_date_epoch', 'estimated_emergence_epoch', 'estimated_transplant_epoch', 'seed_count', 'tray_cell_count', 'healthy_count', 'created_at_epoch', 'updated_at_epoch']) && (!newData.child('archive_reason').exists() || (newData.child('status').val() == 'ARCHIVED' && newData.child('archived_at_epoch').isNumber())) && (!newData.child('archive_reason').exists() || newData.child('archive_reason').val() != 'TRANSFERRED' || (newData.child('stage').val() == 'READY' && newData.hasChildren(['transferred_season_id', 'transferred_zone_id', 'transferred_at_epoch']))))",
               "batch_id": {
@@ -317,7 +460,7 @@
           "daily_logs": {
             "$batchId": {
               "$logId": {
-                ".validate": "!newData.exists() || (newData.hasChildren(['log_id', 'batch_id', 'height_cm', 'leaf_count', 'healthy_count', 'watered', 'note', 'created_at_epoch']) && newData.child('batch_id').val() == $batchId && root.child('devices').child($deviceId).child('seedling').child('batches').child($batchId).child('status').val() == 'ACTIVE')",
+                ".validate": "!newData.exists() || (newData.hasChildren(['log_id', 'batch_id', 'height_cm', 'leaf_count', 'healthy_count', 'watered', 'note', 'created_at_epoch']) && newData.child('batch_id').val() == $batchId && (root.child('devices').child($deviceId).child('seedling').child('batches').child($batchId).child('status').val() == 'ACTIVE' || ((root.child('devices').child($deviceId).child('seedling').child('batches').child($batchId).child('status').val() == 'ARCHIVED' || root.child('devices').child($deviceId).child('seedling').child('batches').child($batchId).child('status').val() == 'TRANSFERRED') && data.exists() && newData.child('log_id').val() == data.child('log_id').val() && newData.child('batch_id').val() == data.child('batch_id').val() && newData.child('created_at_epoch').val() == data.child('created_at_epoch').val())))",
                 "log_id": {
                   ".validate": "newData.isString() && newData.val() == $logId && newData.val().length > 0 && newData.val().length <= 120"
                 },
@@ -376,7 +519,14 @@
           }
         },
         "garden_journal": {
+          "seasons": {
+            ".indexOn": "updated_at_epoch"
+          },
+          "events": {
+            ".indexOn": "occurred_at_epoch"
+          },
           "photo_metadata": {
+            ".indexOn": "captured_at_epoch",
             "$photoId": {
               ".validate": "newData.hasChildren(['id', 'zone_id', 'season_id', 'note', 'related_application_id', 'analysis_title', 'analysis_meta', 'analysis_context', 'analysis_advice', 'analysis_goal', 'analysis_confidence', 'growth_score', 'growth_stage', 'growth_trend', 'growth_score_delta', 'growth_signals', 'growth_previous_captured_at_epoch', 'captured_at_epoch', 'photo_kept_on_owner_phone', 'metadata_updated_at_epoch']) && ((newData.child('analysis_goal').val() == 'growth_status' && newData.child('growth_score').val() >= 0 && (newData.child('growth_trend').val() == 'FIRST_RECORD' || newData.child('growth_trend').val() == 'IMPROVING' || newData.child('growth_trend').val() == 'STABLE' || newData.child('growth_trend').val() == 'DECLINING')) || (newData.child('growth_score').val() == -1 && newData.child('growth_stage').val() == '' && newData.child('growth_trend').val() == '' && newData.child('growth_score_delta').val() == 0 && newData.child('growth_signals').val() == '' && newData.child('growth_previous_captured_at_epoch').val() == 0))",
               "id": {

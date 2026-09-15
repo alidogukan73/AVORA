@@ -44,6 +44,7 @@ import java.util.Set;
 public class FertilizerHistoryActivity extends EdgeToEdgeActivity {
 
     private FertilizerHistoryViewModel viewModel;
+    private com.alidogukan.avora.viewmodels.DisplayUnitsViewModel displayUnits;
     private final FertilizerHistoryAdapter adapter =
             new FertilizerHistoryAdapter();
     private TextView empty;
@@ -74,10 +75,21 @@ public class FertilizerHistoryActivity extends EdgeToEdgeActivity {
             );
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        if (displayUnits != null) {
+            adapter.notifyDataSetChanged();
+            renderStatistics(visibleValues);
+        }
+    }
+
+    @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_fertilizer_history);
         viewModel = new ViewModelProvider(this).get(FertilizerHistoryViewModel.class);
+        displayUnits = new ViewModelProvider(this)
+                .get(com.alidogukan.avora.viewmodels.DisplayUnitsViewModel.class);
         pendingOutcomeApplicationId = safe(
                 getIntent().getStringExtra("outcome_application_id")
         );
@@ -549,12 +561,12 @@ public class FertilizerHistoryActivity extends EdgeToEdgeActivity {
                         R.string.runtime_three_lines,
                         getString(
                                 R.string.fertilizer_history_usage_total,
-                                formatAmount(totalGram),
-                                formatAmount(totalMilliliter)),
+                                displayUnits.formatWeight(totalGram),
+                                displayUnits.formatVolume(totalMilliliter / 1000d)),
                         getString(
                                 R.string.fertilizer_history_usage_30d,
-                                formatAmount(last30Gram),
-                                formatAmount(last30Milliliter)),
+                                displayUnits.formatWeight(last30Gram),
+                                displayUnits.formatVolume(last30Milliliter / 1000d)),
                         getString(
                                 R.string.fertilizer_history_usage_methods,
                                 drip,

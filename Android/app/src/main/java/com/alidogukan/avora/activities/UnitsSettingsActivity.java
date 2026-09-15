@@ -50,9 +50,8 @@ public class UnitsSettingsActivity extends AppCompatActivity {
         configureActions();
         PrimaryBottomNavigation.bind(this, PrimaryBottomNavigation.SETTINGS);
 
-        boolean hasLocalChoice = viewModel.hasLocalUnitChoice();
         applySettings(viewModel.loadUnits());
-        if (!hasLocalChoice) restoreFromCloud();
+        restoreFromCloud();
     }
 
     private void bindViews() {
@@ -100,7 +99,7 @@ public class UnitsSettingsActivity extends AppCompatActivity {
 
     private void restoreFromCloud() {
         viewModel.getCloudUnits().observe(this, cloud -> {
-            if (cloud == null || !cloud.isComplete() || dirty || viewModel.hasLocalUnitChoice()) return;
+            if (dirty || !viewModel.shouldAcceptCloudUnits(cloud)) return;
             viewModel.acceptCloudUnits(cloud);
             applySettings(cloud);
             status.setText(R.string.units_cloud_loaded);

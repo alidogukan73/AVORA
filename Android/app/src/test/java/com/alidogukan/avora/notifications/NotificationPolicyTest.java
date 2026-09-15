@@ -143,20 +143,23 @@ public class NotificationPolicyTest {
     public void wateringRequiresMatchingLiveValveAndFreshDeviceHeartbeat() {
         long now = 10_000L;
         assertTrue(NotificationPolicy.isConfirmedWateringState(
-                true, "valve-001", true, "valve-001",
+                true, "valve-001", true, true, "valve-001",
                 9_990L, now, 90L));
         assertFalse(NotificationPolicy.isConfirmedWateringState(
-                true, "valve-001", false, "valve-001",
+                true, "valve-001", false, true, "valve-001",
                 9_990L, now, 90L));
         assertFalse(NotificationPolicy.isConfirmedWateringState(
-                true, "valve-001", true, "valve-002",
+                true, "valve-001", true, true, "valve-002",
                 9_990L, now, 90L));
         assertFalse(NotificationPolicy.isConfirmedWateringState(
-                true, "valve-001", true, "valve-001",
+                true, "valve-001", true, true, "valve-001",
                 9_800L, now, 90L));
         assertTrue(NotificationPolicy.isConfirmedWateringState(
-                true, "valve-001", true, "valve-001",
+                true, "valve-001", true, true, "valve-001",
                 10_005L, now, 90L));
+        assertFalse(NotificationPolicy.isConfirmedWateringState(
+                true, "valve-001", true, false, "valve-001",
+                9_990L, now, 90L));
     }
 
     @Test

@@ -41,6 +41,7 @@ import com.alidogukan.avora.models.WeatherForecast;
 import com.alidogukan.avora.health.GardenHealthSummary;
 import com.alidogukan.avora.plantassistant.PlantAssistantHomeRecommendation;
 import com.alidogukan.avora.viewmodels.MainViewModel;
+import com.alidogukan.avora.viewmodels.DisplayUnitsViewModel;
 import com.alidogukan.avora.ui.MainMenuBottomSheet;
 import com.alidogukan.avora.ui.PrimaryBottomNavigation;
 
@@ -62,6 +63,7 @@ import java.util.ArrayList;
 public class MainActivity extends EdgeToEdgeActivity {
 
     private MainViewModel viewModel;
+    private DisplayUnitsViewModel displayUnits;
     private boolean notificationPermissionChecked;
     private boolean authorizationErrorShown;
     private long lastFirebaseErrorShownAt;
@@ -171,6 +173,7 @@ public class MainActivity extends EdgeToEdgeActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         viewModel = new ViewModelProvider(this).get(MainViewModel.class);
+        displayUnits = new ViewModelProvider(this).get(DisplayUnitsViewModel.class);
         viewModel.getAuthenticated().observe(this, authenticated -> {
             if (Boolean.TRUE.equals(authenticated)) {
                 onlineStatusHandler.removeCallbacks(authenticationRetry);
@@ -311,6 +314,16 @@ public class MainActivity extends EdgeToEdgeActivity {
         if (viewModel != null && txtHomeHealthScore != null) {
             renderHomeHealthSummary(viewModel.getGardenZones().getValue());
             renderHomePlantAssistantRecommendation();
+        }
+        if (latestWeather != null && txtHomeWeatherTodayTemperature != null) {
+            bindWeatherDay(txtHomeWeatherTodayIcon, txtHomeWeatherTodayTemperature,
+                    txtHomeWeatherTodayRain, txtHomeWeatherTodayWind,
+                    latestWeather.getTodayTemperatureMax(), latestWeather.getTodayRainProbability(),
+                    latestWeather.getTodayWindMax(), latestWeather.getTodayWeatherCode());
+            bindWeatherDay(txtHomeWeatherTomorrowIcon, txtHomeWeatherTomorrowTemperature,
+                    txtHomeWeatherTomorrowRain, txtHomeWeatherTomorrowWind,
+                    latestWeather.getTomorrowTemperatureMax(), latestWeather.getTomorrowRainProbability(),
+                    latestWeather.getTomorrowWindMax(), latestWeather.getTomorrowWeatherCode());
         }
     }
 
@@ -544,7 +557,7 @@ public class MainActivity extends EdgeToEdgeActivity {
         icon.setText(weatherIcon(code));
         temperatureView.setText(temperature == null
                 ? getString(R.string.placeholder_dash)
-                : getString(R.string.runtime_temperature_celsius, Math.round(temperature)));
+                : displayUnits.formatTemperature(temperature));
         rainView.setText(getString(R.string.format_rain_probability, rain == null ? "%—" : "%" + Math.round(rain)));
         String windValue = wind == null
                 ? getString(R.string.runtime_weather_missing_value)

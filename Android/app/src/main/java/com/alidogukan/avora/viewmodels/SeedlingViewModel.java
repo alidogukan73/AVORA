@@ -17,7 +17,9 @@ import com.alidogukan.avora.models.SeedlingNodeState;
 import com.alidogukan.avora.models.GardenPhoto;
 import com.alidogukan.avora.models.SeedlingPhotoUpload;
 import com.alidogukan.avora.seedling.SeedlingRepository;
+import com.alidogukan.avora.seedling.SeedlingSensorTrackingPolicy;
 import com.alidogukan.avora.seedling.SeedlingStagePolicy;
+import com.alidogukan.avora.seedling.SeedlingValidation;
 import com.alidogukan.avora.seedling.SeedlingCropCatalog;
 import com.alidogukan.avora.seedling.SeedlingDailyPhotoStore;
 import com.alidogukan.avora.seedling.SeedlingVarietyCatalog;
@@ -229,6 +231,14 @@ public final class SeedlingViewModel extends AndroidViewModel {
 
     public boolean isArchived(SeedlingBatch batch) {
         return batch != null && batch.isArchived();
+    }
+
+    public boolean shouldObserveLiveTelemetry(SeedlingBatch batch) {
+        return SeedlingSensorTrackingPolicy.shouldObserveLive(batch);
+    }
+
+    public boolean canEditDailyLog(SeedlingBatch batch, SeedlingDailyLog log) {
+        return SeedlingValidation.canEditLog(batch, log);
     }
 
     public int progress(SeedlingBatch batch) {

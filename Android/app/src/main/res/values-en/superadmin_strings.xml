@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_superadmin_category">Administrator tools</string>
+    <string name="settings_superadmin_title">Superadmin Data Management</string>
+    <string name="settings_superadmin_subtitle">Inspect, correct, safely delete, and restore records</string>
+    <string name="superadmin_owner_verified">Device owner verification required</string>
+    <string name="superadmin_intro">Every change is applied by Raspberry Pi, privately backed up first, and added to the audit history.</string>
+    <string name="superadmin_category_label">Data type</string>
+    <string name="superadmin_search_hint">Search records</string>
+    <string name="superadmin_refresh">Refresh</string>
+    <string name="superadmin_audit">History</string>
+    <string name="superadmin_accounts">Accounts</string>
+    <string name="superadmin_undo_last">Undo last operation</string>
+    <string name="superadmin_edit">Edit</string>
+    <string name="superadmin_delete">Delete</string>
+    <string name="superadmin_edit_explanation">This advanced view contains the complete record. Preserve field names and data types; invalid content can affect the application.</string>
+    <string name="superadmin_json_label">Record content</string>
+    <string name="superadmin_confirm_phrase_hint">Type DELETE to confirm</string>
+    <string name="superadmin_confirm_word">DELETE</string>
+    <string name="superadmin_unlock_title">Superadmin verification</string>
+    <string name="superadmin_unlock_message">Verify with your screen lock to manage critical garden data.</string>
+    <string name="superadmin_device_lock_required">A PIN, password, or biometric screen lock is required for Superadmin.</string>
+    <string name="superadmin_owner_only">This section is available only to the AVORA device owner account.</string>
+    <string name="superadmin_loading">Loading records…</string>
+    <string name="superadmin_loading_more">Loading older records…</string>
+    <string name="superadmin_empty">No records exist in this data type.</string>
+    <string name="superadmin_count">%1$d records</string>
+    <string name="superadmin_count_loaded">%1$d records loaded</string>
+    <string name="superadmin_load_more">Load older records</string>
+    <string name="superadmin_load_failed">Records could not be loaded: %1$s</string>
+    <string name="superadmin_command_waiting">Raspberry Pi is validating the operation…</string>
+    <string name="superadmin_preview_title">Permanent deletion preview</string>
+    <string name="superadmin_preview_summary">“%1$s” and %2$d related data paths will be affected.%3$s\n\nType DELETE to continue.</string>
+    <string name="superadmin_preview_group">\n• %1$s: %2$d</string>
+    <string name="superadmin_confirm_delete">Delete permanently</string>
+    <string name="superadmin_phrase_invalid">Type the confirmation word exactly.</string>
+    <string name="superadmin_delete_success">The record and its related data were deleted. An undo backup is ready.</string>
+    <string name="superadmin_edit_title">Edit record</string>
+    <string name="superadmin_edit_confirm_title">Save this change?</string>
+    <string name="superadmin_edit_confirm_message">Raspberry Pi will back up the current record before replacing it with this content.</string>
+    <string name="superadmin_invalid_json">Record content must be a valid JSON object.</string>
+    <string name="superadmin_update_success">The change was saved. An undo backup is ready.</string>
+    <string name="superadmin_operation_failed">Operation failed: %1$s</string>
+    <string name="superadmin_unknown_error">Unknown error</string>
+    <string name="superadmin_undo_title">Undo the last operation?</string>
+    <string name="superadmin_undo_message">The private backup made before the operation will be restored.</string>
+    <string name="superadmin_undo_success">The backup was restored.</string>
+    <string name="superadmin_audit_title">Superadmin operation history</string>
+    <string name="superadmin_audit_empty">There are no completed operations yet.</string>
+    <string name="superadmin_audit_restore_hint">Tap an entry to review it and restore the backup made before that operation.</string>
+    <string name="superadmin_audit_row">%1$s · %2$s\n%3$s\n%4$d related records · %5$s</string>
+    <string name="superadmin_cancel">Cancel</string>
+    <string name="superadmin_save">Back up and save</string>
+    <string name="superadmin_restore">Restore</string>
+    <string-array name="superadmin_category_labels">
+        <item>Zones</item>
+        <item>Seasons</item>
+        <item>Seedling batches</item>
+        <item>Garden journal</item>
+        <item>Photo and AI records</item>
+        <item>Watering history</item>
+        <item>Fertilization history</item>
+        <item>Notifications</item>
+        <item>Feedback</item>
+    </string-array>
+</resources>

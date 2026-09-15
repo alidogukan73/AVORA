@@ -29,6 +29,8 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.materialswitch.MaterialSwitch;
 import com.google.android.material.slider.Slider;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
+import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -54,6 +56,7 @@ public class IrrigationSettingsActivity extends AppCompatActivity {
     private MaterialButton btnBack;
     private MaterialButton btnResetSettings;
     private MaterialCardView cardRestartIrrigationProcess;
+    private MaterialCardView cardManualWateringSafety;
 
     private Slider sliderMoistureLimit;
     private Slider sliderPumpDuration;
@@ -67,6 +70,8 @@ public class IrrigationSettingsActivity extends AppCompatActivity {
     private TextView txtAutoModeDescription;
     private TextView txtSystemEnabledDescription;
     private TextView txtSettingsStatus;
+    private TextView txtManualWateringSafetyLimit;
+    private TextView txtManualWateringSafetyAccess;
 
     private MaterialSwitch switchAutoMode;
     private MaterialSwitch switchSystemEnabled;
@@ -88,6 +93,10 @@ public class IrrigationSettingsActivity extends AppCompatActivity {
     private boolean commandLoaded;
     private boolean timingSettingsLoaded;
     private boolean restartRequestInFlight;
+    private boolean deviceOwner;
+    private boolean settingsControlsEnabled = true;
+    private int manualWateringSafetyLimitSeconds =
+            IrrigationTimingSettings.DEFAULT_MANUAL_WATERING_MAX_DURATION_SECONDS;
     private final List<GardenZone> restartZones = new ArrayList<>();
 
     private long originalMoistureLimit = DEFAULT_MOISTURE_LIMIT;
@@ -129,6 +138,11 @@ public class IrrigationSettingsActivity extends AppCompatActivity {
         btnResetSettings = findViewById(R.id.btnResetSettings);
         cardRestartIrrigationProcess =
                 findViewById(R.id.cardRestartIrrigationProcess);
+        cardManualWateringSafety = findViewById(R.id.cardManualWateringSafety);
+        txtManualWateringSafetyLimit = findViewById(
+                R.id.txtManualWateringSafetyLimit);
+        txtManualWateringSafetyAccess = findViewById(
+                R.id.txtManualWateringSafetyAccess);
 
         sliderMoistureLimit = findViewById(R.id.sliderMoistureLimit);
         sliderPumpDuration = findViewById(R.id.sliderPumpDuration);
@@ -235,6 +249,10 @@ public class IrrigationSettingsActivity extends AppCompatActivity {
     private void observeViewModel() {
         viewModel.getCommand().observe(this, this::renderCommand);
         viewModel.getIrrigationTimingSettings().observe(this, this::renderTimingSettings);
+        viewModel.getDeviceOwner().observe(this, owner -> {
+            deviceOwner = Boolean.TRUE.equals(owner);
+            updateManualWateringSafetyAccess();
+        });
         viewModel.getActiveGardenZones().observe(this, zones -> {
             restartZones.clear();
             if (zones != null) {
@@ -284,6 +302,9 @@ public class IrrigationSettingsActivity extends AppCompatActivity {
         btnBack.setOnClickListener(view -> handleBackAction());
         findViewById(R.id.cardWateringControlShortcut).setOnClickListener(view ->
                 startActivity(new android.content.Intent(this, WateringControlActivity.class)));
+        cardManualWateringSafety.setOnClickListener(view -> {
+            if (deviceOwner) showManualWateringSafetyDialog();
+        });
         cardRestartIrrigationProcess.setOnClickListener(
                 view -> showRestartScopeDialog());
         btnResetSettings.setOnClickListener(view -> showResetConfirmation());
@@ -320,16 +341,125 @@ public class IrrigationSettingsActivity extends AppCompatActivity {
         }
         scopes[zones.size()] = getString(R.string.ai_restart_scope_all);
 
-        new MaterialAlertDialogBuilder(this)
+        boolean[] selectedScopes = new boolean[scopes.length];
+        AlertDialog scopeDialog = new MaterialAlertDialogBuilder(this)
                 .setTitle(R.string.ai_restart_scope_title)
-                .setItems(scopes, (dialog, which) -> {
-                    if (which < zones.size()) {
-                        confirmRestartZone(zones.get(which));
-                    } else {
-                        confirmRestartAllZones();
+                .setMultiChoiceItems(scopes, selectedScopes, (dialog, which, checked) -> {
+                    if (dialog instanceof AlertDialog) {
+                        AlertDialog alertDialog = (AlertDialog) dialog;
+                        int allZonesIndex = zones.size();
+                        selectedScopes[which] = checked;
+                        if (which == allZonesIndex) {
+                            for (int index = 0; index < zones.size(); index++) {
+                                selectedScopes[index] = checked;
+                                alertDialog.getListView().setItemChecked(index, checked);
+                            }
+                        } else {
+                            boolean allSelected = true;
+                            for (int index = 0; index < zones.size(); index++) {
+                                if (!selectedScopes[index]) {
+                                    allSelected = false;
+                                    break;
+                                }
+                            }
+                            selectedScopes[allZonesIndex] = allSelected;
+                            alertDialog.getListView().setItemChecked(
+                                    allZonesIndex,
+                                    allSelected
+                            );
+                        }
+
+                        boolean anySelected = false;
+                        for (int index = 0; index < zones.size(); index++) {
+                            if (selectedScopes[index]) {
+                                anySelected = true;
+                                break;
+                            }
+                        }
+                        alertDialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                                .setEnabled(anySelected);
                     }
                 })
                 .setNegativeButton(R.string.ai_restart_cancel, null)
+                .setPositiveButton(R.string.ai_restart_continue, null)
+                .create();
+        scopeDialog.setOnShowListener(ignored -> {
+            scopeDialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(false);
+            scopeDialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(view -> {
+                List<GardenZone> selectedZones = new ArrayList<>();
+                for (int index = 0; index < zones.size(); index++) {
+                    if (selectedScopes[index]) {
+                        selectedZones.add(zones.get(index));
+                    }
+                }
+                if (selectedZones.isEmpty()) {
+                    return;
+                }
+                scopeDialog.dismiss();
+                if (selectedZones.size() == zones.size()) {
+                    confirmRestartAllZones();
+                } else if (selectedZones.size() == 1) {
+                    confirmRestartZone(selectedZones.get(0));
+                } else {
+                    confirmRestartSelectedZones(selectedZones);
+                }
+            });
+        });
+        scopeDialog.show();
+    }
+
+    private void confirmRestartSelectedZones(List<GardenZone> selectedZones) {
+        List<GardenZone> currentZones = new ArrayList<>();
+        List<String> currentZoneIds = new ArrayList<>();
+        StringBuilder names = new StringBuilder();
+        for (GardenZone selectedZone : selectedZones) {
+            GardenZone currentZone = findRestartZone(
+                    selectedZone == null ? null : selectedZone.getZone_id());
+            if (currentZone == null
+                    || currentZoneIds.contains(currentZone.getZone_id())) {
+                continue;
+            }
+            if (isWateringActive(currentZone)) {
+                Toast.makeText(
+                        this,
+                        R.string.ai_restart_selected_watering_active,
+                        Toast.LENGTH_LONG
+                ).show();
+                return;
+            }
+            currentZones.add(currentZone);
+            currentZoneIds.add(currentZone.getZone_id());
+            if (names.length() > 0) {
+                names.append(", ");
+            }
+            names.append(zoneName(currentZone));
+        }
+
+        if (currentZones.isEmpty()) {
+            Toast.makeText(
+                    this,
+                    R.string.ai_restart_no_active_zone,
+                    Toast.LENGTH_SHORT
+            ).show();
+            return;
+        }
+        if (currentZones.size() == 1) {
+            confirmRestartZone(currentZones.get(0));
+            return;
+        }
+
+        new MaterialAlertDialogBuilder(this)
+                .setTitle(getString(
+                        R.string.ai_restart_selected_dialog_title,
+                        currentZones.size()))
+                .setMessage(getString(
+                        R.string.ai_restart_selected_dialog_message,
+                        names.toString()))
+                .setNegativeButton(R.string.ai_restart_cancel, null)
+                .setPositiveButton(
+                        R.string.ai_restart_selected_confirm,
+                        (dialog, which) -> restartIrrigationProcesses(currentZoneIds)
+                )
                 .show();
     }
 
@@ -595,6 +725,7 @@ public class IrrigationSettingsActivity extends AppCompatActivity {
     }
 
     private void setControlsEnabled(boolean enabled) {
+        settingsControlsEnabled = enabled;
         sliderMoistureLimit.setEnabled(enabled);
         sliderPumpDuration.setEnabled(enabled);
         sliderCooldown.setEnabled(enabled);
@@ -611,6 +742,144 @@ public class IrrigationSettingsActivity extends AppCompatActivity {
         sliderIrrigationMaxDefer.setEnabled(enabled && switchSmartTiming.isChecked());
         sliderIrrigationCriticalDeficit.setEnabled(enabled && switchSmartTiming.isChecked());
         btnResetSettings.setEnabled(enabled);
+        updateManualWateringSafetyAccess();
+    }
+
+    private void updateManualWateringSafetyAccess() {
+        if (cardManualWateringSafety == null) return;
+        boolean editable = settingsControlsEnabled && deviceOwner;
+        cardManualWateringSafety.setEnabled(editable);
+        cardManualWateringSafety.setAlpha(editable ? 1f : 0.72f);
+        txtManualWateringSafetyAccess.setText(deviceOwner
+                ? R.string.manual_watering_safety_owner_hint
+                : R.string.manual_watering_safety_family_hint);
+    }
+
+    private void showManualWateringSafetyDialog() {
+        View content = getLayoutInflater().inflate(
+                R.layout.dialog_manual_watering_duration, null, false);
+        TextView message = content.findViewById(
+                R.id.txtManualWateringDurationMessage);
+        TextInputLayout hoursLayout = content.findViewById(
+                R.id.layoutManualWateringHours);
+        TextInputLayout minutesLayout = content.findViewById(
+                R.id.layoutManualWateringMinutes);
+        TextInputLayout secondsLayout = content.findViewById(
+                R.id.layoutManualWateringSeconds);
+        TextInputEditText hoursInput = content.findViewById(
+                R.id.inputManualWateringHours);
+        TextInputEditText minutesInput = content.findViewById(
+                R.id.inputManualWateringMinutes);
+        TextInputEditText secondsInput = content.findViewById(
+                R.id.inputManualWateringSeconds);
+
+        int current = manualWateringSafetyLimitSeconds;
+        message.setText(R.string.manual_watering_safety_dialog_message);
+        hoursInput.setText(String.valueOf(current / 3600));
+        minutesInput.setText(String.valueOf((current % 3600) / 60));
+        secondsInput.setText(String.valueOf(current % 60));
+
+        AlertDialog dialog = new MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.manual_watering_safety_dialog_title)
+                .setView(content)
+                .setNegativeButton(R.string.settings_cancel, null)
+                .setPositiveButton(R.string.manual_watering_safety_save, null)
+                .create();
+        dialog.setOnShowListener(ignored -> dialog.getButton(
+                AlertDialog.BUTTON_POSITIVE).setOnClickListener(button -> {
+            hoursLayout.setError(null);
+            minutesLayout.setError(null);
+            secondsLayout.setError(null);
+            int duration;
+            try {
+                duration = viewModel.manualWateringSafetyLimitFromParts(
+                        parseDurationPart(hoursInput),
+                        parseDurationPart(minutesInput),
+                        parseDurationPart(secondsInput));
+            } catch (IllegalArgumentException error) {
+                secondsLayout.setError(getString(
+                        R.string.manual_watering_safety_invalid));
+                return;
+            }
+            dialog.dismiss();
+            confirmOrSaveManualWateringSafetyLimit(duration);
+        }));
+        dialog.show();
+    }
+
+    private void confirmOrSaveManualWateringSafetyLimit(int durationSeconds) {
+        if (!viewModel.requiresExtendedManualWateringConfirmation(durationSeconds)) {
+            saveManualWateringSafetyLimit(durationSeconds);
+            return;
+        }
+        new MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.manual_watering_safety_extended_title)
+                .setMessage(getString(
+                        R.string.manual_watering_safety_extended_message,
+                        formatDuration(durationSeconds)))
+                .setNegativeButton(R.string.settings_cancel, null)
+                .setPositiveButton(R.string.manual_watering_safety_save,
+                        (dialog, which) -> saveManualWateringSafetyLimit(durationSeconds))
+                .show();
+    }
+
+    private void saveManualWateringSafetyLimit(int durationSeconds) {
+        cardManualWateringSafety.setEnabled(false);
+        viewModel.saveManualWateringSafetyLimit(durationSeconds)
+                .addOnSuccessListener(unused -> {
+                    manualWateringSafetyLimitSeconds = durationSeconds;
+                    txtManualWateringSafetyLimit.setText(formatDuration(durationSeconds));
+                    updateManualWateringSafetyAccess();
+                    Toast.makeText(
+                            this,
+                            R.string.manual_watering_safety_saved,
+                            Toast.LENGTH_SHORT
+                    ).show();
+                })
+                .addOnFailureListener(error -> {
+                    updateManualWateringSafetyAccess();
+                    Toast.makeText(
+                            this,
+                            R.string.manual_watering_safety_save_failed,
+                            Toast.LENGTH_LONG
+                    ).show();
+                });
+    }
+
+    private void restartIrrigationProcesses(List<String> zoneIds) {
+        if (restartRequestInFlight || zoneIds == null || zoneIds.isEmpty()) {
+            return;
+        }
+        setRestartRequestInFlight(true);
+        viewModel.restartIrrigationAssistant(zoneIds)
+                .addOnSuccessListener(unused -> {
+                    setRestartRequestInFlight(false);
+                    Toast.makeText(
+                            this,
+                            getString(
+                                    R.string.ai_restart_selected_request_sent,
+                                    zoneIds.size()),
+                            Toast.LENGTH_LONG
+                    ).show();
+                })
+                .addOnFailureListener(error -> {
+                    setRestartRequestInFlight(false);
+                    Toast.makeText(
+                            this,
+                            R.string.ai_restart_request_failed,
+                            Toast.LENGTH_LONG
+                    ).show();
+                });
+    }
+
+    private static int parseDurationPart(TextInputEditText input) {
+        CharSequence value = input.getText();
+        if (value == null || value.toString().trim().isEmpty()) return 0;
+        try {
+            return Integer.parseInt(value.toString().trim());
+        } catch (NumberFormatException ignored) {
+            return -1;
+        }
     }
 
     private long getMoistureLimit() {
@@ -698,6 +967,9 @@ public class IrrigationSettingsActivity extends AppCompatActivity {
         updatingUi = true;
         originalTimingSettings = copyTimingSettings(settings);
         applyTimingSettingsToUi(originalTimingSettings);
+        manualWateringSafetyLimitSeconds = settings.getManualWateringMaxDurationSeconds();
+        txtManualWateringSafetyLimit.setText(
+                formatDuration(manualWateringSafetyLimitSeconds));
         updatingUi = false;
         timingSettingsLoaded = true;
         updateUnsavedState();

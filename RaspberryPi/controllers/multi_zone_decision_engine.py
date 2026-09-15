@@ -12,6 +12,7 @@ from controllers.zone_irrigation_scheduler import (
 )
 from models.command_state import CommandState
 from models.irrigation_decision import IrrigationDecision
+from models.moisture_history import MoistureSample
 from models.sensor_reading import SensorReading
 
 
@@ -26,8 +27,17 @@ class MultiZoneDecisionEngine:
     Keeps a separate learning/history engine for every sensor.
     """
 
+    LEARNING_HISTORY_SIZE = 100
+
     def __init__(self) -> None:
         self._engines: dict[str, SmartIrrigationEngine] = {}
+        # Long-term observations are deliberately isolated from the engines
+        # that can authorize watering. Restored cloud data can therefore
+        # improve learning but can never make a pump start after a restart.
+        self._learning_engines: dict[
+            tuple[str, str],
+            SmartIrrigationEngine,
+        ] = {}
 
     def evaluate(
         self,
@@ -88,6 +98,69 @@ class MultiZoneDecisionEngine:
     def get_current_trend(self, sensor_id: str):
         """Return the independent moisture trend for one sensor."""
         engine = self._engines.setdefault(sensor_id, SmartIrrigationEngine())
+        return engine.get_current_trend()
+
+    @staticmethod
+    def _learning_scope(zone_id: str, sensor_id: str) -> tuple[str, str]:
+        return (
+            str(zone_id or "").strip(),
+            str(sensor_id or "").strip(),
+        )
+
+    def observe_for_learning(
+        self,
+        *,
+        zone_id: str,
+        reading: SensorReading,
+        timestamp: float | None = None,
+    ):
+        """Add one zone-scoped observation to the non-actuating history."""
+
+        scope = self._learning_scope(zone_id, reading.sensor_id)
+        if not all(scope):
+            return None
+        engine = self._learning_engines.setdefault(
+            scope,
+            SmartIrrigationEngine(
+                history_size=self.LEARNING_HISTORY_SIZE,
+            ),
+        )
+        return engine.observe(
+            reading.moisture,
+            timestamp=timestamp,
+        )
+
+    def restore_learning_history(
+        self,
+        *,
+        zone_id: str,
+        sensor_id: str,
+        samples: list[MoistureSample],
+    ) -> int:
+        """Restore one learning scope without touching decision history."""
+
+        scope = self._learning_scope(zone_id, sensor_id)
+        if not all(scope):
+            return 0
+        engine = self._learning_engines.setdefault(
+            scope,
+            SmartIrrigationEngine(
+                history_size=self.LEARNING_HISTORY_SIZE,
+            ),
+        )
+        return engine.restore_observation_history(samples)
+
+    def get_learning_trend(self, *, zone_id: str, sensor_id: str):
+        """Return only the long-term trend for a zone/sensor assignment."""
+
+        scope = self._learning_scope(zone_id, sensor_id)
+        engine = self._learning_engines.get(scope)
+        if engine is None:
+            engine = SmartIrrigationEngine(
+                history_size=self.LEARNING_HISTORY_SIZE,
+            )
+            if all(scope):
+                self._learning_engines[scope] = engine
         return engine.get_current_trend()
 
     def restore_safety_state(

@@ -26,6 +26,7 @@ from core.network_configuration import (
     NetworkConfigurationService,
 )
 from services.feedback_email_service import FeedbackEmailService
+from services.superadmin_data_service import SuperadminDataService
 from services.weather_service import WeatherService
 
 from controllers.smart_irrigation_engine import SmartIrrigationEngine
@@ -105,9 +106,12 @@ class IrrigationService:
         self._feedback_email = FeedbackEmailService(
             self._firebase,
         )
+        self._superadmin_data = SuperadminDataService()
         self._weather = WeatherService()
         self._last_weather_update = 0.0
         self._weather_update_interval_seconds = 60 * 60
+        self._last_weather_location_check = 0.0
+        self._weather_location_check_interval_seconds = 5 * 60
         self._latest_weather_forecast = None
         self._weather_location_signature = ""
         self._weather_policy = WeatherIrrigationPolicy()
@@ -145,6 +149,7 @@ class IrrigationService:
         self._zone_prediction_validation_queues: dict[str, PredictionValidationQueue] = {}
         self._zone_prediction_histories: dict[str, list] = {}
         self._zone_ai_season_ids: dict[str, str] = {}
+        self._zone_ai_sensor_ids: dict[str, str] = {}
         self._last_zone_ai_update = 0.0
 
         self._prediction_history = []
@@ -185,11 +190,15 @@ class IrrigationService:
 
         self._manual_relay_started_at = 0.0
         self._manual_relay_timeout_latched = False
+        self._manual_watering_max_duration_seconds = (
+            IrrigationConfig.DEFAULT_MANUAL_PUMP_DURATION_LIMIT_SECONDS
+        )
         self._last_zone_test_request_id = ""
         self._active_zone_test_request_id = ""
         self._active_zone_test_valve_id = ""
         self._active_zone_test_mode = ""
         self._active_zone_test_deadline = 0.0
+        self._last_manual_watering_request_id = ""
         self._last_irrigation_assistant_reset_request_id = ""
         self._last_network_configuration_request_id = ""
         self._last_zone_config_signatures = {}
@@ -217,6 +226,7 @@ class IrrigationService:
                 exc,
             )
         self._feedback_email.start()
+        self._superadmin_data.start()
         # A service restart closes every relay/valve. Clear any stale
         # Firebase status as well, otherwise Android can keep a manual valve
         # switch visually locked after the hardware is already safe.
@@ -226,13 +236,14 @@ class IrrigationService:
         )
         self._firebase.reset_all_zone_watering_states()
         self._firebase.reset_zone_test_after_restart()
+        self._firebase.reset_manual_watering_after_restart()
 
         self._restore_zone_cooldowns()
         self._restore_zone_irrigation_safety_states()
         self._restore_pending_watering_measurements()
 
         self._restore_prediction_history()
-        self._restore_ai_sensor_history()
+        self._restore_zone_learning_histories()
 
         # Preserve a continuing incident across service restarts. A healthy
         # service cycle will clear it only after the normal stability window.
@@ -308,50 +319,73 @@ class IrrigationService:
                 exc,
             )
 
-    def _restore_ai_sensor_history(
+    def _restore_zone_learning_histories(
         self,
     ) -> None:
         """
-        Restore only the primary observation history for the AI dashboard.
+        Restore every zone's long-term observation history for AI learning.
 
-        Automatic multi-zone irrigation deliberately starts with fresh
-        readings, so restored data can never cause a pump action.
+        These histories live in a separate non-actuating engine. Automatic
+        irrigation still starts with fresh samples after every service start.
         """
 
-        try:
-            stored = self._firebase.load_recent_sensor_history(
-                limit=20,
-                sensor_id=SensorConfig.MQTT_SENSOR_ID,
-            )
-            now_wall = datetime.now().timestamp()
-            now_monotonic = time.monotonic()
-            samples: list[MoistureSample] = []
+        restored_scopes = 0
+        restored_samples = 0
+        configs = self._firebase.get_all_zone_configs_by_sensor()
+        now_wall = time.time()
+        now_monotonic = time.monotonic()
 
-            for moisture, recorded_at in stored:
-                recorded_wall = datetime.fromisoformat(
-                    recorded_at
-                ).timestamp()
-                age_seconds = max(0.0, now_wall - recorded_wall)
-                samples.append(
-                    MoistureSample(
-                        moisture=moisture,
-                        timestamp=now_monotonic - age_seconds,
+        for sensor_id, zone in configs.items():
+            zone_id = str(zone.get("zone_id", "")).strip()
+            if not zone_id or not sensor_id:
+                continue
+            try:
+                stored = self._firebase.load_recent_sensor_history(
+                    limit=(
+                        self._multi_zone_engine.LEARNING_HISTORY_SIZE
+                    ),
+                    sensor_id=str(sensor_id),
+                    zone_id=zone_id,
+                )
+                samples: list[MoistureSample] = []
+                for moisture, recorded_at in stored:
+                    try:
+                        normalized = str(recorded_at).replace("Z", "+00:00")
+                        recorded_wall = datetime.fromisoformat(
+                            normalized
+                        ).timestamp()
+                    except (TypeError, ValueError, OverflowError):
+                        continue
+                    age_seconds = max(0.0, now_wall - recorded_wall)
+                    samples.append(
+                        MoistureSample(
+                            moisture=moisture,
+                            timestamp=now_monotonic - age_seconds,
+                        )
                     )
+
+                restored = self._multi_zone_engine.restore_learning_history(
+                    zone_id=zone_id,
+                    sensor_id=str(sensor_id),
+                    samples=samples,
+                )
+                if restored:
+                    restored_scopes += 1
+                    restored_samples += restored
+            except Exception as exc:
+                self._logger.warning(
+                    "Zone learning history could not be restored. "
+                    "zone_id=%s sensor_id=%s error=%s",
+                    zone_id,
+                    sensor_id,
+                    exc,
                 )
 
-            restored = self._smart_engine.restore_observation_history(
-                samples,
-            )
-            self._logger.info(
-                "AI observation history restored. count=%d",
-                restored,
-            )
-
-        except Exception as exc:
-            self._logger.warning(
-                "AI observation history could not be restored: %s",
-                exc,
-            )
+        self._logger.info(
+            "Zone learning histories restored. scopes=%d samples=%d",
+            restored_scopes,
+            restored_samples,
+        )
 
     def _update_status_if_needed(self) -> None:
         """
@@ -420,7 +454,12 @@ class IrrigationService:
         if self._last_irrigation_decision is None:
             return
 
-        trend = self._smart_engine.get_current_trend()
+        trend = self._multi_zone_engine.get_learning_trend(
+            zone_id=zone_id,
+            sensor_id=reading.sensor_id,
+        )
+        if trend.sample_count == 0:
+            trend = self._smart_engine.get_current_trend()
 
         watering_records = (
             self._firebase.get_recent_watering_records(
@@ -607,10 +646,26 @@ class IrrigationService:
         if not isinstance(season, dict):
             return True
         status = str(season.get("status", "")).strip().upper()
-        season_id = str(season.get("active_season_id", "")).strip()
+        season_ids = {
+            str(season.get("active_season_id", "")).strip(),
+        }
+        active = season.get("active_season_ids")
+        if isinstance(active, dict):
+            season_ids.update(
+                str(key).strip()
+                for key, enabled in active.items()
+                if enabled and str(key).strip()
+            )
+        elif isinstance(active, (list, tuple)):
+            season_ids.update(
+                str(item).strip()
+                for item in active
+                if str(item).strip()
+            )
+        season_ids.discard("")
         if not status:
             return True
-        return status == "ACTIVE" and bool(season_id)
+        return status == "ACTIVE" and bool(season_ids)
 
     @staticmethod
     def _active_zone_season_id(zone: dict) -> str:
@@ -658,28 +713,63 @@ class IrrigationService:
         return "|".join(sorted(season_ids))
 
     def _synchronize_zone_ai_season_scopes(self, configs: dict) -> None:
-        """Reset stale AI state before the current decision plans are built."""
+        """Reset stale AI state after a season or sensor assignment change."""
 
+        sensor_scopes = getattr(self, "_zone_ai_sensor_ids", None)
+        if sensor_scopes is None:
+            sensor_scopes = {}
+            self._zone_ai_sensor_ids = sensor_scopes
+        active_zone_ids: set[str] = set()
         for sensor_id, zone in configs.items():
             if not isinstance(zone, dict):
                 continue
             zone_id = str(zone.get("zone_id", "")).strip()
             if not zone_id:
                 continue
+            active_zone_ids.add(zone_id)
             active_scope = self._active_zone_season_scope_key(zone)
             known_scope = self._zone_ai_season_ids.get(zone_id)
-            if known_scope is None:
+            normalized_sensor_id = str(sensor_id).strip()
+            known_sensor_id = sensor_scopes.get(zone_id)
+            if known_scope is None and known_sensor_id is None:
                 self._zone_ai_season_ids[zone_id] = active_scope
+                sensor_scopes[zone_id] = normalized_sensor_id
                 continue
-            if known_scope == active_scope:
+            if (
+                known_scope == active_scope
+                and known_sensor_id == normalized_sensor_id
+            ):
                 continue
             self._reset_transient_zone_ai_for_season(
                 zone_id=zone_id,
-                sensor_id=str(sensor_id),
+                sensor_id=normalized_sensor_id,
                 previous_season_id=known_scope,
                 active_season_id=active_scope,
             )
             self._zone_ai_season_ids[zone_id] = active_scope
+            sensor_scopes[zone_id] = normalized_sensor_id
+
+        stale_zone_ids = set(self._zone_ai_season_ids).difference(
+            active_zone_ids
+        )
+        for zone_id in stale_zone_ids:
+            self._zone_ai_pipelines.pop(zone_id, None)
+            self._zone_prediction_validation_queues.pop(zone_id, None)
+            self._zone_prediction_histories.pop(zone_id, None)
+            self._adaptive_recommendations_by_zone.pop(zone_id, None)
+            self._watering_duration_plans_by_zone.pop(zone_id, None)
+            self._adaptive_recommendation_cache.pop(zone_id, None)
+            self._zone_ai_season_ids.pop(zone_id, None)
+            sensor_scopes.pop(zone_id, None)
+
+        if stale_zone_ids:
+            clear_states = getattr(
+                self._firebase,
+                "clear_zone_ai_states",
+                None,
+            )
+            if callable(clear_states):
+                clear_states(stale_zone_ids)
 
     def _reset_transient_zone_ai_for_season(
         self,
@@ -706,7 +796,7 @@ class IrrigationService:
         self._last_multi_zone_status_signature = None
         self._last_multi_zone_log_signature = None
         self._logger.info(
-            "Zone season changed; transient irrigation AI reset. "
+            "Zone season or sensor assignment changed; transient AI reset. "
             "zone_id=%s sensor_id=%s previous_season_id=%s active_season_id=%s",
             zone_id,
             sensor_id,
@@ -789,8 +879,9 @@ class IrrigationService:
                 explanation,
             ) = pipeline.analyze(
                 irrigation_decision=result.decision,
-                trend=self._multi_zone_engine.get_current_trend(
-                    sensor_id,
+                trend=self._multi_zone_engine.get_learning_trend(
+                    zone_id=zone_id,
+                    sensor_id=sensor_id,
                 ),
                 reading=reading,
                 watering_records=watering_records,
@@ -872,6 +963,9 @@ class IrrigationService:
         self._firebase.update_zone_ai_states(
             zone_states,
             garden_summary,
+            cleared_zone_ids=(
+                configured_zone_ids.difference(zone_states)
+            ),
         )
         self._last_zone_ai_update = current_time
         self._logger.info(
@@ -1030,55 +1124,70 @@ class IrrigationService:
             force=True,
         )
 
-    def _save_sensor_history_if_needed(
+    def _save_zone_sensor_histories_if_needed(
         self,
         *,
-        reading,
-        decision,
+        readings,
     ) -> None:
-        """
-        Save sensor history periodically.
-        """
+        """Sample and save independent long-term history for active zones."""
 
         current_time = time.monotonic()
-
         if (
-            current_time
-            - self._last_sensor_history_update
+            current_time - self._last_sensor_history_update
             < self._sensor_history_interval_seconds
         ):
             return
 
-        entry = SensorHistoryEntry(
-            moisture=reading.moisture,
-            sensor_id=reading.sensor_id,
-            voltage=reading.voltage,
-            raw=reading.raw,
-            trend_classification=(
-                decision.trend_classification
-            ),
-            moisture_change_per_minute=(
-                decision.moisture_change_per_minute
-            ),
-            trend_sample_count=(
-                decision.trend_sample_count
-            ),
-            trend_duration_seconds=(
-                decision.trend_duration_seconds
-            ),
+        configs = self._firebase.get_all_zone_configs_by_sensor()
+        recorded_at = datetime.now().isoformat()
+        saved_count = 0
 
-            average_moisture=(
-                decision.average_moisture
-            ),
+        for sensor_id, zone in configs.items():
+            reading = readings.get(sensor_id)
+            zone_id = str(zone.get("zone_id", "")).strip()
+            if (
+                reading is None
+                or not zone_id
+                or not self._zone_has_operational_season(zone)
+            ):
+                continue
 
-            recorded_at=datetime.now().isoformat(),
-        )
+            trend = self._multi_zone_engine.observe_for_learning(
+                zone_id=zone_id,
+                reading=reading,
+                timestamp=current_time,
+            )
+            if trend is None:
+                continue
 
-        self._firebase.save_sensor_history(
-            entry,
-        )
+            entry = SensorHistoryEntry(
+                moisture=reading.moisture,
+                sensor_id=reading.sensor_id,
+                voltage=reading.voltage,
+                raw=reading.raw,
+                trend_classification=trend.classification,
+                moisture_change_per_minute=trend.change_per_minute,
+                trend_sample_count=trend.sample_count,
+                trend_duration_seconds=trend.duration_seconds,
+                average_moisture=trend.average_moisture,
+                recorded_at=recorded_at,
+                zone_id=zone_id,
+            )
+            try:
+                self._firebase.save_sensor_history(entry)
+                saved_count += 1
+            except Exception as exc:
+                self._logger.warning(
+                    "Zone sensor history could not be saved. "
+                    "zone_id=%s sensor_id=%s error=%s",
+                    zone_id,
+                    sensor_id,
+                    exc,
+                )
 
         self._last_sensor_history_update = current_time
+        if saved_count:
+            self._last_zone_ai_update = 0.0
 
 
 
@@ -1142,6 +1251,12 @@ class IrrigationService:
     def _update_weather_forecast_if_needed(self) -> None:
         """Refresh the advisory forecast without ever affecting pump safety."""
         now = time.monotonic()
+        if (
+            now - self._last_weather_location_check
+            < self._weather_location_check_interval_seconds
+        ):
+            return
+        self._last_weather_location_check = now
         location = self._firebase.get_weather_location()
         city = str(location.get("city", "")).strip()
         district = str(location.get("district", "")).strip()
@@ -1202,6 +1317,13 @@ class IrrigationService:
                 settings.get("timing_recheck_enabled", True),
                 settings.get("preferred_start_hour", 5),
                 settings.get("preferred_end_hour", 9),
+                settings.get(
+                    "manual_watering_max_duration_seconds",
+                    IrrigationConfig.DEFAULT_MANUAL_PUMP_DURATION_LIMIT_SECONDS,
+                ),
+            )
+            self._manual_watering_max_duration_seconds = (
+                self._manual_watering_limit_from_settings(settings)
             )
             self._weather_policy.configure(settings)
             self._irrigation_time_engine.configure(settings)
@@ -1210,18 +1332,50 @@ class IrrigationService:
                 self._logger.info(
                     "Weather irrigation settings refreshed. "
                     "rain_delay=%s probability=%s rain_mm=%s "
-                    "smart_timing=%s environment=%s strategy=%s",
+                    "smart_timing=%s environment=%s strategy=%s "
+                    "manual_limit=%s",
                     self._weather_policy.rain_delay_enabled,
                     self._weather_policy.rain_delay_probability,
                     self._weather_policy.rain_delay_mm,
                     self._irrigation_time_engine.enabled,
                     self._irrigation_time_engine.environment,
                     self._irrigation_time_engine.strategy,
+                    self._manual_watering_max_duration_seconds,
                 )
         except Exception as error:
             self._logger.warning(
                 "Weather irrigation settings refresh skipped: %s", error
             )
+
+    @staticmethod
+    def _manual_watering_limit_from_settings(settings: dict) -> int:
+        raw_value = settings.get(
+            "manual_watering_max_duration_seconds",
+            IrrigationConfig.DEFAULT_MANUAL_PUMP_DURATION_LIMIT_SECONDS,
+        ) if isinstance(settings, dict) else (
+            IrrigationConfig.DEFAULT_MANUAL_PUMP_DURATION_LIMIT_SECONDS
+        )
+        try:
+            value = int(raw_value)
+        except (TypeError, ValueError):
+            value = IrrigationConfig.DEFAULT_MANUAL_PUMP_DURATION_LIMIT_SECONDS
+        if value < 5:
+            value = IrrigationConfig.DEFAULT_MANUAL_PUMP_DURATION_LIMIT_SECONDS
+        return min(value, IrrigationConfig.MAX_MANUAL_PUMP_DURATION_SECONDS)
+
+    def _refresh_manual_watering_limit_for_request(self) -> None:
+        try:
+            settings = self._firebase.get_weather_irrigation_settings()
+            self._manual_watering_max_duration_seconds = (
+                self._manual_watering_limit_from_settings(settings)
+            )
+        except Exception as error:
+            self._logger.warning(
+                "Manual watering safety limit refresh skipped; "
+                "cached safe limit remains active. error=%s",
+                error,
+            )
+
     def _apply_weather_advice(self, explanation):
         """Add a clear forecast note to the AI advice; never changes watering commands."""
         forecast = self._latest_weather_forecast
@@ -1423,15 +1577,23 @@ class IrrigationService:
             if self._process_network_configuration_command(commands):
                 return
 
+            # Manual control is intentionally independent from soil sensor
+            # availability. Hardware approval and the valve/pump interlocks
+            # remain authoritative on the Pi.
+            self._valves.configure_physical_valves(
+                self._firebase.get_physical_valve_ids(),
+            )
+
+            self._process_zone_test_command(commands)
+
+            if self._process_manual_watering_command(commands):
+                return
+
             if self._sensor.is_waiting_for_first_reading():
                 # A fresh service starts with every actuator closed. Do not
                 # process queued commands or publish a false sensor outage
                 # while the MQTT listener awaits its first packet.
                 return
-
-            self._process_zone_test_command(
-                commands,
-            )
 
             self._process_irrigation_assistant_reset_command(
                 commands,
@@ -1447,10 +1609,6 @@ class IrrigationService:
 
             self._firebase.update_zone_sensors(
                 fresh_readings,
-            )
-
-            self._valves.configure_physical_valves(
-                self._firebase.get_physical_valve_ids(),
             )
 
             selected_zone_result = self._update_multi_zone_decisions(
@@ -1505,9 +1663,8 @@ class IrrigationService:
                 decision,
             )
         
-            self._save_sensor_history_if_needed(
-                reading=reading,
-                decision=decision,
+            self._save_zone_sensor_histories_if_needed(
+                readings=fresh_readings,
             )
 
             self._update_ai_pipeline_if_needed(
@@ -1646,6 +1803,10 @@ class IrrigationService:
                     def on_relay_changed(relay_on: bool) -> None:
                         nonlocal watering_start_notified
                         self._firebase.update_relay_status(relay_on)
+                        self._firebase.update_zone_watering_active(
+                            selected_candidate.zone_id,
+                            relay_on,
+                        )
                         if not relay_on or watering_start_notified:
                             return
                         watering_start_notified = True
@@ -1684,6 +1845,7 @@ class IrrigationService:
                                 self._valves.is_physical_valve(valve_id),
                             )
                         ),
+                        on_progress=self._update_status_if_needed,
                     )
 
                     if result.completed:
@@ -2747,7 +2909,7 @@ class IrrigationService:
 
         if (
             elapsed
-            >= IrrigationConfig.MAX_MANUAL_PUMP_DURATION_SECONDS
+            >= self._manual_watering_max_duration_seconds
         ):
             self._relay.off()
             self._manual_relay_timeout_latched = True
@@ -2755,7 +2917,7 @@ class IrrigationService:
             self._logger.warning(
                 "Manual irrigation safety timeout reached. "
                 "maximum=%d seconds",
-                IrrigationConfig.MAX_MANUAL_PUMP_DURATION_SECONDS,
+                self._manual_watering_max_duration_seconds,
             )
 
             return True
@@ -2802,6 +2964,7 @@ class IrrigationService:
                     commands.zone_test_zone_id,
                     self._active_zone_test_valve_id,
                     self._active_zone_test_mode == "PHYSICAL_TEST",
+                    False,
                 )
                 self._valves.close_all()
                 self._firebase.acknowledge_zone_test(
@@ -2860,6 +3023,7 @@ class IrrigationService:
                 commands.zone_test_zone_id,
                 commands.zone_test_valve_id,
                 test_mode == "PHYSICAL_TEST",
+                False,
             )
             self._active_zone_test_request_id = request_id
             self._active_zone_test_valve_id = (
@@ -2888,11 +3052,237 @@ class IrrigationService:
             ),
         )
 
+    def _process_manual_watering_command(self, commands) -> bool:
+        """Execute one bounded manual watering request as a safe unit."""
+
+        if not commands.manual_watering_requested:
+            return False
+
+        request_id = commands.manual_watering_request_id.strip()
+        if not request_id or request_id == self._last_manual_watering_request_id:
+            return False
+
+        self._last_manual_watering_request_id = request_id
+        self._refresh_manual_watering_limit_for_request()
+        zone_id = commands.manual_watering_zone_id.strip()
+        valve_id = commands.manual_watering_valve_id.strip()
+        duration = max(
+            5,
+            min(
+                int(commands.manual_watering_duration),
+                self._manual_watering_max_duration_seconds,
+            ),
+        )
+
+        zone_config = self._firebase.get_zone_valve_config(zone_id)
+        sensor_id = (
+            str(zone_config.get("sensor_id", "")).strip()
+            if isinstance(zone_config, dict)
+            else ""
+        )
+
+        result_code = ""
+        if not self._is_recent_command(
+            commands.manual_watering_requested_at_ms,
+        ):
+            result_code = "STALE_COMMAND"
+        elif commands.manual_watering_cancel_requested:
+            result_code = "CANCELLED"
+        elif not commands.enabled:
+            result_code = "SYSTEM_DISABLED"
+        elif not zone_id or not valve_id or zone_config is None:
+            result_code = "INVALID_ZONE"
+        elif str(zone_config.get("valve_id", "")).strip() != valve_id:
+            result_code = "VALVE_MISMATCH"
+        elif not bool(zone_config.get("enabled", True)):
+            result_code = "ZONE_DISABLED"
+        elif not self._valves.is_physical_valve(valve_id):
+            result_code = "PHYSICAL_VALVE_REQUIRED"
+
+        if result_code:
+            self._relay.off()
+            self._firebase.update_relay_status(False)
+            self._firebase.acknowledge_manual_watering(
+                request_id=request_id,
+                result=result_code,
+            )
+            self._logger.warning(
+                "Manual watering rejected. zone_id=%s valve_id=%s result=%s",
+                zone_id or "unknown",
+                valve_id or "unknown",
+                result_code,
+            )
+            return True
+
+        # A manual watering request supersedes a valve-only test.  Cancel the
+        # test before the shared pump sequence takes ownership of the valve.
+        if self._active_zone_test_request_id:
+            self._process_zone_test_command(
+                replace(commands, zone_test_cancel_requested=True),
+            )
+
+        self._relay.off()
+        self._firebase.set_relay_command(False)
+        self._firebase.acknowledge_manual_watering(
+            request_id=request_id,
+            result="PREPARING_VALVE",
+            active=True,
+            duration_seconds=duration,
+        )
+
+        started_at = datetime.now()
+        try:
+            before_reading = self._sensor.get_fresh_readings().get(sensor_id)
+        except Exception:
+            before_reading = None
+
+        def current_manual_commands():
+            current = self._firebase.command_state
+            # Manual watering is allowed while automatic irrigation is
+            # disabled.  The dedicated cancel flag remains the immediate stop.
+            return replace(
+                current,
+                auto_mode=True,
+                enabled=(
+                    current.enabled
+                    and not current.manual_watering_cancel_requested
+                ),
+            )
+
+        def on_relay_changed(relay_on: bool) -> None:
+            self._firebase.update_relay_status(relay_on)
+            self._firebase.update_zone_watering_active(zone_id, relay_on)
+            if relay_on:
+                self._firebase.acknowledge_manual_watering(
+                    request_id=request_id,
+                    result="WATERING",
+                    active=True,
+                    duration_seconds=duration,
+                )
+
+        try:
+            result = self._zone_executor.execute(
+                zone_id=zone_id,
+                valve_id=valve_id,
+                duration=duration,
+                get_commands=current_manual_commands,
+                on_relay_changed=on_relay_changed,
+                on_valve_changed=(
+                    lambda active_valve_id, is_open:
+                    self._firebase.update_active_zone_valve(
+                        active_valve_id,
+                        is_open,
+                        zone_id,
+                        valve_id,
+                        True,
+                        self._relay.is_on,
+                    )
+                ),
+                on_progress=self._update_status_if_needed,
+            )
+        except Exception as exc:
+            self._relay.off()
+            self._valves.close_all()
+            self._firebase.update_relay_status(False)
+            self._firebase.update_active_zone_valve(
+                None,
+                False,
+                zone_id,
+                valve_id,
+                True,
+                False,
+            )
+            self._firebase.acknowledge_manual_watering(
+                request_id=request_id,
+                result="ERROR",
+            )
+            self._logger.exception(
+                "Manual watering failed safely. zone_id=%s error=%s",
+                zone_id,
+                exc,
+            )
+            return True
+
+        if result.completed:
+            self._firebase.update_zone_cooldown(
+                zone_id=zone_id,
+                cooldown_until_epoch=(
+                    self._zone_executor.cooldown_until_epoch_for(zone_id)
+                ),
+                cooldown_remaining=(
+                    self._zone_executor.cooldown_remaining_for(zone_id)
+                ),
+            )
+
+        finished_at = datetime.now()
+        try:
+            after_reading = self._sensor.get_fresh_readings().get(sensor_id)
+        except Exception:
+            after_reading = None
+        moisture_before = before_reading.moisture if before_reading else 0
+        moisture_after = (
+            after_reading.moisture if after_reading else moisture_before
+        )
+        try:
+            active_season_ids = self._firebase.get_zone_active_season_ids(
+                zone_id,
+            )
+        except Exception:
+            active_season_ids = ()
+        record = WateringRecord(
+            started_at=started_at.isoformat(),
+            finished_at=finished_at.isoformat(),
+            duration=result.duration,
+            moisture_before=moisture_before,
+            moisture_after=moisture_after,
+            moisture_delta=moisture_after - moisture_before,
+            moisture_limit=commands.moisture_limit,
+            restart_delta=commands.restart_delta,
+            cooldown_seconds=commands.cooldown_seconds,
+            completed=result.completed,
+            stop_reason=(
+                "CANCELLED"
+                if result.stop_reason == "SYSTEM_DISABLED"
+                and self._firebase.command_state.manual_watering_cancel_requested
+                else result.stop_reason
+            ),
+            mode="MANUAL",
+            firmware=AppConfig.VERSION,
+            zone_id=zone_id,
+            sensor_id=sensor_id,
+            season_id=active_season_ids[0] if active_season_ids else "",
+            season_ids=active_season_ids,
+        )
+        try:
+            self._firebase.save_watering(result=result, record=record)
+        except Exception as exc:
+            # History persistence must never leave an already stopped physical
+            # watering command looking active in the Android application.
+            self._logger.exception(
+                "Manual watering history could not be saved. zone_id=%s error=%s",
+                zone_id,
+                exc,
+            )
+
+        final_result = record.stop_reason
+        self._firebase.acknowledge_manual_watering(
+            request_id=request_id,
+            result=final_result,
+            duration_seconds=result.duration,
+        )
+        self._logger.info(
+            "Manual watering finished. zone_id=%s duration=%d result=%s",
+            zone_id,
+            result.duration,
+            final_result,
+        )
+        return True
+
     def _process_irrigation_assistant_reset_command(
         self,
         commands,
     ) -> None:
-        """Safely reset one or all zones' transient assistant state."""
+        """Safely reset one, several, or all zones' transient state."""
 
         if not commands.irrigation_assistant_reset_requested:
             return
@@ -2901,6 +3291,31 @@ class IrrigationService:
             commands.irrigation_assistant_reset_request_id.strip()
         )
         zone_id = commands.irrigation_assistant_reset_zone_id.strip()
+        zone_ids: list[str] = []
+        for raw_zone_id in getattr(
+            commands,
+            "irrigation_assistant_reset_zone_ids",
+            (),
+        ):
+            selected_zone_id = str(raw_zone_id).strip()
+            if selected_zone_id and selected_zone_id not in zone_ids:
+                zone_ids.append(selected_zone_id)
+
+        reset_all_zones = (
+            zone_id.upper() == "ALL"
+            or any(value.upper() == "ALL" for value in zone_ids)
+        )
+        requested_zone_ids = (
+            []
+            if reset_all_zones
+            else zone_ids or ([zone_id] if zone_id else [])
+        )
+        scope_label = (
+            "ALL"
+            if reset_all_zones
+            else ",".join(requested_zone_ids)
+        )
+        completed_zone_ids: list[str] = []
 
         if (
             not request_id
@@ -2911,7 +3326,7 @@ class IrrigationService:
 
         self._last_irrigation_assistant_reset_request_id = request_id
 
-        if not zone_id:
+        if not reset_all_zones and not requested_zone_ids:
             result = "INVALID_ZONE"
         elif not self._is_recent_command(
             commands.irrigation_assistant_reset_requested_at_ms
@@ -2924,11 +3339,11 @@ class IrrigationService:
         ):
             result = "WATERING_ACTIVE"
         else:
-            reset_all_zones = zone_id.upper() == "ALL"
             configured_zones = (
                 self._firebase.get_all_zone_configs_by_sensor()
             )
             zone_sensor_pairs: list[tuple[str, str]] = []
+            configured_zone_ids: set[str] = set()
 
             for configured_sensor_id, zone in configured_zones.items():
                 sensor_id = str(configured_sensor_id).strip()
@@ -2937,17 +3352,26 @@ class IrrigationService:
                 ).strip()
                 if not sensor_id or not configured_zone_id:
                     continue
-                if reset_all_zones or configured_zone_id == zone_id:
+                configured_zone_ids.add(configured_zone_id)
+                if (
+                    reset_all_zones
+                    or configured_zone_id in requested_zone_ids
+                ):
                     zone_sensor_pairs.append(
                         (configured_zone_id, sensor_id)
                     )
 
-            if not zone_sensor_pairs:
+            unknown_zone_ids = set(requested_zone_ids).difference(
+                configured_zone_ids
+            )
+            if unknown_zone_ids or not zone_sensor_pairs:
                 result = "ZONE_NOT_FOUND"
             else:
                 reset_reason = (
                     "IRRIGATION_ASSISTANT_RESET_ALL"
                     if reset_all_zones
+                    else "IRRIGATION_ASSISTANT_RESET_MULTIPLE"
+                    if len(requested_zone_ids) > 1
                     else "IRRIGATION_ASSISTANT_RESET"
                 )
                 primary_sensor_reset = False
@@ -2963,14 +3387,23 @@ class IrrigationService:
                         zone_id=configured_zone_id,
                         sensor_id=sensor_id,
                     )
+                    if configured_zone_id not in completed_zone_ids:
+                        completed_zone_ids.append(configured_zone_id)
                     reset_count += 1
                     if sensor_id == SensorConfig.MQTT_SENSOR_ID:
                         primary_sensor_reset = True
 
-                self._cancel_zone_prediction_validations(
-                    reason=reset_reason,
-                    zone_id=None if reset_all_zones else zone_id,
-                )
+                if reset_all_zones:
+                    self._cancel_zone_prediction_validations(
+                        reason=reset_reason,
+                        zone_id=None,
+                    )
+                else:
+                    for affected_zone_id in completed_zone_ids:
+                        self._cancel_zone_prediction_validations(
+                            reason=reset_reason,
+                            zone_id=affected_zone_id,
+                        )
 
                 if primary_sensor_reset:
                     self._smart_engine.reset()
@@ -2986,27 +3419,34 @@ class IrrigationService:
                 result = (
                     "COMPLETED_ALL"
                     if reset_all_zones
+                    else "COMPLETED_MULTIPLE"
+                    if len(completed_zone_ids) > 1
                     else "COMPLETED"
                 )
 
                 self._logger.info(
                     "Irrigation assistant process restarted safely. "
                     "scope=%s reset_count=%d",
-                    zone_id,
+                    scope_label,
                     reset_count,
                 )
 
         self._firebase.acknowledge_irrigation_assistant_reset(
             request_id=request_id,
-            zone_id=zone_id,
+            zone_id=scope_label,
             result=result,
+            zone_ids=tuple(completed_zone_ids or requested_zone_ids),
         )
 
-        if result not in {"COMPLETED", "COMPLETED_ALL"}:
+        if result not in {
+            "COMPLETED",
+            "COMPLETED_MULTIPLE",
+            "COMPLETED_ALL",
+        }:
             self._logger.warning(
                 "Irrigation assistant restart rejected. "
                 "zone_id=%s result=%s",
-                zone_id or "unknown",
+                scope_label or "unknown",
                 result,
             )
     @staticmethod
@@ -3143,6 +3583,14 @@ class IrrigationService:
         except Exception as exc:
             self._logger.exception(
                 "Feedback email service cleanup failed: %s",
+                exc,
+            )
+
+        try:
+            self._superadmin_data.stop()
+        except Exception as exc:
+            self._logger.exception(
+                "Superadmin data service cleanup failed: %s",
                 exc,
             )
 

@@ -58,7 +58,6 @@ public class NotificationCenterActivity extends EdgeToEdgeActivity {
         setContentView(R.layout.activity_notification_center);
 
         viewModel = new ViewModelProvider(this).get(NotificationCenterViewModel.class);
-        viewModel.getNotifications().observe(this, this::render);
         RecyclerView list = findViewById(R.id.listNotifications);
 
         adapter = new NotificationCenterAdapter(
@@ -140,6 +139,7 @@ public class NotificationCenterActivity extends EdgeToEdgeActivity {
         unread.setOnClickListener(v -> selectStatus(UNREAD));
         category.setOnClickListener(v -> showCategoryFilter());
         PrimaryBottomNavigation.bind(this, PrimaryBottomNavigation.NOTIFICATIONS);
+        viewModel.getNotifications().observe(this, this::render);
     }
 
     @Override

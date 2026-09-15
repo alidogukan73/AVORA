@@ -9,6 +9,7 @@ import com.alidogukan.avora.models.GardenZone;
 import com.alidogukan.avora.models.Health;
 import com.alidogukan.avora.models.Status;
 import com.alidogukan.avora.models.WateringHistory;
+import com.alidogukan.avora.settings.UnitPreferences;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Locale;
@@ -62,7 +63,7 @@ public final class NotificationSignalCoordinator {
             notifications.publishOnce("WEATHER", "NORMAL", "",
                     context.getString(R.string.notification_weather_heat_title),
                     context.getString(R.string.notification_weather_heat_description,
-                            Math.round(temp)),
+                            new UnitPreferences(context).formatTemperature(temp)),
                     "weather:heat:" + date);
         } else if (windSpeed >= 30D) {
             notifications.publishOnce("WEATHER", "NORMAL", "",

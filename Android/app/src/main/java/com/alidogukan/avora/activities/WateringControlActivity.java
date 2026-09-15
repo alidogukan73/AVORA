@@ -6,10 +6,12 @@ import android.os.SystemClock;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.view.View;
 import android.view.Gravity;
 import androidx.appcompat.widget.AppCompatImageView;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.lifecycle.ViewModelProvider;
@@ -20,11 +22,14 @@ import com.alidogukan.avora.models.Command;
 import com.alidogukan.avora.season.SeasonDisplayIdentity;
 import com.alidogukan.avora.models.Status;
 import com.alidogukan.avora.models.GardenZone;
+import com.alidogukan.avora.models.ManualWateringCommand;
 import com.alidogukan.avora.viewmodels.MainViewModel;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.materialswitch.MaterialSwitch;
 import com.google.android.material.card.MaterialCardView;
+import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
 
 import java.util.Collections;
 import java.util.List;
@@ -51,9 +56,17 @@ public class WateringControlActivity extends EdgeToEdgeActivity {
     private boolean valveOpen;
     private boolean updatingValveSwitch;
     private boolean relayOn;
+    private boolean autoMode = true;
+    private boolean systemEnabled = true;
+    private boolean manualWateringPending;
+    private boolean manualWateringActive;
+    private String manualWateringZoneId = "";
+    private String lastManualResultKey = "";
+    private boolean manualStateInitialized;
     private boolean updatingSwitch;
     private boolean updatingPumpSwitch;
     private long lastStatusElapsed;
+    private int manualWateringSafetyLimitSeconds;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -69,6 +82,7 @@ public class WateringControlActivity extends EdgeToEdgeActivity {
         );
         autoSwitch = findViewById(R.id.switchControlAuto);
         pumpSwitch = findViewById(R.id.switchControlPump);
+        pumpSwitch.setEnabled(false);
         pumpButton = findViewById(R.id.btnControlPump);
         pumpStatusCard = findViewById(
                 R.id.cardControlPumpStatus
@@ -92,6 +106,7 @@ public class WateringControlActivity extends EdgeToEdgeActivity {
 
         viewModel = new ViewModelProvider(this)
                 .get(MainViewModel.class);
+        manualWateringSafetyLimitSeconds = viewModel.defaultManualWateringSafetyLimit();
         viewModel.getStatus().observe(this, this::renderStatus);
         viewModel.getCommand().observe(this, this::renderCommand);
         viewModel.getGardenZones().observe(
@@ -107,6 +122,9 @@ public class WateringControlActivity extends EdgeToEdgeActivity {
             seasons = items != null ? items : Collections.emptyList();
             renderManualValves();
         });
+        viewModel.getIrrigationTimingSettings().observe(this, settings ->
+                manualWateringSafetyLimitSeconds =
+                        viewModel.configuredManualWateringSafetyLimit(settings));
 
         viewModel.getError().observe(this, message -> {
             if (message != null && !message.isBlank()) {
@@ -156,77 +174,8 @@ public class WateringControlActivity extends EdgeToEdgeActivity {
                 }
         );
 
-        pumpSwitch.setOnCheckedChangeListener(
-                (button, checked) -> {
-                    if (updatingPumpSwitch) {
-                        return;
-                    }
-
-                    if (!checked) {
-                        viewModel.setRelay(false);
-                        return;
-                    }
-
-                    updatingPumpSwitch = true;
-                    pumpSwitch.setChecked(false);
-                    updatingPumpSwitch = false;
-
-                    if (!isDeviceOnline()) {
-                        Toast.makeText(
-                                this,
-                                getString(R.string.runtime_offline_pump_start),
-                                Toast.LENGTH_LONG
-                        ).show();
-                        return;
-                    }
-
-                    new MaterialAlertDialogBuilder(this)
-                            .setTitle(
-                                    R.string.manual_relay_test_title
-                            )
-                            .setMessage(
-                                    R.string.manual_relay_test_message
-                            )
-                            .setNegativeButton(
-                                    R.string.manual_relay_test_cancel,
-                                    null
-                            )
-                            .setPositiveButton(
-                                    R.string.manual_relay_test_confirm,
-                                    (dialog, which) ->
-                                            viewModel.setRelay(true)
-                            )
-                            .show();
-                }
-        );
-
-        pumpButton.setOnClickListener(view -> {
-            if (relayOn) {
-                viewModel.setRelay(false);
-                return;
-            }
-            if (!isDeviceOnline()) {
-                Toast.makeText(
-                        this,
-                        getString(R.string.runtime_offline_pump_start),
-                        Toast.LENGTH_LONG
-                ).show();
-                return;
-            }
-            new MaterialAlertDialogBuilder(this)
-                    .setTitle(R.string.manual_relay_test_title)
-                    .setMessage(R.string.manual_relay_test_message)
-                    .setNegativeButton(
-                            R.string.manual_relay_test_cancel,
-                            null
-                    )
-                    .setPositiveButton(
-                            R.string.manual_relay_test_confirm,
-                            (dialog, which) ->
-                                    viewModel.setRelay(true)
-                    )
-                    .show();
-        });
+        // Pump state is authoritative hardware feedback.  Manual watering is
+        // started per zone below so the pump can never be armed on its own.
     }
 
     private void renderStatus(Status status) {
@@ -248,12 +197,19 @@ public class WateringControlActivity extends EdgeToEdgeActivity {
         if (command == null) {
             return;
         }
-        relayOn = command.isRelay();
+        autoMode = command.isAutoMode();
+        systemEnabled = command.isEnabled();
+        ManualWateringCommand manual = command.getManualWatering();
+        manualWateringPending = manual != null && manual.isRequested();
+        manualWateringActive = manual != null && manual.isActive();
+        manualWateringZoneId = manual == null ? "" : manual.getZoneId();
+        renderManualResult(manual);
         updatingSwitch = true;
-        autoSwitch.setChecked(command.isAutoMode());
+        autoSwitch.setChecked(autoMode);
         updatingSwitch = false;
-        renderAuto(command.isAutoMode());
+        renderAuto(autoMode);
         renderPump();
+        renderManualValves();
     }
 
     private void renderPump() {
@@ -377,6 +333,8 @@ public class WateringControlActivity extends EdgeToEdgeActivity {
             boolean zonePhysical = VALVE_MODE_PHYSICAL.equalsIgnoreCase(
                     zone.getValve_mode()
             );
+            boolean hardwareReady = zone.getIrrigation_status() != null
+                    && zone.getIrrigation_status().isHardware_ready();
             name.setText(getString(
                     R.string.runtime_icon_label,
                     emoji,
@@ -385,9 +343,11 @@ public class WateringControlActivity extends EdgeToEdgeActivity {
                     getString(
                             R.string.runtime_value_suffix,
                             zone.getValve_id(),
-                            zonePhysical
+                            zonePhysical && hardwareReady
                                     ? getString(R.string.runtime_physical_suffix)
-                                    : getString(R.string.runtime_simulation_suffix)
+                                    : getString(zonePhysical
+                                            ? R.string.manual_watering_hardware_unverified
+                                            : R.string.runtime_simulation_suffix)
                     )
             );
             String crops = SeasonDisplayIdentity.activeCropNames(zone, seasons);
@@ -399,7 +359,20 @@ public class WateringControlActivity extends EdgeToEdgeActivity {
                     valveOpen
                             && zone.getValve_id()
                             .equals(activeValveId);
-            valveSwitch.setChecked(thisValveOpen);
+            boolean thisManualWatering = manualWateringActive
+                    && manualWateringZoneId.equals(zone.getZone_id());
+            boolean manualBusy = manualWateringPending || manualWateringActive;
+            valveSwitch.setChecked(thisManualWatering && thisValveOpen);
+            valveSwitch.setEnabled(thisManualWatering || (
+                    systemEnabled
+                            && !manualBusy
+                            && !relayOn
+                            && !valveOpen
+                            && zonePhysical
+                            && hardwareReady));
+            valveSwitch.setContentDescription(getString(
+                    R.string.manual_watering_zone_action,
+                    zoneName(zone)));
             valveSwitch.setOnCheckedChangeListener(
                     (button, checked) -> {
                         if (updatingValveSwitch) {
@@ -407,13 +380,15 @@ public class WateringControlActivity extends EdgeToEdgeActivity {
                         }
 
                         if (!checked) {
-                            if (relayOn) {
-                                viewModel.setRelay(false);
+                            if (!thisManualWatering) {
+                                return;
                             }
-                            // Always send the cancellation.  A stale screen
-                            // state must never leave a manual valve command
-                            // running in Firebase.
-                            viewModel.closeManualValve();
+                            viewModel.cancelManualWatering();
+                            Toast.makeText(
+                                    this,
+                                    getString(R.string.manual_watering_cancel_sent),
+                                    Toast.LENGTH_SHORT
+                            ).show();
                             return;
                         }
 
@@ -436,18 +411,10 @@ public class WateringControlActivity extends EdgeToEdgeActivity {
                             ).show();
                             return;
                         }
-                        // Wait for Raspberry Pi status confirmation before
-                        // rendering this switch as open.  This avoids a
-                        // locally green switch when a command is rejected.
                         updatingValveSwitch = true;
                         button.setChecked(false);
                         updatingValveSwitch = false;
-                        viewModel.openManualValve(zone);
-                        Toast.makeText(
-                                this,
-                                getString(R.string.runtime_valve_command_sent),
-                                Toast.LENGTH_SHORT
-                        ).show();
+                        showManualWateringDialog(zone);
                     }
             );
             manualValves.addView(row);
@@ -455,11 +422,165 @@ public class WateringControlActivity extends EdgeToEdgeActivity {
         updatingValveSwitch = false;
     }
 
+    private void showManualWateringDialog(GardenZone zone) {
+        View content = getLayoutInflater().inflate(
+                R.layout.dialog_manual_watering_duration, null, false);
+        TextView message = content.findViewById(
+                R.id.txtManualWateringDurationMessage);
+        TextInputLayout hoursLayout = content.findViewById(
+                R.id.layoutManualWateringHours);
+        TextInputLayout minutesLayout = content.findViewById(
+                R.id.layoutManualWateringMinutes);
+        TextInputLayout secondsLayout = content.findViewById(
+                R.id.layoutManualWateringSeconds);
+        TextInputEditText hoursInput = content.findViewById(
+                R.id.inputManualWateringHours);
+        TextInputEditText minutesInput = content.findViewById(
+                R.id.inputManualWateringMinutes);
+        TextInputEditText secondsInput = content.findViewById(
+                R.id.inputManualWateringSeconds);
+
+        int configuredDuration = viewModel.configuredManualWateringDuration(
+                zone, manualWateringSafetyLimitSeconds);
+        hoursInput.setText(String.valueOf(configuredDuration / 3600));
+        minutesInput.setText(String.valueOf((configuredDuration % 3600) / 60));
+        secondsInput.setText(String.valueOf(configuredDuration % 60));
+        message.setText(getString(R.string.manual_watering_dialog_message)
+                + "\n\n"
+                + getString(
+                        R.string.manual_watering_limit_message,
+                        formatManualDuration(manualWateringSafetyLimitSeconds)));
+
+        AlertDialog dialog = new MaterialAlertDialogBuilder(this)
+                .setTitle(getString(
+                        R.string.manual_watering_dialog_title,
+                        zoneName(zone)))
+                .setView(content)
+                .setNegativeButton(R.string.manual_watering_dialog_cancel, null)
+                .setPositiveButton(R.string.manual_watering_dialog_start, null)
+                .create();
+        dialog.setOnShowListener(ignored -> dialog.getButton(
+                AlertDialog.BUTTON_POSITIVE).setOnClickListener(button -> {
+            hoursLayout.setError(null);
+            minutesLayout.setError(null);
+            secondsLayout.setError(null);
+            int hours = parseDurationPart(hoursInput);
+            int minutes = parseDurationPart(minutesInput);
+            int seconds = parseDurationPart(secondsInput);
+            int duration;
+            try {
+                duration = viewModel.manualWateringDurationFromParts(
+                        hours,
+                        minutes,
+                        seconds,
+                        manualWateringSafetyLimitSeconds);
+            } catch (IllegalArgumentException error) {
+                secondsLayout.setError(getString(
+                        R.string.manual_watering_duration_invalid));
+                return;
+            }
+
+            dialog.dismiss();
+            confirmOrStartManualWatering(zone, duration);
+        }));
+        dialog.show();
+    }
+
+    private void confirmOrStartManualWatering(GardenZone zone, int durationSeconds) {
+        if (!viewModel.requiresExtendedManualWateringConfirmation(durationSeconds)) {
+            startManualWatering(zone, durationSeconds);
+            return;
+        }
+        new MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.manual_watering_extended_title)
+                .setMessage(getString(
+                        R.string.manual_watering_extended_message,
+                        formatManualDuration(durationSeconds)))
+                .setNegativeButton(R.string.manual_watering_dialog_cancel, null)
+                .setPositiveButton(R.string.manual_watering_extended_confirm,
+                        (dialog, which) -> startManualWatering(zone, durationSeconds))
+                .show();
+    }
+
+    private void startManualWatering(GardenZone zone, int durationSeconds) {
+        viewModel.startManualWatering(
+                zone, durationSeconds, manualWateringSafetyLimitSeconds);
+        Toast.makeText(
+                this,
+                getString(R.string.manual_watering_command_sent),
+                Toast.LENGTH_SHORT
+        ).show();
+    }
+
+    private String formatManualDuration(int durationSeconds) {
+        int safe = Math.max(0, durationSeconds);
+        int hours = safe / 3600;
+        int minutes = (safe % 3600) / 60;
+        int seconds = safe % 60;
+        if (hours > 0 && (minutes > 0 || seconds > 0)) {
+            return getString(
+                    R.string.manual_watering_duration_full_format,
+                    hours, minutes, seconds);
+        }
+        if (hours > 0) {
+            return getString(R.string.manual_watering_duration_hours_format, hours);
+        }
+        if (minutes > 0 && seconds > 0) {
+            return getString(
+                    R.string.manual_watering_duration_minutes_seconds_format,
+                    minutes, seconds);
+        }
+        if (minutes > 0) {
+            return getString(R.string.manual_watering_duration_minutes_format, minutes);
+        }
+        return getString(R.string.manual_watering_duration_seconds_format, seconds);
+    }
+
+    private static int parseDurationPart(TextInputEditText input) {
+        CharSequence value = input.getText();
+        if (value == null || value.toString().trim().isEmpty()) {
+            return 0;
+        }
+        try {
+            return Integer.parseInt(value.toString().trim());
+        } catch (NumberFormatException ignored) {
+            return -1;
+        }
+    }
+
+    private void renderManualResult(ManualWateringCommand manual) {
+        if (manual == null) {
+            return;
+        }
+        String requestId = manual.getCompletedRequestId();
+        String result = manual.getResult() == null
+                ? "" : manual.getResult().trim().toUpperCase();
+        String resultKey = requestId + ":" + result;
+        if (!manualStateInitialized) {
+            manualStateInitialized = true;
+            lastManualResultKey = resultKey;
+            return;
+        }
+        if (manual.isRequested() || manual.isActive()
+                || result.isBlank() || resultKey.equals(lastManualResultKey)) {
+            return;
+        }
+        lastManualResultKey = resultKey;
+
+        int message = "COMPLETED".equals(result)
+                ? R.string.manual_watering_completed
+                : "CANCELLED".equals(result)
+                ? R.string.manual_watering_cancelled
+                : R.string.manual_watering_rejected;
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+    }
+
     private boolean hasConfiguredPhysicalValve() {
         for (GardenZone zone : zones) {
             if (VALVE_MODE_PHYSICAL.equalsIgnoreCase(
                     zone.getValve_mode()
-            )) {
+            ) && zone.getIrrigation_status() != null
+                    && zone.getIrrigation_status().isHardware_ready()) {
                 return true;
             }
         }
@@ -480,7 +601,7 @@ public class WateringControlActivity extends EdgeToEdgeActivity {
         content.setOrientation(LinearLayout.VERTICAL);
         int padding = (int) (20 * getResources()
                 .getDisplayMetrics().density);
-        content.setPadding(padding, 0, padding, 0);
+        content.setPadding(padding, 0, padding, padding / 2);
 
         TextView hint = new TextView(this);
         hint.setText(R.string.valve_setup_hint);
@@ -563,9 +684,21 @@ public class WateringControlActivity extends EdgeToEdgeActivity {
             content.addView(row);
         }
 
+        ScrollView scrollView = new ScrollView(this);
+        scrollView.setFillViewport(true);
+        scrollView.setVerticalScrollBarEnabled(true);
+        scrollView.setOverScrollMode(View.OVER_SCROLL_IF_CONTENT_SCROLLS);
+        scrollView.addView(
+                content,
+                new ScrollView.LayoutParams(
+                        ScrollView.LayoutParams.MATCH_PARENT,
+                        ScrollView.LayoutParams.WRAP_CONTENT
+                )
+        );
+
         new MaterialAlertDialogBuilder(this)
                 .setTitle(R.string.valve_setup_title)
-                .setView(content)
+                .setView(scrollView)
                 .setPositiveButton(android.R.string.ok, null)
                 .show();
     }

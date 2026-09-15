@@ -53,6 +53,21 @@ function validFeedback(id, uid = OWNER_UID) {
   };
 }
 
+function validSuperadminCommand(id, overrides = {}) {
+  return {
+    id,
+    operation: "preview_delete",
+    category: "seasons",
+    record_id: "zone-003-2026-1785445200",
+    requested_by_uid: OWNER_UID,
+    requested_at: Date.now(),
+    expires_at: Date.now() + 240000,
+    source: "android",
+    status: "pending",
+    ...overrides,
+  };
+}
+
 function validGrowthPhoto(id, overrides = {}) {
   return {
     id,
@@ -144,6 +159,94 @@ test("only the claimed device owner can read or write the device", async () => {
   );
 });
 
+test("only the device owner can create bounded superadmin commands", async () => {
+  const owner = authenticatedDatabase(OWNER_UID);
+  const family = unclaimedDatabase(FAMILY_UID);
+  const outsider = unclaimedDatabase(OTHER_UID);
+  const commandId = "11111111-1111-1111-1111-111111111111";
+  const commandPath = `superadmin_devices/${DEVICE_ID}/commands/${commandId}`;
+
+  await testEnvironment.withSecurityRulesDisabled(async (context) => {
+    await set(ref(context.database(), `device_access/${DEVICE_ID}/${FAMILY_UID}`), {
+      approved: true,
+      firebase_uid: FAMILY_UID,
+      nas_user_id: "11111111-1111-1111-1111-111111111111",
+      email: "family@example.com",
+      display_name: "Family",
+      approved_by: OWNER_UID,
+      approved_at: Date.now() - 1000,
+    });
+  });
+
+  await assertSucceeds(set(ref(owner, commandPath), validSuperadminCommand(commandId)));
+  await assertFails(update(ref(owner, commandPath), { status: "processing" }));
+  await assertSucceeds(get(ref(owner, `superadmin_devices/${DEVICE_ID}`)));
+  await assertFails(get(ref(family, `superadmin_devices/${DEVICE_ID}`)));
+  await assertFails(set(
+    ref(owner, `devices/${DEVICE_ID}/superadmin/commands/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb`),
+    validSuperadminCommand("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
+  ));
+  await assertFails(set(
+    ref(family, `superadmin_devices/${DEVICE_ID}/commands/22222222-2222-2222-2222-222222222222`),
+    validSuperadminCommand("22222222-2222-2222-2222-222222222222", {
+      requested_by_uid: FAMILY_UID,
+    }),
+  ));
+  await assertFails(set(
+    ref(outsider, `superadmin_devices/${DEVICE_ID}/commands/33333333-3333-3333-3333-333333333333`),
+    validSuperadminCommand("33333333-3333-3333-3333-333333333333", {
+      requested_by_uid: OTHER_UID,
+    }),
+  ));
+  await assertFails(set(
+    ref(owner, `superadmin_devices/${DEVICE_ID}/commands/44444444-4444-4444-4444-444444444444`),
+    validSuperadminCommand("44444444-4444-4444-4444-444444444444", {
+      operation: "raw_database_access",
+    }),
+  ));
+  await assertFails(set(
+    ref(owner, `superadmin_devices/${DEVICE_ID}/commands/55555555-5555-5555-5555-555555555555`),
+    validSuperadminCommand("55555555-5555-5555-5555-555555555555", {
+      operation: "update",
+    }),
+  ));
+  await assertSucceeds(set(
+    ref(owner, `superadmin_devices/${DEVICE_ID}/commands/66666666-6666-6666-6666-666666666666`),
+    validSuperadminCommand("66666666-6666-6666-6666-666666666666", {
+      operation: "update",
+      replacement_json: "{\"label\":\"Düzeltilmiş sezon\"}",
+      expected_record_json: "{\"label\":\"Eski sezon\"}",
+    }),
+  ));
+  await assertFails(set(
+    ref(owner, `superadmin_devices/${DEVICE_ID}/commands/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa`),
+    validSuperadminCommand("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", {
+      operation: "update",
+      replacement_json: "{\"label\":\"Düzeltilmiş sezon\"}",
+    }),
+  ));
+  await assertFails(set(
+    ref(owner, `superadmin_devices/${DEVICE_ID}/commands/77777777-7777-7777-7777-777777777777`),
+    validSuperadminCommand("77777777-7777-7777-7777-777777777777", {
+      operation: "delete",
+    }),
+  ));
+  await assertSucceeds(set(
+    ref(owner, `superadmin_devices/${DEVICE_ID}/commands/88888888-8888-8888-8888-888888888888`),
+    validSuperadminCommand("88888888-8888-8888-8888-888888888888", {
+      operation: "delete",
+      preview_token: "a".repeat(64),
+    }),
+  ));
+  await assertFails(set(
+    ref(owner, `superadmin_devices/${DEVICE_ID}/commands/99999999-9999-9999-9999-999999999999`),
+    validSuperadminCommand("99999999-9999-9999-9999-999999999999", {
+      operation: "delete",
+      preview_token: "not-a-valid-token",
+    }),
+  ));
+});
+
 test("owner approval grants only the selected Firebase user device access", async () => {
   await testEnvironment.withSecurityRulesDisabled(async (context) => {
     await set(ref(context.database(), `devices/${DEVICE_ID}/status`), {
@@ -182,6 +285,41 @@ test("owner approval grants only the selected Firebase user device access", asyn
   ));
   await assertFails(set(ref(owner,
     `device_access/${DEVICE_ID}/different-user-001`), grant));
+});
+
+test("only the device owner can change the bounded manual watering safety limit", async () => {
+  await testEnvironment.withSecurityRulesDisabled(async (context) => {
+    await set(ref(context.database(), `devices/${DEVICE_ID}`), {
+      status: { online: true },
+      weather: {
+        irrigation_settings: {
+          manual_watering_max_duration_seconds: 14400,
+        },
+      },
+    });
+    await set(ref(context.database(), `device_access/${DEVICE_ID}/${FAMILY_UID}`), {
+      approved: true,
+      firebase_uid: FAMILY_UID,
+      nas_user_id: "123e4567-e89b-12d3-a456-426614174000",
+      email: "family@example.com",
+      display_name: "Aile Üyesi",
+      approved_by: OWNER_UID,
+      approved_at: Date.now(),
+    });
+  });
+
+  const owner = authenticatedDatabase(OWNER_UID);
+  const family = unclaimedDatabase(FAMILY_UID);
+  const path = `devices/${DEVICE_ID}/weather/irrigation_settings/manual_watering_max_duration_seconds`;
+
+  await assertSucceeds(set(ref(owner, path), 43200));
+  await assertFails(set(ref(owner, path), 43201));
+  await assertFails(set(ref(owner, path), 4));
+  await assertFails(set(ref(family, path), 7200));
+  await assertSucceeds(update(
+    ref(family, `devices/${DEVICE_ID}/commands`),
+    { auto_mode: false },
+  ));
 });
 
 test("owner cannot create a malformed family access grant", async () => {
@@ -502,8 +640,12 @@ test("owner can manage bounded seedling batches and daily observations", async (
     archived_at_epoch: 1788357601,
     updated_at_epoch: 1788357601,
   }));
+  await assertSucceeds(update(ref(owner, logPath), {
+    note: "Arşivde düzeltilen günlük notu.",
+    healthy_count: 95,
+  }));
   await assertFails(update(ref(owner, logPath), {
-    note: "Arşiv sonrası değişmemeli.",
+    created_at_epoch: 1788357601,
   }));
   await assertFails(set(
     ref(owner, `devices/${DEVICE_ID}/seedling/daily_logs/${id}/log-archived`),

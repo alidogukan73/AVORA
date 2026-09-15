@@ -133,12 +133,17 @@
                         </com.google.android.material.card.MaterialCardView>
                     </LinearLayout>
                     <ImageView
-                        android:layout_width="18dp"
-                        android:layout_height="18dp"
+                        android:id="@+id/btnPlantAssistantIntroInfo"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
                         android:layout_marginStart="5dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:clickable="true"
                         android:contentDescription="@string/info_description"
-                        app:tint="@color/aiPlantAccent"
-                        android:src="@drawable/ic_info_outline_20" />
+                        android:focusable="true"
+                        android:padding="10dp"
+                        android:src="@drawable/ic_info_outline_20"
+                        app:tint="@color/aiPlantAccent" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
             <com.google.android.material.card.MaterialCardView

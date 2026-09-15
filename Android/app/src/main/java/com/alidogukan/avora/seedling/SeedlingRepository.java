@@ -233,22 +233,19 @@ public final class SeedlingRepository {
             if (batch == null) {
                 return Tasks.forException(new IllegalStateException("Fide partisi bulunamadı."));
             }
-            if (!batch.isActive()) return Tasks.forException(new BatchReadOnlyException());
-            if (!SeedlingValidation.isValidLog(log, batch)) {
+            SeedlingDailyLog persisted = snapshot.child("daily_logs").child(batchId)
+                    .child(logId).getValue(SeedlingDailyLog.class);
+            if (persisted != null && persisted.getLog_id().isBlank()) {
+                persisted.setLog_id(logId);
+            }
+            if (persisted == null) {
+                return Tasks.forException(new IllegalStateException("Günlük kaydı bulunamadı."));
+            }
+            if (!SeedlingValidation.isValidLogUpdate(log, batch, persisted)) {
                 return Tasks.forException(new IllegalArgumentException("Günlük bilgileri geçersiz."));
             }
             List<SeedlingDailyLog> current = logsFrom(
                     snapshot.child("daily_logs").child(batchId));
-            boolean exists = false;
-            for (SeedlingDailyLog value : current) {
-                if (logId.equals(value.getLog_id())) {
-                    exists = true;
-                    break;
-                }
-            }
-            if (!exists) {
-                return Tasks.forException(new IllegalStateException("Günlük kaydı bulunamadı."));
-            }
             Map<String, Object> updates = new HashMap<>();
             updates.put("daily_logs/" + batchId + "/" + logId, log);
             if (isLatestAfterUpdate(current, log)) {
@@ -575,7 +572,7 @@ public final class SeedlingRepository {
 
     public static final class BatchReadOnlyException extends IllegalStateException {
         public BatchReadOnlyException() {
-            super("Arşivlenmiş fide partisinin günlükleri değiştirilemez.");
+            super("Arşivlenmiş fide partisinde bu işlem yapılamaz.");
         }
     }
 

@@ -77,7 +77,7 @@
     <string name="fertilizer_history_title">Fertilizer History</string>
     <string name="fertilizer_history_subtitle">Actual applications recorded for zones</string>
     <string name="fertilizer_history_empty">No fertilizer application has been recorded yet.</string>
-    <string name="fertilizer_history_dose">Applied amount: %1$s %2$s</string>
+    <string name="fertilizer_history_dose">Applied amount: %1$s</string>
     <string name="fertilization_status_overdue">OVERDUE</string>
     <string name="fertilization_status_today">TODAY</string>
     <string name="fertilization_status_upcoming">UPCOMING</string>

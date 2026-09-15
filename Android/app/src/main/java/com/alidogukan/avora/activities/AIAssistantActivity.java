@@ -1,6 +1,7 @@
 package com.alidogukan.avora.activities;
 
 import android.animation.ValueAnimator;
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.MotionEvent;
 import android.view.View;
@@ -174,6 +175,7 @@ public class AIAssistantActivity extends EdgeToEdgeActivity {
     private SoilLearningProfile fallbackSoilLearningProfile;
     private String requestedZoneId;
     private WeatherForecast latestWeatherForecast;
+    private com.alidogukan.avora.viewmodels.DisplayUnitsViewModel displayUnits;
     private float predictionSwipeStartX;
     private float predictionSwipeStartY;
     private boolean predictionHorizontalSwipe;
@@ -602,6 +604,8 @@ public class AIAssistantActivity extends EdgeToEdgeActivity {
         viewModel =
                 new ViewModelProvider(this)
                         .get(MainViewModel.class);
+        displayUnits = new ViewModelProvider(this)
+                .get(com.alidogukan.avora.viewmodels.DisplayUnitsViewModel.class);
     }
 
     /**
@@ -618,6 +622,12 @@ public class AIAssistantActivity extends EdgeToEdgeActivity {
         btnAIAdvancedDetails.setOnClickListener(
                 view -> setAdvancedDetailsVisible(
                         !advancedDetailsVisible
+                )
+        );
+
+        findViewById(R.id.btnAIManualWatering).setOnClickListener(
+                view -> startActivity(
+                        new Intent(this, WateringControlActivity.class)
                 )
         );
 
@@ -856,10 +866,7 @@ public class AIAssistantActivity extends EdgeToEdgeActivity {
 
         String temperatureText = temperature == null
                 ? getString(R.string.ai_weather_temperature_missing)
-                : getString(
-                        R.string.ai_weather_temperature_value,
-                        Math.round(temperature)
-                );
+                : displayUnits.formatTemperature(temperature);
         String rainText = rain == null
                 ? ""
                 : getString(R.string.ai_weather_rain_suffix, Math.round(rain));
@@ -915,6 +922,12 @@ public class AIAssistantActivity extends EdgeToEdgeActivity {
         }
 
         cardAIWeatherGuidance.setVisibility(View.VISIBLE);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (displayUnits != null) renderWeatherGuidance();
     }
     private void renderSoilLearningProfile(
             SoilLearningProfile profile
@@ -2462,7 +2475,7 @@ public class AIAssistantActivity extends EdgeToEdgeActivity {
         ));
 
         ZoneAIState zoneAI = zone.getAi();
-        if (zoneAI == null) {
+        if (!isCurrentZoneAI(zone, zoneAI)) {
             renderZoneAIWaiting(zone);
             setAdvancedDetailsVisible(advancedDetailsVisible);
             renderWeatherGuidance();
@@ -2481,6 +2494,19 @@ public class AIAssistantActivity extends EdgeToEdgeActivity {
         setAdvancedDetailsVisible(advancedDetailsVisible);
         renderWeatherGuidance();
     }
+
+    private boolean isCurrentZoneAI(GardenZone zone, ZoneAIState zoneAI) {
+        if (zone == null || zoneAI == null) return false;
+        String zoneId = assistantFormatter.safeText(zone.getZone_id(), "").trim();
+        String sensorId = assistantFormatter.safeText(zone.getSensor_id(), "").trim();
+        String aiZoneId = assistantFormatter.safeText(zoneAI.getZoneId(), "").trim();
+        String aiSensorId = assistantFormatter.safeText(zoneAI.getSensorId(), "").trim();
+        return !zoneId.isEmpty()
+                && !sensorId.isEmpty()
+                && zoneId.equals(aiZoneId)
+                && sensorId.equals(aiSensorId);
+    }
+
     private void renderZoneAIWaiting(GardenZone zone) {
         String sensorId = assistantFormatter.safeText(
                 zone.getSensor_id(),

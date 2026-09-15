@@ -38,6 +38,7 @@ import java.util.Collections;
 public class DeviceHealthActivity extends AppCompatActivity {
 
     private DeviceHealthViewModel viewModel;
+    private com.alidogukan.avora.viewmodels.DisplayUnitsViewModel displayUnits;
 
     private MaterialButton btnBack;
     private MaterialButton btnRestartDevice;
@@ -108,6 +109,8 @@ public class DeviceHealthActivity extends AppCompatActivity {
         EdgeToEdge.enable(this);
 
         setContentView(R.layout.activity_device_health);
+        displayUnits = new ViewModelProvider(this)
+                .get(com.alidogukan.avora.viewmodels.DisplayUnitsViewModel.class);
 
         applyWindowInsets();
         initializeViews();
@@ -1044,10 +1047,7 @@ public class DeviceHealthActivity extends AppCompatActivity {
                 clampPercentage(health.getCpuUsage());
 
         txtCpuTemperature.setText(
-                getString(
-                        R.string.health_temperature_format,
-                        temperature
-                )
+                displayUnits.formatTemperature(temperature)
         );
 
         txtCpuUsage.setText(
@@ -1094,6 +1094,12 @@ public class DeviceHealthActivity extends AppCompatActivity {
 
         txtCpuTemperature.setTextColor(color);
         txtCpuUsage.setTextColor(color);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (latestHealth != null) renderCpu(latestHealth);
     }
 
     private void renderMemory(Health health) {

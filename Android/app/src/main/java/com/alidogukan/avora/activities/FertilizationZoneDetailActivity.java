@@ -66,6 +66,7 @@ public class FertilizationZoneDetailActivity
 
 
     private FertilizationZoneDetailViewModel viewModel;
+    private com.alidogukan.avora.viewmodels.DisplayUnitsViewModel displayUnits;
 
     private TextInputEditText inputPlantingDate;
     private TextInputEditText inputFertilizationArea;
@@ -162,6 +163,8 @@ public class FertilizationZoneDetailActivity
         }
         viewModel = new ViewModelProvider(this).get(
                 FertilizationZoneDetailViewModel.class);
+        displayUnits = new ViewModelProvider(this)
+                .get(com.alidogukan.avora.viewmodels.DisplayUnitsViewModel.class);
         viewModel.setZoneId(zoneId);
 
         bindViews();
@@ -204,6 +207,10 @@ public class FertilizationZoneDetailActivity
         inputFertilizationTank = findViewById(
                 R.id.inputFertilizationTank
         );
+        inputFertilizationArea.setHint(getString(
+                R.string.fertilization_area_unit, displayUnits.areaSymbol()));
+        inputFertilizationTank.setHint(getString(
+                R.string.fertilization_tank_unit, displayUnits.volumeSymbol()));
         dropdownGrowthStage = findViewById(
                 R.id.dropdownGrowthStage
         );
@@ -422,10 +429,10 @@ public class FertilizationZoneDetailActivity
         switchReminder.setChecked(originalReminder);
         inputPlantingDate.setText(displayDate(originalPlantingDate));
         inputFertilizationArea.setText(
-                editableNumber(originalAreaM2)
+                originalAreaM2 > 0d ? displayUnits.formatEditableArea(originalAreaM2) : ""
         );
         inputFertilizationTank.setText(
-                editableNumber(originalTankLiters)
+                originalTankLiters > 0d ? displayUnits.formatEditableVolume(originalTankLiters) : ""
         );
         renderWaterAnalysis(profile);
         dropdownGrowthStage.setText(
@@ -963,11 +970,13 @@ public class FertilizationZoneDetailActivity
     }
 
     private double currentAreaM2() {
-        return parsePositiveNumber(inputFertilizationArea);
+        return displayUnits.areaToSquareMeters(
+                parsePositiveNumber(inputFertilizationArea));
     }
 
     private double currentTankLiters() {
-        return parsePositiveNumber(inputFertilizationTank);
+        return displayUnits.volumeToLiters(
+                parsePositiveNumber(inputFertilizationTank));
     }
 
     private double parsePositiveNumber(TextInputEditText input) {
@@ -1048,7 +1057,7 @@ public class FertilizationZoneDetailActivity
             resultUnit = "g";
             note = getString(
                     R.string.fertilization_dose_area_note,
-                    formatDose(area)
+                    displayUnits.formatArea(area)
             );
         } else if (normalizedUnit.contains("l/dekar")) {
             double area = currentAreaM2();
@@ -1064,7 +1073,7 @@ public class FertilizationZoneDetailActivity
             resultUnit = "ml";
             note = getString(
                     R.string.fertilization_dose_area_note,
-                    formatDose(area)
+                    displayUnits.formatArea(area)
             );
         } else if (normalizedUnit.contains("ml/100l")) {
             double tank = currentTankLiters();
@@ -1079,7 +1088,7 @@ public class FertilizationZoneDetailActivity
             resultUnit = "ml";
             note = getString(
                     R.string.fertilization_dose_tank_note,
-                    formatDose(tank)
+                    displayUnits.formatVolume(tank)
             );
         } else {
             txtFertilizationDoseCalculation.setText(
@@ -1205,7 +1214,7 @@ public class FertilizationZoneDetailActivity
                     "g",
                     getString(
                             R.string.fertilization_dose_area_note,
-                            formatDose(areaM2)
+                            displayUnits.formatArea(areaM2)
                     )
             );
         }
@@ -1216,7 +1225,7 @@ public class FertilizationZoneDetailActivity
                     "ml",
                     getString(
                             R.string.fertilization_dose_area_note,
-                            formatDose(areaM2)
+                            displayUnits.formatArea(areaM2)
                     )
             );
         }
@@ -1228,7 +1237,7 @@ public class FertilizationZoneDetailActivity
                     "ml",
                     getString(
                             R.string.fertilization_dose_tank_note,
-                            formatDose(tankLiters)
+                            displayUnits.formatVolume(tankLiters)
                     )
             );
         }

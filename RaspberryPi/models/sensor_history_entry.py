@@ -32,3 +32,5 @@ class SensorHistoryEntry:
     trend_duration_seconds: float
 
     average_moisture: float
+
+    zone_id: str = ""

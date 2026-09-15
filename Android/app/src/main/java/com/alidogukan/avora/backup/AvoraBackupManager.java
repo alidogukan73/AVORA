@@ -45,6 +45,7 @@ public final class AvoraBackupManager {
             "sensor_config_updated_at_epoch", "valve_id", "valve_type", "valve_mode",
             "valve_mode_updated_at_epoch", "valve_gpio_bcm", "valve_gpio_physical_pin",
             "enabled", "irrigation_enabled", "order", "moisture_limit", "pump_duration",
+            "manual_watering_duration_seconds", "manual_watering_duration_updated_at_epoch",
             "cooldown_seconds", "restart_delta", "season", "fertilization",
             "lifecycle_status", "created_at_epoch", "archived_at_epoch",
             "previous_sensor_id", "previous_valve_id"

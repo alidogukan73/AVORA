@@ -18,6 +18,8 @@ public class IrrigationTimingSettings {
     public static final boolean DEFAULT_RECHECK_ENABLED = true;
     public static final int DEFAULT_START_HOUR = 5;
     public static final int DEFAULT_END_HOUR = 9;
+    public static final int DEFAULT_MANUAL_WATERING_MAX_DURATION_SECONDS = 4 * 60 * 60;
+    public static final int HARD_MANUAL_WATERING_MAX_DURATION_SECONDS = 12 * 60 * 60;
 
     private boolean smartTimingEnabled = DEFAULT_SMART_TIMING_ENABLED;
     private String gardenEnvironment = DEFAULT_GARDEN_ENVIRONMENT;
@@ -28,6 +30,8 @@ public class IrrigationTimingSettings {
     private boolean timingRecheckEnabled = DEFAULT_RECHECK_ENABLED;
     private int preferredStartHour = DEFAULT_START_HOUR;
     private int preferredEndHour = DEFAULT_END_HOUR;
+    private int manualWateringMaxDurationSeconds =
+            DEFAULT_MANUAL_WATERING_MAX_DURATION_SECONDS;
     private long updatedAtEpoch;
 
     public IrrigationTimingSettings() {
@@ -69,6 +73,14 @@ public class IrrigationTimingSettings {
     public int getPreferredEndHour() { return preferredEndHour; }
     public void setPreferredEndHour(int value) {
         preferredEndHour = Math.max(0, Math.min(23, value));
+    }
+    public int getManualWateringMaxDurationSeconds() {
+        return manualWateringMaxDurationSeconds;
+    }
+    public void setManualWateringMaxDurationSeconds(int value) {
+        manualWateringMaxDurationSeconds = Math.max(
+                5,
+                Math.min(HARD_MANUAL_WATERING_MAX_DURATION_SECONDS, value));
     }
     public long getUpdatedAtEpoch() { return updatedAtEpoch; }
     public void setUpdatedAtEpoch(long value) { updatedAtEpoch = Math.max(0, value); }

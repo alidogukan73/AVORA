@@ -149,7 +149,7 @@ class FeedbackEmailSettings:
     imap_host: str = "imap.gmail.com"
     imap_port: int = 993
     delivery_mode: str = "auto"
-    poll_interval_seconds: int = 15
+    poll_interval_seconds: int = 60
     retry_initial_seconds: int = 60
     retry_max_seconds: int = 3600
     lease_seconds: int = 300
@@ -199,8 +199,8 @@ class FeedbackEmailSettings:
             ).strip().lower(),
             poll_interval_seconds=_environment_int(
                 "AVORA_FEEDBACK_EMAIL_POLL_SECONDS",
-                15,
-                5,
+                60,
+                60,
             ),
             retry_initial_seconds=_environment_int(
                 "AVORA_FEEDBACK_EMAIL_RETRY_SECONDS",

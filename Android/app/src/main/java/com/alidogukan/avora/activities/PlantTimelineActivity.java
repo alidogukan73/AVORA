@@ -62,6 +62,7 @@ public class PlantTimelineActivity extends EdgeToEdgeActivity {
     private WeatherForecast weatherForecast;
     private String activeFilter = "all";
     private String activeTab = "timeline";
+    private String requestedSeasonId = "";
     private String selectedSeasonId = "";
     private boolean seasonSelectionInitialized;
     private boolean zoneSnapshotLoaded;
@@ -75,6 +76,8 @@ public class PlantTimelineActivity extends EdgeToEdgeActivity {
 
         viewModel = new ViewModelProvider(this).get(PlantJournalViewModel.class);
         zoneId = getIntent().getStringExtra(EXTRA_ZONE_ID); if (zoneId == null) zoneId = "";
+        String requested = getIntent().getStringExtra(EXTRA_SEASON_ID);
+        requestedSeasonId = requested == null ? "" : requested.trim();
         if (TAB_COMPARE.equals(getIntent().getStringExtra(EXTRA_INITIAL_TAB))) {
             activeTab = TAB_COMPARE;
         }
@@ -726,16 +729,22 @@ public class PlantTimelineActivity extends EdgeToEdgeActivity {
 
     private void refreshVisibleSeasons() {
         ZoneSeasonState current = zone == null ? null : zone.getSeason();
-        seasons = viewModel.visibleSeasons(observedSeasons, current);
+        seasons = viewModel.visibleSeasons(
+                observedSeasons,
+                current,
+                requestedSeasonId
+        );
     }
 
     private void selectInitialSeason() {
         if (seasonSelectionInitialized && selectedSeason() != null) return;
-        String requested = getIntent().getStringExtra(EXTRA_SEASON_ID);
         GardenSeason choice = null;
-        if (requested != null && !requested.isBlank()) {
+        if (!requestedSeasonId.isBlank()) {
             for (GardenSeason value : seasons) {
-                if (requested.equals(value.getSeason_id())) { choice = value; break; }
+                if (requestedSeasonId.equals(value.getSeason_id())) {
+                    choice = value;
+                    break;
+                }
             }
         }
         if (choice == null) {

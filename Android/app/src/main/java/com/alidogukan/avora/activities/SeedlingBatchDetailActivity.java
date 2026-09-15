@@ -45,12 +45,15 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.Collections;
 
 /** Live seedling conditions, explainable advice and growth history. */
 public final class SeedlingBatchDetailActivity extends EdgeToEdgeActivity {
     public static final String EXTRA_BATCH_ID = "seedling_batch_id";
 
     private SeedlingViewModel viewModel;
+    private com.alidogukan.avora.viewmodels.DisplayUnitsViewModel displayUnits;
+    private List<SeedlingDailyLog> latestLogs = Collections.emptyList();
     private SeedlingBatch batch;
     private String batchId;
     private String observedNodeId = "";
@@ -63,6 +66,7 @@ public final class SeedlingBatchDetailActivity extends EdgeToEdgeActivity {
     private TextView meta;
     private TextView stage;
     private TextView noTelemetry;
+    private View telemetryLayout;
     private TextView airTemp;
     private TextView airHumidity;
     private TextView soilMoisture;
@@ -120,6 +124,8 @@ public final class SeedlingBatchDetailActivity extends EdgeToEdgeActivity {
         }
 
         viewModel = new ViewModelProvider(this).get(SeedlingViewModel.class);
+        displayUnits = new ViewModelProvider(this)
+                .get(com.alidogukan.avora.viewmodels.DisplayUnitsViewModel.class);
         viewModel.getReadError().observe(this, event -> {
             if (event == null) return;
             Integer message = event.consume();
@@ -158,6 +164,15 @@ public final class SeedlingBatchDetailActivity extends EdgeToEdgeActivity {
         viewModel.getLogs(batchId).observe(this, this::renderLogs);
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (displayUnits != null) {
+            renderNode(latestNodeState);
+            renderLogs(latestLogs);
+        }
+    }
+
     private void bindViews() {
         emoji = findViewById(R.id.txtSeedlingBatchEmoji);
         name = findViewById(R.id.txtSeedlingBatchName);
@@ -168,6 +183,7 @@ public final class SeedlingBatchDetailActivity extends EdgeToEdgeActivity {
         soilMoisture = findViewById(R.id.txtSeedlingSoilMoisture);
         rootTemp = findViewById(R.id.txtSeedlingRootTemp);
         light = findViewById(R.id.txtSeedlingLight);
+        telemetryLayout = findViewById(R.id.layoutSeedlingTelemetry);
         targetContext = findViewById(R.id.txtSeedlingTargetContext);
         airTempTarget = findViewById(R.id.txtSeedlingAirTempTarget);
         airHumidityTarget = findViewById(R.id.txtSeedlingAirHumidityTarget);
@@ -228,6 +244,11 @@ public final class SeedlingBatchDetailActivity extends EdgeToEdgeActivity {
 
     private void observeBatchNode() {
         if (batch == null) return;
+        if (!viewModel.shouldObserveLiveTelemetry(batch)) {
+            stopObservingBatchNode();
+            renderArchivedSensorState();
+            return;
+        }
         String nodeId = batch.getNode_id().isBlank() ? "seedling-001" : batch.getNode_id();
         if (nodeId.equals(observedNodeId)) return;
         if (nodeSource != null) nodeSource.removeObservers(this);
@@ -241,6 +262,22 @@ public final class SeedlingBatchDetailActivity extends EdgeToEdgeActivity {
             freshnessTicker.update(value == null ? null : value.getLatest());
             renderNode(value);
         });
+    }
+
+    private void stopObservingBatchNode() {
+        if (nodeSource != null) nodeSource.removeObservers(this);
+        nodeSource = null;
+        observedNodeId = "";
+        latestNodeState = null;
+        freshnessTicker.update(null);
+    }
+
+    private void renderArchivedSensorState() {
+        telemetryLayout.setVisibility(View.GONE);
+        noTelemetry.setVisibility(View.VISIBLE);
+        noTelemetry.setText(R.string.seedling_archived_telemetry_disabled);
+        overallCard.setVisibility(View.GONE);
+        adviceCard.setVisibility(View.GONE);
     }
 
     private void renderBatch() {
@@ -607,13 +644,22 @@ public final class SeedlingBatchDetailActivity extends EdgeToEdgeActivity {
     }
 
     private void renderNode(SeedlingNodeState value) {
+        if (batch != null
+                && !viewModel.shouldObserveLiveTelemetry(batch)) {
+            renderArchivedSensorState();
+            return;
+        }
         latestNodeState = value;
+        telemetryLayout.setVisibility(View.VISIBLE);
+        noTelemetry.setText(R.string.seedling_no_telemetry);
+        overallCard.setVisibility(View.VISIBLE);
+        adviceCard.setVisibility(View.VISIBLE);
         SeedlingTelemetry telemetry = value == null ? null : value.getLatest();
         long nowMillis = System.currentTimeMillis();
         boolean fresh = telemetry != null && telemetry.isFresh(nowMillis / 1000L, 45L);
         noTelemetry.setVisibility(fresh ? View.GONE : View.VISIBLE);
         if (fresh) {
-            airTemp.setText(getString(R.string.seedling_temperature_value,
+            airTemp.setText(displayUnits.formatTemperature(
                     telemetry.getAir_temperature_c()));
             airHumidity.setText(getString(R.string.seedling_percent_value,
                     telemetry.getAir_humidity_pct()));
@@ -621,7 +667,7 @@ public final class SeedlingBatchDetailActivity extends EdgeToEdgeActivity {
                     ? getString(R.string.seedling_percent_value,
                             telemetry.getSoil_moisture_pct())
                     : getString(R.string.seedling_metric_empty));
-            rootTemp.setText(getString(R.string.seedling_temperature_value,
+            rootTemp.setText(displayUnits.formatTemperature(
                     telemetry.getRoot_temperature_c()));
             light.setText(getString(R.string.seedling_light_value,
                     telemetry.getLight_lux()));
@@ -722,8 +768,9 @@ public final class SeedlingBatchDetailActivity extends EdgeToEdgeActivity {
         switch (result.getMetric()) {
             case AIR_TEMPERATURE:
             case ROOT_TEMPERATURE:
-                return getString(R.string.seedling_metric_target_temperature,
-                        range.getMinimum(), range.getMaximum());
+                return getString(R.string.seedling_metric_target_value,
+                        displayUnits.formatTemperatureRange(
+                                range.getMinimum(), range.getMaximum()));
             case AIR_HUMIDITY:
             case SOIL_MOISTURE:
                 return getString(R.string.seedling_metric_target_percent,
@@ -821,7 +868,7 @@ public final class SeedlingBatchDetailActivity extends EdgeToEdgeActivity {
         switch (item.getMetric()) {
             case AIR_TEMPERATURE:
             case ROOT_TEMPERATURE:
-                return getString(R.string.seedling_temperature_value, value);
+                return displayUnits.formatTemperature(value);
             case AIR_HUMIDITY:
             case SOIL_MOISTURE:
                 return getString(R.string.seedling_percent_value, value);
@@ -837,7 +884,7 @@ public final class SeedlingBatchDetailActivity extends EdgeToEdgeActivity {
         switch (item.getMetric()) {
             case AIR_TEMPERATURE:
             case ROOT_TEMPERATURE:
-                return getString(R.string.seedling_metric_range_temperature,
+                return displayUnits.formatTemperatureRange(
                         range.getMinimum(), range.getMaximum());
             case AIR_HUMIDITY:
             case SOIL_MOISTURE:
@@ -872,6 +919,7 @@ public final class SeedlingBatchDetailActivity extends EdgeToEdgeActivity {
     }
 
     private void renderLogs(List<SeedlingDailyLog> values) {
+        latestLogs = values == null ? Collections.emptyList() : values;
         logs.removeAllViews();
         boolean empty = values == null || values.isEmpty();
         hasDailyLogs = !empty;
@@ -903,8 +951,14 @@ public final class SeedlingBatchDetailActivity extends EdgeToEdgeActivity {
                 ? logs.getWidth()
                 : getResources().getDisplayMetrics().widthPixels - dp(24);
         card.setLayoutParams(new LinearLayout.LayoutParams(cardWidth, -2));
-        card.setContentDescription(getString(R.string.seedling_log_swipe_hint,
+        boolean activeBatch = batch != null && batch.isActive();
+        card.setContentDescription(getString(activeBatch
+                        ? R.string.seedling_log_tap_or_swipe_hint
+                        : R.string.seedling_log_tap_edit_hint,
                 date(value.getCreated_at_epoch())));
+        card.setClickable(true);
+        card.setFocusable(true);
+        card.setOnClickListener(view -> editLog(value));
 
         LinearLayout content = new LinearLayout(this);
         content.setOrientation(LinearLayout.HORIZONTAL);
@@ -917,7 +971,7 @@ public final class SeedlingBatchDetailActivity extends EdgeToEdgeActivity {
         details.addView(text(date(value.getCreated_at_epoch()), 14,
                 R.color.textPrimary, Typeface.BOLD));
         details.addView(text(getResources().getQuantityString(R.plurals.seedling_log_meta,
-                value.getLeaf_count(), value.getHeight_cm(), value.getLeaf_count(),
+                value.getLeaf_count(), displayUnits.formatLength(value.getHeight_cm()), value.getLeaf_count(),
                 value.getHealthy_count()), 12, R.color.textSecondary, Typeface.NORMAL));
         details.addView(text(getString(value.isWatered() ? R.string.seedling_watered_yes
                 : R.string.seedling_watered_no), 12, value.isWatered()
@@ -930,7 +984,7 @@ public final class SeedlingBatchDetailActivity extends EdgeToEdgeActivity {
         if (value.hasPhoto()) content.addView(logPhoto(value));
         card.addView(content);
 
-        if (batch == null || !batch.isActive()) {
+        if (!activeBatch) {
             rail.addView(card);
             swipe.addView(rail, new HorizontalScrollView.LayoutParams(-2, -2));
             return swipe;

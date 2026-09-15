@@ -67,6 +67,49 @@ def validate_zone_configurations(
     return sensor_to_zone, config_by_sensor
 
 
+def validate_zone_valve_configurations(
+    zones: object,
+    warn: Callable[[str, object], None] | None = None,
+) -> dict[str, dict[str, Any]]:
+    """Return active, uniquely assigned valve channels without requiring a sensor.
+
+    Manual watering and valve commissioning must remain available before a
+    moisture sensor is installed.  Automatic irrigation continues to use
+    ``validate_zone_configurations`` and therefore still requires a valid,
+    unique sensor channel.
+    """
+
+    if not isinstance(zones, dict):
+        return {}
+
+    config_by_zone: dict[str, dict[str, Any]] = {}
+    used_valves: set[str] = set()
+
+    for raw_zone_id in sorted(zones):
+        zone_id = str(raw_zone_id).strip()
+        zone = zones.get(raw_zone_id)
+        if not _ZONE_PATTERN.fullmatch(zone_id) or not isinstance(zone, dict):
+            continue
+        if not bool(zone.get("enabled", True)):
+            continue
+        if str(zone.get("lifecycle_status", "")).strip().upper() == "INACTIVE":
+            continue
+
+        valve_id = str(zone.get("valve_id", "")).strip()
+        if not _VALVE_PATTERN.fullmatch(valve_id):
+            if valve_id:
+                _warn(warn, "Invalid manual valve mapping ignored: %s", valve_id)
+            continue
+        if valve_id in used_valves:
+            _warn(warn, "Duplicate manual valve mapping ignored: %s", valve_id)
+            continue
+
+        used_valves.add(valve_id)
+        config_by_zone[zone_id] = {**zone, "zone_id": zone_id}
+
+    return config_by_zone
+
+
 def _warn(
     warn: Callable[[str, object], None] | None,
     message: str,

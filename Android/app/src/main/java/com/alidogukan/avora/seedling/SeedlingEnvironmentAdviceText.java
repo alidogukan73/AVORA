@@ -6,6 +6,8 @@ import androidx.annotation.NonNull;
 import androidx.annotation.StringRes;
 
 import com.alidogukan.avora.R;
+import com.alidogukan.avora.settings.DisplayUnitFormatter;
+import com.alidogukan.avora.settings.UnitPreferences;
 
 /** Localized presentation for crop-aware seedling actions. */
 public final class SeedlingEnvironmentAdviceText {
@@ -89,7 +91,7 @@ public final class SeedlingEnvironmentAdviceText {
         switch (item.getMetric()) {
             case AIR_TEMPERATURE:
             case ROOT_TEMPERATURE:
-                return context.getString(R.string.seedling_temperature_value, value);
+                return units(context).formatTemperature(value);
             case AIR_HUMIDITY:
             case SOIL_MOISTURE:
                 return context.getString(R.string.seedling_percent_value, value);
@@ -106,7 +108,7 @@ public final class SeedlingEnvironmentAdviceText {
         switch (item.getMetric()) {
             case AIR_TEMPERATURE:
             case ROOT_TEMPERATURE:
-                return context.getString(R.string.seedling_metric_range_temperature,
+                return units(context).formatTemperatureRange(
                         target.getMinimum(), target.getMaximum());
             case AIR_HUMIDITY:
             case SOIL_MOISTURE:
@@ -117,5 +119,9 @@ public final class SeedlingEnvironmentAdviceText {
                 return context.getString(R.string.seedling_metric_range_light,
                         target.getMinimum(), target.getMaximum());
         }
+    }
+
+    private static DisplayUnitFormatter units(Context context) {
+        return new UnitPreferences(context).formatter();
     }
 }

@@ -212,6 +212,40 @@ public class SeasonScopeTest {
         assertTrue(SeasonScope.isVisibleSeason(completedSeason(false), null));
     }
 
+    @Test
+    public void everydayPlantJournalHidesCompletedSeasons() {
+        ZoneSeasonState active = season("zone-006-2026-200", false, 200L, 0L);
+        GardenSeason current = activeSeason("zone-006-2026-200");
+        GardenSeason completed = completedSeason(false);
+
+        assertTrue(SeasonScope.isVisibleInPlantJournal(current, active, ""));
+        assertFalse(SeasonScope.isVisibleInPlantJournal(completed, active, ""));
+        assertFalse(SeasonScope.isVisibleInPlantJournal(
+                completed,
+                active,
+                current.getSeason_id()
+        ));
+    }
+
+    @Test
+    public void seasonHistoryCanOpenOnlyTheRequestedCompletedSeason() {
+        ZoneSeasonState active = season("zone-006-2026-200", false, 200L, 0L);
+        GardenSeason requested = completedSeason(false);
+        GardenSeason other = completedSeason(false);
+        other.setSeason_id("zone-006-2025-100");
+
+        assertTrue(SeasonScope.isVisibleInPlantJournal(
+                requested,
+                active,
+                requested.getSeason_id()
+        ));
+        assertFalse(SeasonScope.isVisibleInPlantJournal(
+                other,
+                active,
+                requested.getSeason_id()
+        ));
+    }
+
     private static GardenSeason activeSeason(String id) {
         GardenSeason value = new GardenSeason();
         value.setSeason_id(id);

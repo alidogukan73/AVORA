@@ -22,6 +22,7 @@ import com.alidogukan.avora.notifications.NotificationPermissionPromptStore;
 import com.alidogukan.avora.notifications.NotificationSignalScheduler;
 import com.alidogukan.avora.settings.GardenProfileStore;
 import com.alidogukan.avora.settings.UnitPreferences;
+import com.alidogukan.avora.settings.SettingsSyncPolicy;
 import com.google.android.gms.tasks.Task;
 import com.google.android.gms.tasks.Tasks;
 
@@ -74,6 +75,9 @@ public final class GardenSettingsViewModel extends AndroidViewModel {
     }
 
     public String areaSymbol() { return unitPreferences.areaSymbol(); }
+    public String formatEditableArea(double value) {
+        return unitPreferences.formatter().formatEditableArea(value);
+    }
     public double areaFromSquareMeters(double value) {
         return unitPreferences.areaFromSquareMeters(value);
     }
@@ -160,7 +164,14 @@ public final class GardenSettingsViewModel extends AndroidViewModel {
     public boolean hasLocalUnitChoice() { return unitPreferences.hasSavedValues(); }
     public DisplayUnitSettings loadUnits() { return unitPreferences.load(); }
     public void acceptCloudUnits(DisplayUnitSettings settings) { unitPreferences.save(settings); }
+    public boolean shouldAcceptCloudUnits(DisplayUnitSettings cloud) {
+        if (cloud == null || !cloud.isComplete()) return false;
+        return !hasLocalUnitChoice() || SettingsSyncPolicy.isCloudValueNewer(
+                cloud.getUpdated_at_epoch(), loadUnits().getUpdated_at_epoch());
+    }
     public Task<Void> saveUnits(DisplayUnitSettings settings) {
+        long now = System.currentTimeMillis() / 1000L;
+        settings.setUpdated_at_epoch(Math.max(now, loadUnits().getUpdated_at_epoch() + 1L));
         unitPreferences.save(settings);
         return repository.saveDisplayUnitSettings(settings);
     }

@@ -6,6 +6,7 @@ import android.graphics.Typeface;
 import android.os.Bundle;
 import android.text.InputType;
 import android.view.View;
+import android.view.ViewTreeObserver;
 import android.widget.ArrayAdapter;
 import android.widget.EditText;
 import android.widget.LinearLayout;
@@ -17,6 +18,7 @@ import android.widget.Toast;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
+import androidx.core.widget.NestedScrollView;
 import androidx.lifecycle.ViewModelProvider;
 
 import com.alidogukan.avora.R;
@@ -63,6 +65,7 @@ public final class SeasonManagementActivity extends EdgeToEdgeActivity {
 
     private LinearLayout zoneContainer;
     private TextView emptyView;
+    private NestedScrollView scrollRoot;
     private String lastRenderSignature = "";
 
     @Override
@@ -73,6 +76,7 @@ public final class SeasonManagementActivity extends EdgeToEdgeActivity {
         String transferBatchId = getIntent().getStringExtra(EXTRA_SEEDLING_BATCH_ID);
         transferMode = transferBatchId != null && !transferBatchId.isBlank();
         findViewById(R.id.btnBack).setOnClickListener(view -> finish());
+        scrollRoot = findViewById(R.id.seasonManagementRoot);
         zoneContainer = findViewById(R.id.layoutSeasonZones);
         emptyView = findViewById(R.id.txtSeasonEmpty);
         inactiveZoneContainer = findViewById(R.id.layoutInactiveSeasonZones);
@@ -663,6 +667,7 @@ public final class SeasonManagementActivity extends EdgeToEdgeActivity {
         header.setClickable(true);
         header.setFocusable(true);
         header.setOnClickListener(view -> {
+            int preservedScrollY = scrollRoot == null ? 0 : scrollRoot.getScrollY();
             boolean expand = list.getVisibility() != View.VISIBLE;
             list.setVisibility(expand ? View.VISIBLE : View.GONE);
             arrow.setText(expand
@@ -682,8 +687,23 @@ public final class SeasonManagementActivity extends EdgeToEdgeActivity {
                     summary.getText().toString(),
                     expand
             );
+            preserveScrollPositionAfterLayout(preservedScrollY);
         });
         return box;
+    }
+
+    private void preserveScrollPositionAfterLayout(int scrollY) {
+        if (scrollRoot == null) return;
+        ViewTreeObserver observer = scrollRoot.getViewTreeObserver();
+        observer.addOnPreDrawListener(new ViewTreeObserver.OnPreDrawListener() {
+            @Override
+            public boolean onPreDraw() {
+                ViewTreeObserver current = scrollRoot.getViewTreeObserver();
+                if (current.isAlive()) current.removeOnPreDrawListener(this);
+                scrollRoot.scrollTo(0, Math.max(0, scrollY));
+                return true;
+            }
+        });
     }
 
     private View createArchivedSeasonRow(GardenZone zone, GardenSeason season) {

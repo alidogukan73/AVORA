@@ -154,7 +154,7 @@ Rüzgâr
     <string name="runtime_weather_source_detail">Kaynak: %1$s · Bahçe çevresi tahmini</string>
     <string name="runtime_weather_humidity">💧
 Nem %%%1$s</string>
-    <string name="runtime_weather_day_card">%1$s\n%2$s\n%3$s°\n%4$s°\n💧 %%%5$s\n💨 %6$s km/sa</string>
+    <string name="runtime_weather_day_card">%1$s\n%2$s\n%3$s\n%4$s\n💧 %%%5$s\n💨 %6$s km/sa</string>
     <string name="runtime_weather_wind">💨
 Rüzgâr %1$s km/sa</string>
     <string name="runtime_weather_rain">🌧

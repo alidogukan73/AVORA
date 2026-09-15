@@ -25,6 +25,7 @@ import com.alidogukan.avora.models.FertilizerStageGuide;
 import com.alidogukan.avora.models.GardenZone;
 import com.alidogukan.avora.season.SeasonRepository;
 import com.alidogukan.avora.models.WeatherForecast;
+import com.alidogukan.avora.settings.UnitPreferences;
 import com.google.android.gms.tasks.Task;
 
 import java.util.List;
@@ -71,7 +72,7 @@ public final class FertilizationZoneDetailViewModel extends AndroidViewModel {
                                    WeatherForecast weather,
                                    List<FertilizerApplication> history, long now) {
         return FertilizerDecisionEngine.advise(zone, products, weather, history, now,
-                preferOrganicInputs());
+                preferOrganicInputs(), new UnitPreferences(getApplication()).formatter());
     }
     public boolean requiresOrganicAi(FertilizerAdvice advice) {
         return OrganicFertilizerAiAdvisor.isRequired(advice);

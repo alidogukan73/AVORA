@@ -15,6 +15,7 @@ import com.alidogukan.avora.models.WeatherDay;
 import com.alidogukan.avora.models.WeatherForecast;
 import com.alidogukan.avora.views.WeatherTemperatureChartView;
 import com.alidogukan.avora.viewmodels.MainViewModel;
+import com.alidogukan.avora.viewmodels.DisplayUnitsViewModel;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -25,6 +26,8 @@ public class WeatherForecastActivity extends EdgeToEdgeActivity {
     private ImageView icon;
     private LinearLayout days, insights;
     private WeatherTemperatureChartView chart;
+    private DisplayUnitsViewModel displayUnits;
+    private WeatherForecast latestForecast;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -49,6 +52,7 @@ public class WeatherForecastActivity extends EdgeToEdgeActivity {
         days = findViewById(R.id.layoutWeatherDays);
         insights = findViewById(R.id.layoutWeatherInsights);
         chart = findViewById(R.id.chartWeatherTemperature);
+        displayUnits = new ViewModelProvider(this).get(DisplayUnitsViewModel.class);
 
         new ViewModelProvider(this).get(MainViewModel.class).getWeatherForecast()
                 .observe(this, this::render);
@@ -56,10 +60,12 @@ public class WeatherForecastActivity extends EdgeToEdgeActivity {
 
     private void render(WeatherForecast w) {
         if (w == null) return;
+        latestForecast = w;
         String place = w.getDistrict().isBlank() ? w.getCity() : w.getDistrict() + " / " + w.getCity();
         location.setText(getString(R.string.runtime_weather_weekly_place, place));
         deviceLocation.setText(place);
-        temp.setText(getString(R.string.runtime_temperature_text, n(w.getCurrentTemperature())));
+        temp.setText(w.getCurrentTemperature() == null
+                ? "—" : displayUnits.formatTemperature(w.getCurrentTemperature()));
         condition.setText(condition(w.getCurrentWeatherCode()));
         details.setText(getString(R.string.runtime_weather_source_detail, sourceLabel(w.getSource())));
         humidity.setText(getString(R.string.runtime_weather_humidity, n(w.getCurrentHumidity())));
@@ -79,8 +85,8 @@ public class WeatherForecastActivity extends EdgeToEdgeActivity {
         for (WeatherDay d : list) {
             TextView v = new TextView(this);
             v.setText(getString(R.string.runtime_weather_day_card, label(d.getDate()),
-                    iconText(d.getRainProbability()), n(d.getTemperatureMax()),
-                    n(d.getTemperatureMin()), n(d.getRainProbability()), n(d.getWindMax())));
+                    iconText(d.getRainProbability()), temperature(d.getTemperatureMax()),
+                    temperature(d.getTemperatureMin()), n(d.getRainProbability()), n(d.getWindMax())));
             v.setTextSize(12);
             v.setTextColor(ContextCompat.getColor(this, R.color.textPrimary));
             v.setGravity(Gravity.CENTER);
@@ -102,7 +108,18 @@ public class WeatherForecastActivity extends EdgeToEdgeActivity {
             if (wet == null || v(d.getRainProbability()) > v(wet.getRainProbability())) wet = d;
         }
         addInsight(getString(R.string.runtime_rain_chance), wet == null ? "—" : getString(R.string.runtime_percentage_value, n(wet.getRainProbability())), getString(R.string.runtime_wettest_day));
-        addInsight(getString(R.string.runtime_hottest_day), hot == null ? "—" : getString(R.string.runtime_temperature_text, n(hot.getTemperatureMax())), hot == null ? "" : label(hot.getDate()));
+        addInsight(getString(R.string.runtime_hottest_day), hot == null
+                ? "—" : temperature(hot.getTemperatureMax()), hot == null ? "" : label(hot.getDate()));
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (latestForecast != null) render(latestForecast);
+    }
+
+    private String temperature(Double value) {
+        return value == null ? "—" : displayUnits.formatTemperature(value);
     }
 
     private void addInsight(String title, String value, String sub) {

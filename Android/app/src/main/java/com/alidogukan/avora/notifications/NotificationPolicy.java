@@ -161,6 +161,7 @@ public final class NotificationPolicy {
             boolean zoneWateringActive,
             String zoneValveId,
             boolean centralValveOpen,
+            boolean relayOn,
             String activeValveId,
             long deviceLastSeenEpoch,
             long nowEpoch,
@@ -169,6 +170,7 @@ public final class NotificationPolicy {
         String activeValve = activeValveId == null ? "" : activeValveId.trim();
         return zoneWateringActive
                 && centralValveOpen
+                && relayOn
                 && !expectedValve.isEmpty()
                 && expectedValve.equalsIgnoreCase(activeValve)
                 && !isDeviceOffline(

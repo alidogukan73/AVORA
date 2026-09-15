@@ -64,6 +64,7 @@ class SmartIrrigationEngine:
 
         self._sample_window = sample_window
         self._max_sensor_spread = max_sensor_spread
+        self._history_size = history_size
 
         # Nem ölçümlerinin tek ortak kaynağı.
         self._history = MoistureHistory(
@@ -101,16 +102,10 @@ class SmartIrrigationEngine:
         )
 
         # Ölçüm yalnızca bir kez ortak geçmişe eklenir.
-        self._history.add(
-            moisture,
-        )
+        trend = self.observe(moisture)
 
         sensor_stable = (
             self._is_sensor_stable()
-        )
-
-        trend = (
-            self._trend_analyzer.analyze()
         )
 
         if not commands.enabled:
@@ -303,12 +298,26 @@ class SmartIrrigationEngine:
             sample
             for sample in samples
             if 0 <= sample.moisture <= 100
-        ][-self.DEFAULT_HISTORY_SIZE:]
+        ][-self._history_size:]
 
         self._history.clear()
         self._history.extend(valid_samples)
 
         return len(valid_samples)
+
+    def observe(
+        self,
+        moisture: int,
+        *,
+        timestamp: float | None = None,
+    ) -> MoistureTrend:
+        """Store one observation without making an irrigation decision."""
+
+        self._history.add(
+            moisture,
+            timestamp=timestamp,
+        )
+        return self._trend_analyzer.analyze()
 
     def get_current_trend(
         self,

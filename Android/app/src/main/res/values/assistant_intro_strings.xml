@@ -7,5 +7,6 @@
     <string name="assistant_intro_advisory_badge">ÖNERİ</string>
     <string name="assistant_intro_water_info">Güvenilirlik rozeti, ekrandaki sulama analizinin mevcut güvenilirlik sonucunu gösterir. Veri yeterli değilse Bekleniyor veya Öğreniyor görünür. Bu kart sulama başlatmaz ve ayarları değiştirmez.</string>
     <string name="assistant_intro_seedling_info">Güvenilirlik rozeti, NodeMCU ölçümlerinin güncelliğini ve sensörlerin kullanılabilirliğini gösterir. Güncel tüm ölçümlerde Yüksek, ADS1115 verisi eksikken Orta, veri güncel değilken Bekleniyor görünür. Bu kart donanımı otomatik çalıştırmaz.</string>
+    <string name="assistant_intro_plant_info">Güvenilirlik rozeti, ön değerlendirmenin görsel, belirti, sensör ve hava bilgilerinden ne ölçüde destek aldığını açıklar. Bilgilerin eksik veya güncel olmaması sonucu etkileyebilir. AI Bitki Asistanı kesin hastalık tanısı koymaz ve donanımı otomatik çalıştırmaz.</string>
     <string name="assistant_intro_fertilizer_info">Gübre Asistanı öneri ve hatırlatma sunar. Bu kart otomatik gübreleme başlatmaz. Ürün uygunluğu, etiket ve doz kontrollerini yapıp uygulamayı siz onaylarsınız.</string>
 </resources>

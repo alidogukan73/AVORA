@@ -101,11 +101,13 @@ class FakeQueue:
 def command(
     request_id: str,
     zone_id: str = "zone-002",
+    zone_ids: tuple[str, ...] = (),
 ) -> SimpleNamespace:
     return SimpleNamespace(
         irrigation_assistant_reset_requested=True,
         irrigation_assistant_reset_request_id=request_id,
         irrigation_assistant_reset_zone_id=zone_id,
+        irrigation_assistant_reset_zone_ids=zone_ids,
         irrigation_assistant_reset_requested_at_ms=int(time.time() * 1000),
     )
 
@@ -162,6 +164,47 @@ def main() -> None:
     assert service._firebase.safety_updates[-1][
         "completed_watering_cycles"
     ] == 0
+
+    multi_service, multi_queues = service_with()
+    multi_service._process_irrigation_assistant_reset_command(
+        command(
+            "reset-multiple",
+            "zone-001",
+            ("zone-001", "zone-003"),
+        ),
+    )
+    assert multi_service._multi_zone_engine.get_safety_state(
+        "soil-001"
+    )["completed_watering_cycles"] == 0
+    assert multi_service._multi_zone_engine.get_safety_state(
+        "soil-002"
+    )["completed_watering_cycles"] == 3
+    assert multi_service._multi_zone_engine.get_safety_state(
+        "soil-003"
+    )["completed_watering_cycles"] == 0
+    assert multi_queues["zone-001"].cancelled == 1
+    assert multi_queues["zone-002"].cancelled == 0
+    assert multi_queues["zone-003"].cancelled == 1
+    assert multi_service._firebase.acks[-1]["result"] == "COMPLETED_MULTIPLE"
+    assert multi_service._firebase.acks[-1]["zone_ids"] == (
+        "zone-001",
+        "zone-003",
+    )
+
+    atomic_service, atomic_queues = service_with()
+    atomic_service._process_irrigation_assistant_reset_command(
+        command(
+            "reset-invalid-multiple",
+            "zone-001",
+            ("zone-001", "zone-999"),
+        ),
+    )
+    for sensor_id in ("soil-001", "soil-002", "soil-003"):
+        assert atomic_service._multi_zone_engine.get_safety_state(
+            sensor_id
+        )["completed_watering_cycles"] == 3
+    assert all(queue.cancelled == 0 for queue in atomic_queues.values())
+    assert atomic_service._firebase.acks[-1]["result"] == "ZONE_NOT_FOUND"
 
     all_service, all_queues = service_with()
     all_service._process_irrigation_assistant_reset_command(

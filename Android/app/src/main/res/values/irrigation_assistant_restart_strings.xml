@@ -3,9 +3,15 @@
     <string name="symbol_restart_process" translatable="false">↻</string>
     <string name="ai_restart_process_title">Sulama sürecini baştan başlat</string>
     <string name="ai_restart_process_description">Bir bölgenin veya tüm bölgelerin takılan karar oturumunu güvenle yeniler</string>
-    <string name="ai_restart_scope_title">Hangi süreç baştan başlatılsın?</string>
+    <string name="ai_restart_scope_title">Baştan başlatılacak bölgeleri seçin</string>
     <string name="ai_restart_scope_zone">%1$s · %2$s</string>
     <string name="ai_restart_scope_all">Tüm bölgeler</string>
+    <string name="ai_restart_continue">Devam</string>
+    <string name="ai_restart_selected_dialog_title">%1$d bölgenin süreci baştan başlatılsın mı?</string>
+    <string name="ai_restart_selected_dialog_message">Seçilen bölgeler: %1$s\n\nSulama geçmişi, öğrenilmiş sonuçlar ve güvenlik bekleme süreleri korunur. Yalnız geçici karar durumları temizlenir; pompa ve vanalar çalıştırılmaz.</string>
+    <string name="ai_restart_selected_confirm">Seçilenleri baştan başlat</string>
+    <string name="ai_restart_selected_watering_active">Seçilen bölgelerden birinde sulama devam ederken süreçler baştan başlatılamaz.</string>
+    <string name="ai_restart_selected_request_sent">%1$d bölge için yeniden başlatma isteği gönderildi.</string>
     <string name="ai_restart_dialog_title">%1$s süreci baştan başlatılsın mı?</string>
     <string name="ai_restart_dialog_message">Sulama geçmişi, öğrenilmiş sonuçlar ve güvenlik bekleme süresi korunur. Yalnız geçici ölçüm penceresi, çevrim kilidi ve bekleyen tahmin doğrulaması temizlenir. Pompa ve vanalar çalıştırılmaz.</string>
     <string name="ai_restart_cancel">Vazgeç</string>

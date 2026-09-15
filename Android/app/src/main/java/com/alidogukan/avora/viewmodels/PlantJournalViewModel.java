@@ -67,11 +67,16 @@ public final class PlantJournalViewModel extends AndroidViewModel {
         return seasons.observeZoneSeasons(zoneId);
     }
     public List<GardenSeason> visibleSeasons(List<GardenSeason> values,
-                                             ZoneSeasonState current) {
+                                             ZoneSeasonState current,
+                                             String requestedSeasonId) {
         List<GardenSeason> result = new ArrayList<>();
         if (values == null) return result;
         for (GardenSeason value : values) {
-            if (SeasonScope.isVisibleSeason(value, current)) result.add(value);
+            if (SeasonScope.isVisibleInPlantJournal(
+                    value,
+                    current,
+                    requestedSeasonId
+            )) result.add(value);
         }
         return result;
     }

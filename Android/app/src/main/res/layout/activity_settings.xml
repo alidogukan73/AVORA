@@ -52,7 +52,7 @@
                         android:textAppearance="@style/TextAppearance.AVORA.Body" />
                 </LinearLayout>
             </LinearLayout>
-            <!-- SULAMA KONTROLÜ HIZLI ERİŞİMİ -->
+            <!-- MANUEL SULAMA HIZLI ERİŞİMİ -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/cardWateringControlShortcut"
                 style="@style/Widget.AVORA.Card.Main"
@@ -75,7 +75,7 @@
                         android:layout_width="42dp"
                         android:layout_height="42dp"
                         android:background="@drawable/bg_ai_icon"
-                        android:contentDescription="@string/title_watering_control"
+                        android:contentDescription="@string/menu_manual_watering_title"
                         android:padding="9dp"
                         android:src="@drawable/ic_water_drop_24"
                         app:tint="@color/info" />
@@ -90,7 +90,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="@string/title_watering_control"
+                            android:text="@string/menu_manual_watering_title"
                             android:textColor="@color/textPrimary"
                             android:textSize="15sp"
                             android:textStyle="bold" />
@@ -393,6 +393,8 @@
             </com.google.android.material.card.MaterialCardView>
 
             <include layout="@layout/view_irrigation_timing_settings" />
+
+            <include layout="@layout/view_manual_watering_safety_settings" />
 
             <!-- SİSTEM AYARLARI -->
             <com.google.android.material.card.MaterialCardView

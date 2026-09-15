@@ -45,6 +45,7 @@ class SharedPumpZoneExecutor:
         on_valve_changed: (
             Callable[[str | None, bool], None] | None
         ) = None,
+        on_progress: Callable[[], None] | None = None,
     ) -> WateringResult:
         if not self._lock.acquire(blocking=False):
             return WateringResult(
@@ -69,6 +70,7 @@ class SharedPumpZoneExecutor:
                 get_commands=get_commands,
                 on_relay_changed=on_relay_changed,
                 on_valve_changed=on_valve_changed,
+                on_progress=on_progress,
             )
 
             if result.completed:

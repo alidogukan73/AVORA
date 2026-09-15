@@ -10,7 +10,10 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from core.zone_capacity import validate_zone_configurations
+from core.zone_capacity import (
+    validate_zone_configurations,
+    validate_zone_valve_configurations,
+)
 
 
 def _zone(slot: int) -> dict:
@@ -38,6 +41,19 @@ def main() -> None:
     }
     sensor_map, _ = validate_zone_configurations(zones)
     assert len(sensor_map) == 8
+
+    valve_only = {
+        "zone-008": {
+            "enabled": True,
+            "sensor_id": "",
+            "valve_id": "valve-008",
+            "valve_mode": "PHYSICAL",
+        },
+    }
+    sensor_map, _ = validate_zone_configurations(valve_only)
+    valve_configs = validate_zone_valve_configurations(valve_only)
+    assert sensor_map == {}
+    assert valve_configs["zone-008"]["valve_id"] == "valve-008"
 
     duplicate_sensor = {
         "zone-001": _zone(1),

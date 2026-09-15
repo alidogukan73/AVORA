@@ -7,5 +7,6 @@
     <string name="assistant_intro_advisory_badge">ADVISORY</string>
     <string name="assistant_intro_water_info">The reliability badge mirrors the current irrigation analysis shown on this screen. Waiting or Learning is shown when data is insufficient. This card does not start irrigation or change settings.</string>
     <string name="assistant_intro_seedling_info">The reliability badge reflects NodeMCU reading freshness and sensor availability. It shows High when all readings are current, Medium when ADS1115 data is missing, and Waiting when readings are not current. This card never operates hardware automatically.</string>
+    <string name="assistant_intro_plant_info">The reliability badge explains how strongly the preliminary assessment is supported by visual, symptom, sensor, and weather information. Missing or stale information can affect the result. AI Plant Assistant does not provide a definitive disease diagnosis or operate hardware automatically.</string>
     <string name="assistant_intro_fertilizer_info">The Fertilizer Assistant provides recommendations and reminders. This card does not start automatic fertilization. Check product suitability, labels and dosage, then approve applications yourself.</string>
 </resources>

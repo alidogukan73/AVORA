@@ -60,6 +60,7 @@ public class PlantAssistantActivity extends EdgeToEdgeActivity {
     private static final String STATE_PENDING_CAPTURE = "plant_pending_capture";
     private static final String STATE_CAPTURED_PHOTO = "plant_captured_photo";
     private PlantAssistantViewModel viewModel;
+    private com.alidogukan.avora.viewmodels.DisplayUnitsViewModel displayUnits;
     private final Map<String, PlantSelection> plants = new HashMap<>();
     private final List<GardenZone> latestZones = new ArrayList<>();
     private final List<GardenSeason> latestSeasons = new ArrayList<>();
@@ -129,6 +130,8 @@ public class PlantAssistantActivity extends EdgeToEdgeActivity {
         super.onCreate(state);
         setContentView(R.layout.activity_plant_assistant);
         viewModel = new ViewModelProvider(this).get(PlantAssistantViewModel.class);
+        displayUnits = new ViewModelProvider(this)
+                .get(com.alidogukan.avora.viewmodels.DisplayUnitsViewModel.class);
         PrimaryBottomNavigation.bind(this, PrimaryBottomNavigation.ASSISTANT);
         requestedZoneId = safe(getIntent().getStringExtra("zone_id"));
         requestedSeasonId = safe(getIntent().getStringExtra("season_id"));
@@ -195,6 +198,8 @@ public class PlantAssistantActivity extends EdgeToEdgeActivity {
 
     private void bindActions() {
         findViewById(R.id.btnDoctorBack).setOnClickListener(view -> requestExit());
+        findViewById(R.id.btnPlantAssistantIntroInfo).setOnClickListener(
+                view -> showAssistantInformation());
         photoPickerCard.setOnClickListener(view -> showPhotoSourceDialog());
         analyzeButton.setOnClickListener(view -> analyze());
         findViewById(R.id.btnPlantGrowthHistory).setOnClickListener(
@@ -203,6 +208,14 @@ public class PlantAssistantActivity extends EdgeToEdgeActivity {
             otherNoteLayout.setVisibility(checked ? View.VISIBLE : View.GONE);
             if (!checked) otherNote.setText("");
         });
+    }
+
+    private void showAssistantInformation() {
+        new MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.fertilization_zone_assistant_action)
+                .setMessage(R.string.assistant_intro_plant_info)
+                .setPositiveButton(android.R.string.ok, null)
+                .show();
     }
 
     private void showPhotoSourceDialog() {
@@ -618,9 +631,9 @@ public class PlantAssistantActivity extends EdgeToEdgeActivity {
         weatherTemperatureData.setText(getString(
                 R.string.runtime_two_lines,
                 getString(R.string.weather_temperature_label),
-                number(currentForecast == null
-                        ? null
-                        : currentForecast.getCurrentTemperature(), "°C")));
+                currentForecast == null || currentForecast.getCurrentTemperature() == null
+                        ? "—" : displayUnits.formatTemperature(
+                        currentForecast.getCurrentTemperature())));
         sunData.setText(getString(R.string.format_assistant_sun_data, sunLabel(currentForecast)));
         windData.setText(getString(R.string.runtime_wind_format,
                 number(currentForecast == null ? null : currentForecast.getCurrentWind(), " km/sa")));
@@ -636,6 +649,12 @@ public class PlantAssistantActivity extends EdgeToEdgeActivity {
         sunData.setText(getString(R.string.format_assistant_sun_data, "—"));
         windData.setText(getString(R.string.runtime_wind_format, "—"));
         humidityData.setText(getString(R.string.format_assistant_humidity_data, "—"));
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (displayUnits != null) renderLiveData(selectedZone());
     }
 
     private void savePhotoToArchive(AnalysisRequest request) {

@@ -28,8 +28,6 @@ import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 
-import java.text.DecimalFormat;
-
 /** Manages the garden identity while location remains in its dedicated safe workflow. */
 public class GardenInfoActivity extends AppCompatActivity {
     private GardenSettingsViewModel viewModel;
@@ -147,8 +145,8 @@ public class GardenInfoActivity extends AppCompatActivity {
         gardenName.setText(valueOr(profile.getGarden_name(), getString(R.string.garden_info_default_name)));
         gardenType.setText(valueOr(profile.getGarden_type(),
                 getResources().getStringArray(R.array.garden_type_options)[0]), false);
-        double displayedArea = viewModel.areaFromSquareMeters(profile.getArea_square_meters());
-        gardenArea.setText(displayedArea <= 0d ? "" : new DecimalFormat("0.##").format(displayedArea));
+        gardenArea.setText(profile.getArea_square_meters() <= 0d
+                ? "" : viewModel.formatEditableArea(profile.getArea_square_meters()));
         gardenNotes.setText(valueOr(profile.getNotes(), ""));
         applyingValues = false;
         dirty = false;

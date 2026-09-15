@@ -31,6 +31,7 @@ import com.alidogukan.avora.plantassistant.PlantPhotoDecoder;
 import com.alidogukan.avora.fertilization.FertilizerDataFreshnessPolicy;
 import com.alidogukan.avora.season.SeasonRepository;
 import com.alidogukan.avora.season.SeasonScope;
+import com.alidogukan.avora.settings.UnitPreferences;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -140,7 +141,8 @@ public final class PlantAssistantViewModel extends AndroidViewModel {
                                        String note, WeatherForecast weather,
                                        boolean hasPhoto, boolean growthStatusRequested) {
         return PlantAssistantAdvisor.assess(
-                zone, symptoms, note, weather, hasPhoto, growthStatusRequested);
+                zone, symptoms, note, weather, hasPhoto, growthStatusRequested,
+                new UnitPreferences(getApplication()).formatter());
     }
 
     public void saveRecommendation(String zoneId, String seasonId, String urgency,

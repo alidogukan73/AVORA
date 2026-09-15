@@ -49,6 +49,7 @@ import com.alidogukan.avora.models.WeatherForecast;
 import com.alidogukan.avora.models.WeatherLocation;
 import com.alidogukan.avora.models.RainSettings;
 import com.alidogukan.avora.zones.ZoneCapacityPolicy;
+import com.alidogukan.avora.zones.ManualWateringDurationPolicy;
 import com.alidogukan.avora.zones.ZoneOperationSafetyPolicy;
 import com.alidogukan.avora.models.IrrigationTimingSettings;
 import com.alidogukan.avora.models.GardenProfile;
@@ -85,6 +86,8 @@ import java.util.function.Consumer;
 
 public class FirebaseRepository {
    private static final String TAG = "FirebaseRepository";
+   private static final Object GARDEN_ZONES_STREAM_LOCK = new Object();
+   private static FirebaseLiveData<List<GardenZone>> sharedGardenZonesStream;
    private final DatabaseReference deviceRef = FirebaseDatabase.getInstance()
          .getReference("devices")
          .child(AppInfo.DEVICE_ID);
@@ -153,6 +156,15 @@ public class FirebaseRepository {
    }
 
    public LiveData<List<GardenZone>> observeGardenZones() {
+      synchronized (GARDEN_ZONES_STREAM_LOCK) {
+         if (sharedGardenZonesStream == null) {
+            sharedGardenZonesStream = createGardenZonesStream();
+         }
+         return sharedGardenZonesStream;
+      }
+   }
+
+   private FirebaseLiveData<List<GardenZone>> createGardenZonesStream() {
       final FirebaseLiveData<List<GardenZone>> liveData = new FirebaseLiveData<>(zonesRef);
       liveData.setEventListener(new ValueEventListener() {
          public void onDataChange(@NonNull DataSnapshot snapshot) {
@@ -171,7 +183,11 @@ public class FirebaseRepository {
 
           public void onCancelled(@NonNull DatabaseError error) {
              Log.e("FirebaseRepository", "Garden zones read failed", error.toException());
-             liveData.setValue(new ArrayList<>());
+             // Keep the last valid snapshot visible during a temporary
+             // permission or network failure. Only a first-load failure is empty.
+             if (liveData.getValue() == null) {
+                liveData.setValue(new ArrayList<>());
+             }
           }
       });
       return liveData;
@@ -671,6 +687,32 @@ public class FirebaseRepository {
       return deviceRef.updateChildren(values);
    }
 
+   public Task<Boolean> isCurrentUserDeviceOwner() {
+      FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+      if (user == null) return Tasks.forResult(false);
+      return user.getIdToken(true).continueWith(task -> task.isSuccessful()
+            && task.getResult() != null
+            && DeviceOwnershipPolicy.ownsDevice(
+                  task.getResult().getClaims(), AppInfo.DEVICE_ID));
+   }
+
+   public Task<Void> saveManualWateringSafetyLimit(int durationSeconds) {
+      int safeDuration = ManualWateringDurationPolicy.configuredLimitOrDefault(
+            durationSeconds);
+      return isCurrentUserDeviceOwner().continueWithTask(task -> {
+         if (!task.isSuccessful() || !Boolean.TRUE.equals(task.getResult())) {
+            return Tasks.forException(new SecurityException(
+                  "Only the device owner can change the manual watering safety limit"));
+         }
+         Map<String, Object> updates = new HashMap<>();
+         updates.put("weather/irrigation_settings/manual_watering_max_duration_seconds",
+               safeDuration);
+         updates.put("weather/irrigation_settings/updated_at_epoch",
+               System.currentTimeMillis() / 1000L);
+         return deviceRef.updateChildren(updates);
+      });
+   }
+
    /**
     * Atomically saves global and timing preferences after synchronizing every active zone.
     * A failed write can no longer leave only half of the irrigation settings updated.
@@ -760,6 +802,9 @@ public class FirebaseRepository {
                   value.setPreferredEndHour((int) Math.round(snapshotNumber(
                         snapshot.child("preferred_end_hour"),
                         IrrigationTimingSettings.DEFAULT_END_HOUR)));
+                  value.setManualWateringMaxDurationSeconds((int) Math.round(snapshotNumber(
+                        snapshot.child("manual_watering_max_duration_seconds"),
+                        IrrigationTimingSettings.DEFAULT_MANUAL_WATERING_MAX_DURATION_SECONDS)));
                   value.setUpdatedAtEpoch(Math.round(snapshotNumber(
                         snapshot.child("updated_at_epoch"), 0d)));
                   liveData.setValue(value);
@@ -1934,12 +1979,87 @@ public class FirebaseRepository {
       return this.commandsRef.child("zone_test").child("cancel_requested").setValue(true);
    }
 
-   public Task<Void> requestIrrigationAssistantRestart(String zoneId) {
+   public Task<Void> requestManualWatering(
+         GardenZone zone,
+         int durationSeconds,
+         int configuredLimitSeconds) {
+      if (zone == null || clean(zone.getZone_id()).isEmpty()
+            || clean(zone.getValve_id()).isEmpty()) {
+         return Tasks.forException(new IllegalArgumentException(
+               "Zone and valve are required for manual watering"));
+      }
+      String zoneId = clean(zone.getZone_id());
+      int safeDuration = ManualWateringDurationPolicy.clampToConfiguredLimit(
+            durationSeconds, configuredLimitSeconds);
       Map<String, Object> command = new HashMap<>();
       command.put("requested", true);
       command.put("request_id", UUID.randomUUID().toString());
-      command.put("zone_id", zoneId == null ? "" : zoneId.trim());
+      command.put("zone_id", zoneId);
+      command.put("valve_id", clean(zone.getValve_id()));
+      command.put("duration_seconds", safeDuration);
+      command.put("cancel_requested", false);
       command.put("requested_at", ServerValue.TIMESTAMP);
+      command.put("source", "android");
+
+      Map<String, Object> updates = new HashMap<>();
+      updates.put("commands/relay", false);
+      updates.put("commands/relay_requested_at", ServerValue.TIMESTAMP);
+      updates.put("commands/manual_watering", command);
+      updates.put("zones/" + zoneId + "/manual_watering_duration_seconds", safeDuration);
+      updates.put("zones/" + zoneId + "/manual_watering_duration_updated_at_epoch",
+            ServerValue.TIMESTAMP);
+      return this.deviceRef.updateChildren(updates);
+   }
+
+   public Task<Void> cancelManualWatering() {
+      Map<String, Object> updates = new HashMap<>();
+      updates.put("relay", false);
+      updates.put("relay_requested_at", ServerValue.TIMESTAMP);
+      updates.put("manual_watering/cancel_requested", true);
+      return this.commandsRef.updateChildren(updates);
+   }
+
+   public Task<Void> requestIrrigationAssistantRestart(String zoneId) {
+      String normalizedZoneId = clean(zoneId);
+      if ("ALL".equalsIgnoreCase(normalizedZoneId)) {
+         return writeIrrigationAssistantRestartCommand("ALL", new ArrayList<>());
+      }
+      List<String> zoneIds = new ArrayList<>();
+      zoneIds.add(normalizedZoneId);
+      return requestIrrigationAssistantRestart(zoneIds);
+   }
+
+   public Task<Void> requestIrrigationAssistantRestart(List<String> zoneIds) {
+      LinkedHashSet<String> normalizedZoneIds = new LinkedHashSet<>();
+      if (zoneIds != null) {
+         for (String zoneId : zoneIds) {
+            String normalizedZoneId = clean(zoneId);
+            if (ZoneCapacityPolicy.isValidZoneId(normalizedZoneId)) {
+               normalizedZoneIds.add(normalizedZoneId);
+            }
+         }
+      }
+      if (normalizedZoneIds.isEmpty()
+            || normalizedZoneIds.size() > ZoneCapacityPolicy.MAX_ZONES) {
+         return Tasks.forException(new IllegalArgumentException(
+               "At least one valid zone is required"));
+      }
+      List<String> selectedZoneIds = new ArrayList<>(normalizedZoneIds);
+      return writeIrrigationAssistantRestartCommand(
+            selectedZoneIds.get(0),
+            selectedZoneIds);
+   }
+
+   private Task<Void> writeIrrigationAssistantRestartCommand(
+         String legacyZoneId,
+         List<String> zoneIds) {
+      Map<String, Object> command = new HashMap<>();
+      command.put("requested", true);
+      command.put("request_id", UUID.randomUUID().toString());
+      command.put("zone_id", clean(legacyZoneId));
+      command.put("zone_ids", zoneIds == null ? new ArrayList<>() : zoneIds);
+      command.put("requested_at", ServerValue.TIMESTAMP);
+      command.put("source", "android");
       return this.commandsRef.child("irrigation_assistant_reset").setValue(command);
    }
 
@@ -2561,7 +2681,9 @@ public class FirebaseRepository {
       values.put("profile/display_units/length", settings.getLength());
       values.put("profile/display_units/volume", settings.getVolume());
       values.put("profile/display_units/weight", settings.getWeight());
-      values.put("profile/display_units/updated_at_epoch", System.currentTimeMillis() / 1000L);
+      long updatedAt = settings.getUpdated_at_epoch() > 0L
+              ? settings.getUpdated_at_epoch() : System.currentTimeMillis() / 1000L;
+      values.put("profile/display_units/updated_at_epoch", updatedAt);
       return this.deviceRef.updateChildren(values);
    }
 

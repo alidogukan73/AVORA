@@ -14,6 +14,7 @@ public class Command {
     private long pumpDuration;
     private long restartDelta;
     private long cooldownSeconds;
+    private ManualWateringCommand manualWatering;
 
     /**
      * Firebase Realtime Database için boş constructor zorunludur.
@@ -90,5 +91,15 @@ public class Command {
     @PropertyName("cooldown_seconds")
     public void setCooldownSeconds(long cooldownSeconds) {
         this.cooldownSeconds = cooldownSeconds;
+    }
+
+    @PropertyName("manual_watering")
+    public ManualWateringCommand getManualWatering() {
+        return manualWatering;
+    }
+
+    @PropertyName("manual_watering")
+    public void setManualWatering(ManualWateringCommand manualWatering) {
+        this.manualWatering = manualWatering;
     }
 }

@@ -109,9 +109,11 @@ class FakeFirebase:
         self,
         states: dict,
         garden_summary: dict,
+        cleared_zone_ids: set[str] | None = None,
     ) -> None:
         self.ai_states = states
         self.garden_summary = garden_summary
+        self.cleared_zone_ids = set(cleared_zone_ids or set())
 
 
 class FakeExecutor:

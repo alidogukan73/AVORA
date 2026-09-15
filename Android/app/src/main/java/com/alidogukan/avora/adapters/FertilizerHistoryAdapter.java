@@ -11,6 +11,8 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.alidogukan.avora.R;
 import com.alidogukan.avora.fertilization.FertilizerOutcomeFollowUpPolicy;
 import com.alidogukan.avora.models.FertilizerApplication;
+import com.alidogukan.avora.settings.DisplayUnitFormatter;
+import com.alidogukan.avora.settings.UnitPreferences;
 
 import java.time.Instant;
 import java.time.ZoneId;
@@ -71,6 +73,8 @@ public class FertilizerHistoryAdapter extends RecyclerView.Adapter<
             int position
     ) {
         FertilizerApplication value = values.get(position);
+        DisplayUnitFormatter units = new UnitPreferences(
+                holder.itemView.getContext()).formatter();
         holder.product.setText(value.getProduct_name());
         holder.product.setTextColor(
                 holder.itemView.getContext().getColor(
@@ -85,18 +89,22 @@ public class FertilizerHistoryAdapter extends RecyclerView.Adapter<
                                 holder.itemView,
                                 value.getApplication_type()))
         );
+        String displayedDose = "g".equalsIgnoreCase(value.getDose_unit())
+                ? units.formatWeight(value.getApplied_dose())
+                : "ml".equalsIgnoreCase(value.getDose_unit())
+                ? units.formatVolume(value.getApplied_dose() / 1000d)
+                : formatDose(value.getApplied_dose()) + " " + value.getDose_unit();
         holder.dose.setText(
                 holder.itemView.getContext().getString(
                         R.string.fertilizer_history_dose,
-                        formatDose(value.getApplied_dose()),
-                        value.getDose_unit()
+                        displayedDose
                 )
         );
         if (value.getArea_m2() > 0.0) {
             holder.calculationBasis.setText(
                     holder.itemView.getContext().getString(
                             R.string.fertilizer_history_area,
-                            formatDose(value.getArea_m2())
+                            units.formatArea(value.getArea_m2())
                     )
             );
             holder.calculationBasis.setVisibility(View.VISIBLE);
@@ -104,7 +112,7 @@ public class FertilizerHistoryAdapter extends RecyclerView.Adapter<
             holder.calculationBasis.setText(
                     holder.itemView.getContext().getString(
                             R.string.fertilizer_history_tank,
-                            formatDose(value.getTank_liters())
+                            units.formatVolume(value.getTank_liters())
                     )
             );
             holder.calculationBasis.setVisibility(View.VISIBLE);

@@ -148,6 +148,24 @@ public final class SeasonScope {
     }
 
     /**
+     * The everyday plant journal only lists seasons that are active now.
+     * A completed season is admitted solely when another screen deliberately
+     * opens that exact archive (for example, Season History).
+     */
+    public static boolean isVisibleInPlantJournal(
+            GardenSeason season,
+            ZoneSeasonState current,
+            String requestedSeasonId
+    ) {
+        if (isCurrentActiveSeason(season, current)) return true;
+        String requested = requestedSeasonId == null ? "" : requestedSeasonId.trim();
+        return !requested.isBlank()
+                && season != null
+                && requested.equals(season.getSeason_id())
+                && isRealCompletedArchive(season);
+    }
+
+    /**
      * A newly opened season may be deleted only before any field work starts.
      * Completed and legacy seasons
      * are deliberately excluded from this reversible operation.

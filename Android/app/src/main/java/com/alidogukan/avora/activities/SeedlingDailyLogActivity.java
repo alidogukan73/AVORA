@@ -39,7 +39,6 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import java.util.Collections;
 import java.util.Calendar;
 import java.util.List;
-import java.util.Locale;
 
 /** Records a daily manual observation alongside live, traceable sensor guidance. */
 public final class SeedlingDailyLogActivity extends EdgeToEdgeActivity {
@@ -53,6 +52,7 @@ public final class SeedlingDailyLogActivity extends EdgeToEdgeActivity {
     private static final String STATE_FORM_RESTORED = "seedling_form_restored";
 
     private SeedlingViewModel viewModel;
+    private com.alidogukan.avora.viewmodels.DisplayUnitsViewModel displayUnits;
     private SeedlingBatch batch;
     private String batchId;
     private String editingLogId = "";
@@ -77,6 +77,7 @@ public final class SeedlingDailyLogActivity extends EdgeToEdgeActivity {
     private EditText healthy;
     private EditText note;
     private TextView healthyTotal;
+    private TextView heightUnit;
     private TextView wateredValue;
     private TextView warningTitle;
     private TextView warningMessage;
@@ -123,6 +124,8 @@ public final class SeedlingDailyLogActivity extends EdgeToEdgeActivity {
         }
 
         viewModel = new ViewModelProvider(this).get(SeedlingViewModel.class);
+        displayUnits = new ViewModelProvider(this)
+                .get(com.alidogukan.avora.viewmodels.DisplayUnitsViewModel.class);
         viewModel.getReadError().observe(this, event -> {
             if (event == null) return;
             Integer message = event.consume();
@@ -165,6 +168,8 @@ public final class SeedlingDailyLogActivity extends EdgeToEdgeActivity {
 
     private void bindViews() {
         height = findViewById(R.id.inputSeedlingHeight);
+        heightUnit = findViewById(R.id.txtSeedlingHeightUnit);
+        heightUnit.setText(displayUnits.lengthSymbol());
         leaves = findViewById(R.id.inputSeedlingLeaves);
         healthy = findViewById(R.id.inputSeedlingHealthy);
         note = findViewById(R.id.inputSeedlingNote);
@@ -193,8 +198,7 @@ public final class SeedlingDailyLogActivity extends EdgeToEdgeActivity {
             healthy.setText(String.valueOf(batch.getHealthy_count()));
         }
         healthyTotal.setText(getString(R.string.seedling_healthy_total, batch.getSeed_count()));
-        save.setEnabled(batch.isActive()
-                && (editingLogId.isBlank() || editingLog != null));
+        save.setEnabled(canSaveCurrentLog());
     }
 
     private void seedLatestObservation(List<SeedlingDailyLog> values) {
@@ -214,13 +218,12 @@ public final class SeedlingDailyLogActivity extends EdgeToEdgeActivity {
                 return;
             }
             if (seededFromLatestLog) {
-                save.setEnabled(batch != null && batch.isActive());
+                save.setEnabled(canSaveCurrentLog());
                 return;
             }
             seededFromLatestLog = true;
             if (!formRestored) {
-                height.setText(String.format(Locale.getDefault(), "%.1f",
-                        editingLog.getHeight_cm()));
+                height.setText(displayUnits.formatEditableLength(editingLog.getHeight_cm()));
                 leaves.setText(String.valueOf(editingLog.getLeaf_count()));
                 healthy.setText(String.valueOf(editingLog.getHealthy_count()));
                 note.setText(editingLog.getNote());
@@ -228,7 +231,7 @@ public final class SeedlingDailyLogActivity extends EdgeToEdgeActivity {
                 renderWateringStatus();
             }
             if (!photoChanged && !removeExistingPhoto) loadExistingPhoto(editingLog);
-            save.setEnabled(batch != null && batch.isActive());
+            save.setEnabled(canSaveCurrentLog());
             return;
         }
         if (seededFromLatestLog) return;
@@ -240,7 +243,7 @@ public final class SeedlingDailyLogActivity extends EdgeToEdgeActivity {
         seededFromLatestLog = true;
         SeedlingDailyLog latest = values.get(0);
         if (height.getText().toString().isBlank()) {
-            height.setText(String.format(Locale.getDefault(), "%.1f", latest.getHeight_cm()));
+            height.setText(displayUnits.formatEditableLength(latest.getHeight_cm()));
         }
         if (leaves.getText().toString().isBlank()) {
             leaves.setText(String.valueOf(latest.getLeaf_count()));
@@ -249,6 +252,11 @@ public final class SeedlingDailyLogActivity extends EdgeToEdgeActivity {
 
     private void observeBatchNode() {
         if (batch == null) return;
+        if (!viewModel.shouldObserveLiveTelemetry(batch)) {
+            stopObservingBatchNode();
+            renderArchivedSensorState();
+            return;
+        }
         String nodeId = batch.getNode_id().isBlank() ? "seedling-001" : batch.getNode_id();
         if (nodeId.equals(observedNodeId)) return;
         if (nodeSource != null) nodeSource.removeObservers(this);
@@ -264,7 +272,27 @@ public final class SeedlingDailyLogActivity extends EdgeToEdgeActivity {
         });
     }
 
+    private void stopObservingBatchNode() {
+        if (nodeSource != null) nodeSource.removeObservers(this);
+        nodeSource = null;
+        observedNodeId = "";
+        latestNodeState = null;
+        freshnessTicker.update(null);
+    }
+
+    private void renderArchivedSensorState() {
+        warningCard.setVisibility(View.VISIBLE);
+        warningTitle.setText(R.string.seedling_archived_status);
+        warningMessage.setText(R.string.seedling_archived_telemetry_disabled);
+        adviceCard.setVisibility(View.GONE);
+    }
+
     private void renderNode(SeedlingNodeState value) {
+        if (batch != null
+                && !viewModel.shouldObserveLiveTelemetry(batch)) {
+            renderArchivedSensorState();
+            return;
+        }
         SeedlingTelemetry telemetry = value == null ? null : value.getLatest();
         long nowMillis = System.currentTimeMillis();
         boolean fresh = telemetry != null && telemetry.isFresh(
@@ -354,12 +382,17 @@ public final class SeedlingDailyLogActivity extends EdgeToEdgeActivity {
     }
 
     private void submit() {
-        double heightValue = decimal(height);
+        double displayedHeight = decimal(height);
+        double heightValue = displayUnits.lengthToCentimeters(displayedHeight);
         int leavesValue = integer(leaves);
         int healthyValue = integer(healthy);
         String noteValue = note.getText().toString().trim();
         boolean exceedsBatch = batch != null && healthyValue > batch.getSeed_count();
-        if (batch == null || !batch.isActive()
+        boolean editing = !editingLogId.isBlank();
+        boolean maySave = editing
+                ? viewModel.canEditDailyLog(batch, editingLog)
+                : batch != null && batch.isActive();
+        if (!maySave
                 || !Double.isFinite(heightValue)
                 || heightValue < 0d || heightValue > SeedlingValidation.MAX_HEIGHT_CM
                 || leavesValue < 0 || leavesValue > SeedlingValidation.MAX_LEAF_COUNT
@@ -376,7 +409,7 @@ public final class SeedlingDailyLogActivity extends EdgeToEdgeActivity {
                     .addOnSuccessListener(uploaded -> persistLog(heightValue, leavesValue,
                             healthyValue, uploaded))
                     .addOnFailureListener(error -> {
-                        save.setEnabled(batch != null && batch.isActive());
+                        save.setEnabled(canSaveCurrentLog());
                         Toast.makeText(this, R.string.runtime_photo_add_failed,
                                 Toast.LENGTH_LONG).show();
                     });
@@ -387,35 +420,44 @@ public final class SeedlingDailyLogActivity extends EdgeToEdgeActivity {
 
     private void persistLog(double heightValue, int leavesValue, int healthyValue,
                             @Nullable SeedlingPhotoUpload uploaded) {
+        // Keep the pre-update record stable. The Firebase observer may replace
+        // editingLog with the updated value before the success listener runs.
+        final SeedlingDailyLog previousLog = editingLog;
+        final boolean editing = previousLog != null;
         String photoId = uploaded == null ? retainedPhotoId() : uploaded.getPhotoId();
         String storagePath = uploaded == null
                 ? retainedPhotoStoragePath() : uploaded.getStoragePath();
-        Task<Void> operation = editingLog == null
+        Task<Void> operation = !editing
                 ? viewModel.saveDailyLog(batchId, heightValue, leavesValue, healthyValue,
                         watered, note.getText().toString().trim(), photoId, storagePath)
-                : viewModel.updateDailyLog(editingLog, heightValue, leavesValue, healthyValue,
+                : viewModel.updateDailyLog(previousLog, heightValue, leavesValue, healthyValue,
                         watered, note.getText().toString().trim(), photoId, storagePath);
         operation
                 .addOnSuccessListener(unused -> {
-                    if (editingLog != null && editingLog.hasPhoto()
+                    if (previousLog != null && previousLog.hasPhoto()
                             && (removeExistingPhoto || uploaded != null)) {
-                        viewModel.deleteDailyPhoto(editingLog);
+                        viewModel.deleteDailyPhoto(previousLog);
                     }
                     saveCompleted = true;
                     discardSelectedCameraPhoto();
-                    Toast.makeText(this, editingLog == null
+                    Toast.makeText(this, !editing
                                     ? R.string.seedling_log_saved : R.string.seedling_log_updated,
                             Toast.LENGTH_SHORT).show();
                     finish();
                 })
                 .addOnFailureListener(error -> {
                     if (uploaded != null) viewModel.deleteDailyPhoto(uploaded);
-                    save.setEnabled(batch != null && batch.isActive());
-                    Toast.makeText(this, editingLog == null
+                    save.setEnabled(canSaveCurrentLog());
+                    Toast.makeText(this, !editing
                                     ? R.string.seedling_log_failed
                                     : R.string.seedling_log_update_failed,
                             Toast.LENGTH_LONG).show();
                 });
+    }
+
+    private boolean canSaveCurrentLog() {
+        if (editingLogId.isBlank()) return batch != null && batch.isActive();
+        return viewModel.canEditDailyLog(batch, editingLog);
     }
 
     private String retainedPhotoId() {

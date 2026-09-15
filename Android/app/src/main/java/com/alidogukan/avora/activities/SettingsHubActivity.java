@@ -25,6 +25,7 @@ import androidx.lifecycle.ViewModelProvider;
 import com.alidogukan.avora.R;
 import com.alidogukan.avora.ui.PrimaryBottomNavigation;
 import com.alidogukan.avora.viewmodels.GardenSettingsViewModel;
+import com.alidogukan.avora.viewmodels.SuperadminDataViewModel;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
@@ -44,6 +45,8 @@ public class SettingsHubActivity extends AppCompatActivity {
     private LinearLayout quickActions;
     private LinearLayout sections;
     private GardenSettingsViewModel viewModel;
+    private SuperadminDataViewModel superadminViewModel;
+    private boolean superadminVisible;
 
     @Override
     protected void onCreate(@Nullable Bundle state) {
@@ -51,6 +54,8 @@ public class SettingsHubActivity extends AppCompatActivity {
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_settings_hub);
         viewModel = new ViewModelProvider(this).get(GardenSettingsViewModel.class);
+        superadminViewModel = new ViewModelProvider(this)
+                .get(SuperadminDataViewModel.class);
         applyWindowInsets();
 
         quickActions = findViewById(R.id.layoutSettingsQuickActions);
@@ -64,6 +69,13 @@ public class SettingsHubActivity extends AppCompatActivity {
         PrimaryBottomNavigation.bind(this, PrimaryBottomNavigation.SETTINGS);
         buildQuickActions();
         buildSections();
+        superadminViewModel.isCurrentUserOwner()
+                .addOnSuccessListener(owner -> {
+                    if (isFinishing() || isDestroyed()
+                            || superadminVisible == Boolean.TRUE.equals(owner)) return;
+                    superadminVisible = Boolean.TRUE.equals(owner);
+                    buildSections();
+                });
     }
 
     @Override
@@ -376,6 +388,7 @@ public class SettingsHubActivity extends AppCompatActivity {
     }
 
     private void buildSections() {
+        sections.removeAllViews();
         addSection(R.string.settings_category_garden_profile,
                 item(R.drawable.ic_leaf_24, R.string.settings_garden_info_title,
                         R.string.settings_garden_info_subtitle,
@@ -434,6 +447,14 @@ public class SettingsHubActivity extends AppCompatActivity {
                 item(R.drawable.ic_language_24, R.string.settings_language_title,
                         R.string.settings_language_subtitle,
                         () -> open(LanguageSettingsActivity.class)));
+
+        if (superadminVisible) {
+            addSection(R.string.settings_superadmin_category,
+                    item(R.drawable.ic_nas_security_shield_24,
+                            R.string.settings_superadmin_title,
+                            R.string.settings_superadmin_subtitle,
+                            () -> open(SuperadminDataActivity.class)));
+        }
 
         addSection(R.string.settings_category_support_about,
                 item(R.drawable.ic_help_24, R.string.settings_help_title,

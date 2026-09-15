@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_superadmin_category">Yönetici araçları</string>
+    <string name="settings_superadmin_title">Superadmin Veri Yönetimi</string>
+    <string name="settings_superadmin_subtitle">Kayıtları denetle, düzelt, yedekli sil ve geri al</string>
+    <string name="superadmin_owner_verified">Cihaz sahibi doğrulaması gerekli</string>
+    <string name="superadmin_intro">Her değişiklik Raspberry Pi tarafından uygulanır, önce özel olarak yedeklenir ve işlem geçmişine kaydedilir.</string>
+    <string name="superadmin_category_label">Veri türü</string>
+    <string name="superadmin_search_hint">Kayıtlarda ara</string>
+    <string name="superadmin_refresh">Yenile</string>
+    <string name="superadmin_audit">Geçmiş</string>
+    <string name="superadmin_accounts">Hesaplar</string>
+    <string name="superadmin_undo_last">Son işlemi geri al</string>
+    <string name="superadmin_edit">Düzenle</string>
+    <string name="superadmin_delete">Sil</string>
+    <string name="superadmin_edit_explanation">Bu gelişmiş görünüm kaydın tamamını gösterir. Alan adlarını ve veri türlerini koruyun; geçersiz içerik uygulamanın çalışmasını etkileyebilir.</string>
+    <string name="superadmin_json_label">Kayıt içeriği</string>
+    <string name="superadmin_confirm_phrase_hint">Onaylamak için SİL yazın</string>
+    <string name="superadmin_confirm_word">SİL</string>
+    <string name="superadmin_unlock_title">Superadmin doğrulaması</string>
+    <string name="superadmin_unlock_message">Kritik bahçe verilerini yönetmek için ekran kilidinizle doğrulayın.</string>
+    <string name="superadmin_device_lock_required">Superadmin için telefonda PIN, parola veya biyometrik ekran kilidi etkin olmalıdır.</string>
+    <string name="superadmin_owner_only">Bu bölüm yalnız AVORA cihaz sahibi hesabına açıktır.</string>
+    <string name="superadmin_loading">Kayıtlar yükleniyor…</string>
+    <string name="superadmin_loading_more">Eski kayıtlar yükleniyor…</string>
+    <string name="superadmin_empty">Bu veri türünde kayıt bulunamadı.</string>
+    <string name="superadmin_count">%1$d kayıt</string>
+    <string name="superadmin_count_loaded">%1$d kayıt yüklendi</string>
+    <string name="superadmin_load_more">Daha eski kayıtları yükle</string>
+    <string name="superadmin_load_failed">Kayıtlar yüklenemedi: %1$s</string>
+    <string name="superadmin_command_waiting">Raspberry Pi işlemi doğruluyor…</string>
+    <string name="superadmin_preview_title">Kalıcı silme önizlemesi</string>
+    <string name="superadmin_preview_summary">“%1$s” ve ona bağlı %2$d veri yolu etkilenecek.%3$s\n\nDevam etmek için SİL yazın.</string>
+    <string name="superadmin_preview_group">\n• %1$s: %2$d</string>
+    <string name="superadmin_confirm_delete">Kalıcı olarak sil</string>
+    <string name="superadmin_phrase_invalid">Onay sözcüğünü aynen yazın.</string>
+    <string name="superadmin_delete_success">Kayıt ve bağlı veriler silindi. Geri alma yedeği hazır.</string>
+    <string name="superadmin_edit_title">Kaydı düzenle</string>
+    <string name="superadmin_edit_confirm_title">Değişikliği kaydet?</string>
+    <string name="superadmin_edit_confirm_message">Raspberry Pi mevcut kaydı yedekledikten sonra bu içerikle değiştirecek.</string>
+    <string name="superadmin_invalid_json">Kayıt içeriği geçerli bir JSON nesnesi olmalıdır.</string>
+    <string name="superadmin_update_success">Değişiklik kaydedildi. Geri alma yedeği hazır.</string>
+    <string name="superadmin_operation_failed">İşlem tamamlanamadı: %1$s</string>
+    <string name="superadmin_unknown_error">Bilinmeyen hata</string>
+    <string name="superadmin_undo_title">Son işlemi geri al?</string>
+    <string name="superadmin_undo_message">İşlemden önce alınan özel yedek geri yüklenecek.</string>
+    <string name="superadmin_undo_success">Yedek geri yüklendi.</string>
+    <string name="superadmin_audit_title">Superadmin işlem geçmişi</string>
+    <string name="superadmin_audit_empty">Henüz tamamlanmış işlem bulunmuyor.</string>
+    <string name="superadmin_audit_restore_hint">Ayrıntıları görmek ve o işlemden önceki yedeği geri yüklemek için bir kayda dokunun.</string>
+    <string name="superadmin_audit_row">%1$s · %2$s\n%3$s\n%4$d bağlı kayıt · %5$s</string>
+    <string name="superadmin_cancel">İptal</string>
+    <string name="superadmin_save">Yedekle ve kaydet</string>
+    <string name="superadmin_restore">Geri yükle</string>
+    <string-array name="superadmin_category_labels">
+        <item>Bölgeler</item>
+        <item>Sezonlar</item>
+        <item>Fide partileri</item>
+        <item>Bahçe günlüğü</item>
+        <item>Fotoğraf ve AI kayıtları</item>
+        <item>Sulama geçmişi</item>
+        <item>Gübreleme geçmişi</item>
+        <item>Bildirimler</item>
+        <item>Geri bildirimler</item>
+    </string-array>
+</resources>

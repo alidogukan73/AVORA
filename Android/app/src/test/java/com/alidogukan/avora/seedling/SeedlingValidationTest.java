@@ -27,6 +27,26 @@ public final class SeedlingValidationTest {
         assertFalse(SeedlingValidation.isValidLog(log, batch));
     }
 
+    @Test public void archivedBatchAllowsOnlyExistingImmutableLogToBeCorrected() {
+        SeedlingBatch batch = activeBatch();
+        batch.setBatch_id("batch-1");
+        batch.setStatus(SeedlingBatch.STATUS_ARCHIVED);
+        SeedlingDailyLog persisted = validLog();
+        persisted.setLog_id("log-1");
+        SeedlingDailyLog corrected = validLog();
+        corrected.setLog_id("log-1");
+        corrected.setNote("Düzeltilmiş not");
+
+        assertTrue(SeedlingValidation.canEditLog(batch, persisted));
+        assertTrue(SeedlingValidation.isValidLogUpdate(corrected, batch, persisted));
+
+        corrected.setCreated_at_epoch(persisted.getCreated_at_epoch() + 1L);
+        assertFalse(SeedlingValidation.isValidLogUpdate(corrected, batch, persisted));
+        corrected.setCreated_at_epoch(persisted.getCreated_at_epoch());
+        corrected.setLog_id("log-2");
+        assertFalse(SeedlingValidation.isValidLogUpdate(corrected, batch, persisted));
+    }
+
     @Test public void dailyLogLimitsMatchFirebaseSchema() {
         SeedlingBatch batch = activeBatch();
         SeedlingDailyLog log = validLog();

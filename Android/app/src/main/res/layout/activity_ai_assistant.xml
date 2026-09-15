@@ -32,6 +32,18 @@
             <include layout="@layout/view_ai_adaptive_recommendation" />
 
             <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnAIManualWatering"
+                style="@style/Widget.AVORA.Button.Secondary"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:layout_marginTop="14dp"
+                android:text="@string/manual_watering_open"
+                app:icon="@drawable/ic_water_drop_24"
+                app:iconGravity="textStart"
+                app:iconPadding="8dp"
+                xmlns:app="http://schemas.android.com/apk/res-auto" />
+
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnAIAdvancedDetails"
                 style="@style/Widget.Material3.Button.OutlinedButton"
                 android:layout_width="match_parent"

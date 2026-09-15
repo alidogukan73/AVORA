@@ -160,7 +160,7 @@
     <string
         name="fertilizer_history_empty">Henüz kaydedilmiş bir gübre uygulaması yok.</string>
     <string
-        name="fertilizer_history_dose">Uygulanan miktar: %1$s %2$s</string>
+        name="fertilizer_history_dose">Uygulanan miktar: %1$s</string>
     <string
         name="fertilization_status_overdue">GECİKMİŞ</string>
     <string
@@ -224,9 +224,9 @@
     <string
         name="fertilizer_history_usage_empty">Ölçülmüş gübre kullanım kaydı henüz yok.</string>
     <string
-        name="fertilizer_history_usage_total">Toplam: %1$s g · %2$s ml</string>
+        name="fertilizer_history_usage_total">Toplam: %1$s · %2$s</string>
     <string
-        name="fertilizer_history_usage_30d">Son 30 gün: %1$s g · %2$s ml</string>
+        name="fertilizer_history_usage_30d">Son 30 gün: %1$s · %2$s</string>
     <string
         name="fertilizer_history_usage_methods">Yöntemler: Damlama %1$d · Topraktan %2$d · Yapraktan %3$d</string>
     <string
@@ -241,6 +241,8 @@
         name="fertilization_area_m2">Bölge alanı (m²)</string>
     <string
         name="fertilization_tank_liters">Tank hacmi (L)</string>
+    <string name="fertilization_area_unit">Bölge alanı (%1$s)</string>
+    <string name="fertilization_tank_unit">Tank hacmi (%1$s)</string>
     <string
         name="fertilization_dose_missing_product">Hesaplama için önce bir gübre ürünü seçin.</string>
     <string
@@ -252,9 +254,9 @@
     <string
         name="fertilization_dose_single">%1$s %2$s · %3$s</string>
     <string
-        name="fertilization_dose_area_note">%1$s m² bölge için</string>
+        name="fertilization_dose_area_note">%1$s bölge için</string>
     <string
-        name="fertilization_dose_tank_note">%1$s L tank için</string>
+        name="fertilization_dose_tank_note">%1$s tank için</string>
     <string
         name="fertilization_dose_unsupported">Bu ürün için otomatik dönüşüm desteklenmiyor; üretici etiketini kullanın.</string>
     <string
@@ -262,9 +264,9 @@
     <string
         name="fertilization_application_suggestion_single">Önerilen gerçek miktar: %1$s %2$s · %3$s</string>
     <string
-        name="fertilizer_history_area">Hesaplama: %1$s m² bölge</string>
+        name="fertilizer_history_area">Hesaplama: %1$s bölge</string>
     <string
-        name="fertilizer_history_tank">Hesaplama: %1$s L tank</string>
+        name="fertilizer_history_tank">Hesaplama: %1$s tank</string>
     <string
         name="fertilizer_stock_amount">Mevcut stok</string>
     <string
@@ -404,14 +406,14 @@
     <!-- SULAMA KONTROLÜ -->
     <string
         name="title_watering_control">Sulama Kontrolü</string>
+    <string name="menu_manual_watering_title">Manuel Sulama</string>
+    <string name="menu_watering_control_description">Pompa ve vanaları elle çalıştırın</string>
     <string
-        name="menu_watering_control_description">Pompa ve otomatik sulama yönetimi</string>
+        name="manual_valves_title">Manuel Sulama</string>
     <string
-        name="manual_valves_title">Manuel Vana Kontrolü</string>
+        name="manual_valves_simulation">Doğrulanmış fiziksel vana yok — gerçek pompa koruma altında</string>
     <string
-        name="manual_valves_simulation">Simülasyon modu — gerçek pompa koruma altında</string>
-    <string
-        name="manual_valves_physical">Pompa için en az bir vana açık olmalıdır.</string>
+        name="manual_valves_physical">Bir bölge seçin; vana ve pompa güvenli sırayla otomatik çalıştırılır.</string>
     <string
         name="subtitle_pump_and_mode">Pompa durumu ve çalışma modu</string>
     <string

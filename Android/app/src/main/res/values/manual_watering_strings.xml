@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="manual_watering_zone_action">%1$s bölgesini manuel sula</string>
+    <string name="manual_watering_dialog_title">%1$s · Manuel sulama</string>
+    <string name="manual_watering_dialog_message">Pi önce fiziksel vanayı açar, güvenli açılma süresini bekler ve ardından pompayı belirlediğiniz süre boyunca çalıştırır. Bu süre bölge için hatırlanır.</string>
+    <string name="manual_watering_hours">Saat</string>
+    <string name="manual_watering_minutes">Dakika</string>
+    <string name="manual_watering_seconds">Saniye</string>
+    <string name="manual_watering_duration_hint">Damlama sulama için saat ve dakikayı; kısa donanım denemeleri için saniyeyi kullanabilirsiniz.</string>
+    <string name="manual_watering_duration_invalid">5 saniye ile yöneticinin belirlediği güvenlik sınırı arasında bir süre girin.</string>
+    <string name="manual_watering_limit_message">Bu sulama için izin verilen en uzun süre: %1$s</string>
+    <string name="manual_watering_extended_title">Uzun sulama süresini onaylayın</string>
+    <string name="manual_watering_extended_message">Pompa %1$s boyunca çalışacak. Su hattını, tahliyeyi ve vanayı kontrol ettiğinizi doğrulayın.</string>
+    <string name="manual_watering_extended_confirm">Kontrol ettim, başlat</string>
+    <string name="manual_watering_safety_title">Sulama güvenliği</string>
+    <string name="manual_watering_safety_description">Pi, manuel sulamayı burada belirlediğiniz süre dolduğunda zorunlu olarak durdurur.</string>
+    <string name="manual_watering_safety_limit_title">En uzun manuel sulama</string>
+    <string name="manual_watering_safety_owner_hint">Dokunarak saat, dakika ve saniye olarak ayarlayın.</string>
+    <string name="manual_watering_safety_family_hint">Bu güvenlik sınırını yalnızca yönetici değiştirebilir.</string>
+    <string name="manual_watering_safety_default_value">4 saat</string>
+    <string name="manual_watering_safety_dialog_title">En uzun manuel sulama</string>
+    <string name="manual_watering_safety_dialog_message">Bu değer bütün bölgeler için üst sınırdır. Pi, uygulama kapalı olsa bile süre dolunca pompayı ve vanayı kapatır.</string>
+    <string name="manual_watering_safety_invalid">5 saniye–12 saat arasında geçerli bir sınır girin.</string>
+    <string name="manual_watering_safety_extended_title">Yüksek güvenlik sınırı</string>
+    <string name="manual_watering_safety_extended_message">Dört saatin üzerindeki sınırlar taşma ve ekipman hasarı riskini artırabilir. %1$s üst sınırını kaydetmek istiyor musunuz?</string>
+    <string name="manual_watering_safety_save">Sınırı kaydet</string>
+    <string name="manual_watering_safety_saved">Manuel sulama güvenlik sınırı kaydedildi.</string>
+    <string name="manual_watering_safety_save_failed">Güvenlik sınırı kaydedilemedi. Yalnızca yönetici değiştirebilir.</string>
+    <string name="manual_watering_duration_hours_format">%1$d saat</string>
+    <string name="manual_watering_duration_minutes_format">%1$d dk</string>
+    <string name="manual_watering_duration_seconds_format">%1$d sn</string>
+    <string name="manual_watering_duration_hours_minutes_format">%1$d sa %2$d dk</string>
+    <string name="manual_watering_duration_minutes_seconds_format">%1$d dk %2$d sn</string>
+    <string name="manual_watering_duration_full_format">%1$d sa %2$d dk %3$d sn</string>
+    <string name="manual_watering_dialog_start">Sulamayı başlat</string>
+    <string name="manual_watering_dialog_cancel">Vazgeç</string>
+    <string name="manual_watering_command_sent">Manuel sulama isteği gönderildi.</string>
+    <string name="manual_watering_cancel_sent">Manuel sulama durduruluyor.</string>
+    <string name="manual_watering_hardware_unverified">Fiziksel bağlantı doğrulanmadı</string>
+    <string name="manual_watering_completed">Manuel sulama tamamlandı.</string>
+    <string name="manual_watering_cancelled">Manuel sulama güvenli şekilde durduruldu.</string>
+    <string name="manual_watering_rejected">Manuel sulama başlatılamadı. Sistem ve fiziksel vana durumunu kontrol edin.</string>
+    <string name="manual_watering_open">Manuel sulamayı aç</string>
+    <string name="manual_watering_request_failed">Manuel sulama isteği gönderilemedi. Bağlantıyı kontrol edip yeniden deneyin.</string>
+    <string name="manual_watering_cancel_failed">Durdurma isteği gönderilemedi. Bağlantıyı kontrol edin.</string>
+</resources>

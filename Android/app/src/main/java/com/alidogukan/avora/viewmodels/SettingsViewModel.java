@@ -16,6 +16,7 @@ import com.alidogukan.avora.models.Command;
 import com.alidogukan.avora.models.GardenZone;
 import com.alidogukan.avora.models.IrrigationTimingSettings;
 import com.alidogukan.avora.zones.ZoneCapacityPolicy;
+import com.alidogukan.avora.zones.ManualWateringDurationPolicy;
 import com.google.android.gms.tasks.Task;
 
 import java.util.List;
@@ -30,6 +31,7 @@ public class SettingsViewModel extends AndroidViewModel {
     private final MutableLiveData<Boolean> saving = new MutableLiveData<>(false);
     private final MutableLiveData<Boolean> saveSuccess = new MutableLiveData<>();
     private final MutableLiveData<String> error = new MutableLiveData<>();
+    private final MutableLiveData<Boolean> deviceOwner = new MutableLiveData<>(false);
 
     public SettingsViewModel(@NonNull Application application) {
         super(application);
@@ -47,6 +49,8 @@ public class SettingsViewModel extends AndroidViewModel {
             error.setValue(null);
             loading.setValue(false);
         });
+        repository.isCurrentUserDeviceOwner().addOnSuccessListener(deviceOwner::setValue)
+                .addOnFailureListener(ignored -> deviceOwner.setValue(false));
     }
 
     public void saveSettings(
@@ -91,6 +95,20 @@ public class SettingsViewModel extends AndroidViewModel {
     public Task<Void> restartIrrigationAssistant(String zoneId) {
         return repository.requestIrrigationAssistantRestart(zoneId);
     }
+    public Task<Void> restartIrrigationAssistant(List<String> zoneIds) {
+        return repository.requestIrrigationAssistantRestart(zoneIds);
+    }
+    public Task<Void> saveManualWateringSafetyLimit(int durationSeconds) {
+        return repository.saveManualWateringSafetyLimit(durationSeconds);
+    }
+    public int manualWateringSafetyLimitFromParts(int hours, int minutes, int seconds) {
+        return ManualWateringDurationPolicy.fromHoursMinutesAndSeconds(
+                hours, minutes, seconds, ManualWateringDurationPolicy.HARD_MAX_SECONDS);
+    }
+    public boolean requiresExtendedManualWateringConfirmation(int durationSeconds) {
+        return ManualWateringDurationPolicy.requiresExtendedConfirmation(durationSeconds);
+    }
+    public LiveData<Boolean> getDeviceOwner() { return deviceOwner; }
     public LiveData<Command> getCommand() { return command; }
     public LiveData<Boolean> getLoading() { return loading; }
     public LiveData<Boolean> getSaving() { return saving; }

@@ -21,7 +21,7 @@
     <string name="help_q_low_moisture_wait">Why is it waiting even though moisture is low?</string>
     <string name="help_a_low_moisture_wait">After irrigation, AVORA waits for water to spread through the root zone. If moisture remains low, it checks the restart difference and cycle limit. This protection prevents unnecessary consecutive irrigation.</string>
     <string name="help_q_manual_valve">How do I test the pump or a valve manually?</string>
-    <string name="help_a_manual_valve">Open Irrigation Control from Settings > Irrigation Settings. Open a physical valve first, then start the pump. The safety interlock blocks the pump when no physical valve is open.</string>
+    <string name="help_a_manual_valve">Open Manual Watering from Settings > Irrigation Settings. Choose a physical zone and set the duration; the valve and pump run in the safe order.</string>
     <string name="help_q_ai_tools">What is the difference between the four AI tools?</string>
     <string name="help_a_ai_tools">AI Plant Assistant evaluates photos, symptoms, sensor and weather data together. AI Seedling Assistant tracks seedling batches, growth stages and NodeMCU sensors. AI Fertilizer Assistant creates recommendations and plans based on growth stage, application history, stock and product labels. AI Irrigation Assistant monitors moisture behavior and irrigation history.</string>
     <string name="help_q_ai_remote">Does AI Plant Assistant work remotely?</string>
