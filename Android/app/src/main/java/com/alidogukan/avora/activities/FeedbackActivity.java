@@ -108,7 +108,8 @@ public class FeedbackActivity extends AppCompatActivity {
             descriptionInput.requestFocus();
             return;
         }
-        if (!contact.isEmpty() && !Patterns.EMAIL_ADDRESS.matcher(contact).matches()) {
+        if (contact.length() > 254 || (!contact.isEmpty()
+                && !Patterns.EMAIL_ADDRESS.matcher(contact).matches())) {
             contactLayout.setError(getString(R.string.feedback_email_invalid));
             contactInput.requestFocus();
             return;

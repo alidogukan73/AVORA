@@ -286,8 +286,28 @@ public class SettingsHubActivity extends AppCompatActivity {
     }
 
     private List<String> loadQuickActionIds() {
-        return viewModel.loadQuickActionIds(
-                DEFAULT_QUICK_ACTIONS, allQuickActionIds(), QUICK_ACTION_COUNT);
+        List<String> allowed = new ArrayList<>(allQuickActionIds());
+        // "backup" was a separate shortcut before Data and Backup was unified.
+        // Accept it only while loading so existing users keep their choice, then
+        // migrate it to the single "sync" destination without duplicate cards.
+        allowed.add("backup");
+        List<String> loaded = viewModel.loadQuickActionIds(
+                DEFAULT_QUICK_ACTIONS, allowed, QUICK_ACTION_COUNT);
+        List<String> normalized = new ArrayList<>();
+        for (String id : loaded) {
+            String migrated = "backup".equals(id) ? "sync" : id;
+            if (!normalized.contains(migrated)) normalized.add(migrated);
+        }
+        for (String fallback : DEFAULT_QUICK_ACTIONS) {
+            if (normalized.size() == QUICK_ACTION_COUNT) break;
+            if (!normalized.contains(fallback)) normalized.add(fallback);
+        }
+        for (String fallback : allQuickActionIds()) {
+            if (normalized.size() == QUICK_ACTION_COUNT) break;
+            if (!normalized.contains(fallback)) normalized.add(fallback);
+        }
+        if (!normalized.equals(loaded)) viewModel.saveQuickActionIds(normalized);
+        return normalized;
     }
 
     private void saveQuickActionIds(List<String> ids) {
@@ -299,7 +319,7 @@ public class SettingsHubActivity extends AppCompatActivity {
                 "garden", "plants", "sensor", "crop_catalog", "units",
                 "irrigation", "fertilization", "weather",
                 "notifications", "reminders",
-                "device", "nas_security", "sync", "backup", "theme", "language",
+                "device", "nas_security", "sync", "theme", "language",
                 "help", "feedback", "about");
     }
 
@@ -359,9 +379,9 @@ public class SettingsHubActivity extends AppCompatActivity {
                         R.string.settings_quick_data_sync,
                         () -> open(DataSyncActivity.class));
             case "backup":
-                return new QuickAction(R.drawable.ic_history_24,
-                        R.string.settings_backup_title,
-                        () -> open(BackupActivity.class));
+                return new QuickAction(R.drawable.ic_restart,
+                        R.string.settings_quick_data_sync,
+                        () -> open(DataSyncActivity.class));
             case "theme":
                 return new QuickAction(R.drawable.ic_palette_24,
                         R.string.settings_theme_title,
@@ -438,9 +458,6 @@ public class SettingsHubActivity extends AppCompatActivity {
                 item(R.drawable.ic_restart, R.string.settings_sync_title,
                         R.string.settings_sync_subtitle,
                         () -> open(DataSyncActivity.class)),
-                item(R.drawable.ic_history_24, R.string.settings_backup_title,
-                        R.string.settings_backup_subtitle,
-                        () -> open(BackupActivity.class)),
                 item(R.drawable.ic_palette_24, R.string.settings_theme_title,
                         R.string.settings_theme_subtitle,
                         () -> open(ThemeSettingsActivity.class)),

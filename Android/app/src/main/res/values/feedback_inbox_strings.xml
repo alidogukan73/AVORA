@@ -11,6 +11,8 @@
     <string name="feedback_inbox_open">Mesajı aç</string>
     <string name="feedback_inbox_no_subject">Başlıksız geri bildirim</string>
     <string name="feedback_inbox_summary">%1$d mesaj · %2$d okunmadı</string>
+    <string name="feedback_inbox_summary_more">%1$d mesaj yüklendi · %2$d okunmadı · Daha eski mesajlar var</string>
+    <string name="feedback_inbox_load_more">Daha eski mesajları yükle</string>
     <string name="feedback_inbox_loading">Mesajlar yükleniyor…</string>
     <string name="feedback_inbox_load_failed">Mesajlar yüklenemedi. Bağlantıyı kontrol edip yenileyin.</string>
     <string name="feedback_inbox_verifying">Yönetici hesabı doğrulanıyor…</string>

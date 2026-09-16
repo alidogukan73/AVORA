@@ -50,7 +50,7 @@
     <string name="settings_quick_weather">Rain\nSettings</string>
     <string name="settings_quick_fertilization">Fertilization\nSettings</string>
     <string name="settings_quick_device">Device\nInformation</string>
-    <string name="settings_quick_data_sync">Data\nSynchronization</string>
+    <string name="settings_quick_data_sync">Data and\nBackup</string>
     <string name="settings_quick_about">About the\nApp</string>
     <string name="settings_quick_editor_title">Edit Quick Settings</string>
     <string name="settings_quick_editor_message">Select four shortcuts and use the arrows to change their display order.</string>
@@ -87,8 +87,8 @@
     <string name="settings_device_info_subtitle">Raspberry Pi, ESP32, sensors, and connections</string>
     <string name="settings_nas_account_title">NAS Account and Security</string>
     <string name="settings_nas_account_subtitle">Manage the account, password, sessions, and access</string>
-    <string name="settings_sync_title">Data Synchronization</string>
-    <string name="settings_sync_subtitle">View the latest synchronization status</string>
+    <string name="settings_sync_title">Data and Backup</string>
+    <string name="settings_sync_subtitle">Manage synchronization, NAS, and portable backups in one place</string>
     <string name="settings_backup_title">Backup</string>
     <string name="settings_backup_subtitle">Manage settings and record backups</string>
     <string name="settings_theme_title">Theme</string>

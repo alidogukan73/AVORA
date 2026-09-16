@@ -257,6 +257,8 @@ public class DataSyncActivity extends AppCompatActivity {
         nasRestoreButton.setOnClickListener(view -> showNasRestoreSelection());
         nasPhotoBackupButton.setOnClickListener(view -> beginNasPhotoBackup());
         nasPhotoRestoreButton.setOnClickListener(view -> confirmNasPhotoRestore());
+        findViewById(R.id.cardDataSyncPortableBackup).setOnClickListener(
+                view -> startActivity(new Intent(this, BackupActivity.class)));
     }
 
     @Override

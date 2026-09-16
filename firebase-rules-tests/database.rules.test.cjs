@@ -402,7 +402,7 @@ test("owner can submit only a bounded one-shot network configuration", async () 
 test("owner can create only a bounded feedback schema", async () => {
   const owner = authenticatedDatabase(OWNER_UID);
   const validId = "123e4567-e89b-12d3-a456-426614174000";
-  const validPath = `devices/${DEVICE_ID}/user_feedback/${validId}`;
+  const validPath = `feedback_devices/${DEVICE_ID}/user_feedback/${validId}`;
 
   await assertSucceeds(set(ref(owner, validPath), validFeedback(validId)));
 
@@ -411,7 +411,7 @@ test("owner can create only a bounded feedback schema", async () => {
   extra.api_key = "must-not-be-accepted";
   await assertFails(
     set(
-      ref(owner, `devices/${DEVICE_ID}/user_feedback/${extraId}`),
+      ref(owner, `feedback_devices/${DEVICE_ID}/user_feedback/${extraId}`),
       extra,
     ),
   );
@@ -419,7 +419,7 @@ test("owner can create only a bounded feedback schema", async () => {
   const wrongUserId = "123e4567-e89b-12d3-a456-426614174002";
   await assertFails(
     set(
-      ref(owner, `devices/${DEVICE_ID}/user_feedback/${wrongUserId}`),
+      ref(owner, `feedback_devices/${DEVICE_ID}/user_feedback/${wrongUserId}`),
       validFeedback(wrongUserId, OTHER_UID),
     ),
   );
@@ -429,7 +429,7 @@ test("owner can create only a bounded feedback schema", async () => {
   forgedDelivery.email_delivery = { status: "sent" };
   await assertFails(
     set(
-      ref(owner, `devices/${DEVICE_ID}/user_feedback/${deliveryId}`),
+      ref(owner, `feedback_devices/${DEVICE_ID}/user_feedback/${deliveryId}`),
       forgedDelivery,
     ),
   );
@@ -439,17 +439,17 @@ test("feedback cannot be edited or submitted by an unclaimed user", async () => 
   const owner = authenticatedDatabase(OWNER_UID);
   const otherUser = unclaimedDatabase(OTHER_UID);
   const id = "123e4567-e89b-12d3-a456-426614174004";
-  const feedbackPath = `devices/${DEVICE_ID}/user_feedback/${id}`;
+  const feedbackPath = `feedback_devices/${DEVICE_ID}/user_feedback/${id}`;
 
   await assertSucceeds(set(ref(owner, feedbackPath), validFeedback(id)));
   await assertFails(update(ref(owner, feedbackPath), { subject: "Değiştirildi" }));
   await assertFails(
     set(
-      ref(otherUser, `devices/${DEVICE_ID}/user_feedback/${id}-other`),
+      ref(otherUser, `feedback_devices/${DEVICE_ID}/user_feedback/${id}-other`),
       validFeedback(id),
     ),
   );
-  await assertSucceeds(set(ref(owner, feedbackPath), null));
+  await assertFails(set(ref(owner, feedbackPath), null));
 });
 
 test("growth photo metadata accepts only the bounded owner schema", async () => {
@@ -543,7 +543,7 @@ test("portable restore skips legacy photo metadata that newer rules reject", asy
 test("backend delivery state remains read-only to the Android owner", async () => {
   const owner = authenticatedDatabase(OWNER_UID);
   const id = "123e4567-e89b-12d3-a456-426614174005";
-  const feedbackPath = `devices/${DEVICE_ID}/user_feedback/${id}`;
+  const feedbackPath = `feedback_devices/${DEVICE_ID}/user_feedback/${id}`;
 
   await assertSucceeds(set(ref(owner, feedbackPath), validFeedback(id)));
   await testEnvironment.withSecurityRulesDisabled(async (context) => {
@@ -575,10 +575,18 @@ test("backend delivery state remains read-only to the Android owner", async () =
     }),
   );
 
-  const snapshot = await get(ref(owner, `devices/${DEVICE_ID}`));
-  const unchangedDevice = snapshot.val();
-  unchangedDevice.settings = { language: "tr" };
-  await assertSucceeds(set(ref(owner, `devices/${DEVICE_ID}`), unchangedDevice));
+  // The immutable legacy branch temporarily blocks whole-device changes
+  // until the Admin SDK migration removes the old feedback records.
+  await assertFails(update(ref(owner, `devices/${DEVICE_ID}`), {
+    "settings/language": "tr",
+  }));
+  await assertFails(set(ref(owner, `devices/${DEVICE_ID}/user_feedback/new-feedback`), validFeedback("new-feedback")));
+  await testEnvironment.withSecurityRulesDisabled(async (context) => {
+    await set(ref(context.database(), `devices/${DEVICE_ID}/user_feedback`), null);
+  });
+  await assertSucceeds(update(ref(owner, `devices/${DEVICE_ID}`), {
+    "settings/language": "tr",
+  }));
 });
 
 test("owner can manage bounded seedling batches and daily observations", async () => {
@@ -784,4 +792,19 @@ test("sensor and AI seedling snapshots are read-only to Android", async () => {
   if (snapshot.val().recommendation.score !== 100) {
     throw new Error("Backend recommendation was not readable.");
   }
+});
+
+
+test("approved family may submit feedback but cannot read the private inbox", async () => {
+  const owner = authenticatedDatabase(OWNER_UID);
+  const family = unclaimedDatabase(FAMILY_UID);
+  const id = "123e4567-e89b-12d3-a456-426614174099";
+  await testEnvironment.withSecurityRulesDisabled(async (context) => {
+    await set(ref(context.database(), `device_access/${DEVICE_ID}/${FAMILY_UID}`), { approved: true });
+  });
+  const path = `feedback_devices/${DEVICE_ID}/user_feedback/${id}`;
+  await assertSucceeds(set(ref(family, path), validFeedback(id, FAMILY_UID)));
+  await assertFails(get(ref(family, path)));
+  await assertFails(get(ref(family, `feedback_devices/${DEVICE_ID}`)));
+  await assertSucceeds(get(ref(owner, path)));
 });

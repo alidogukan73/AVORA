@@ -18,14 +18,18 @@
 
     <TextView
         android:id="@+id/txtSettingsToolbarTitle"
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:layout_marginHorizontal="8dp"
+        android:ellipsize="end"
+        android:gravity="center"
         android:includeFontPadding="false"
+        android:maxLines="1"
         android:text="@string/title_settings"
         android:textAppearance="@style/TextAppearance.AVORA.Settings.ToolbarTitle"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toStartOf="@id/btnSettingsToolbarAction"
+        app:layout_constraintStart_toEndOf="@id/btnSettingsToolbarBack"
         app:layout_constraintTop_toTopOf="parent" />
 
     <com.google.android.material.button.MaterialButton

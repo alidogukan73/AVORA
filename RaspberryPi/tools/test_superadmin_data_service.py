@@ -11,7 +11,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+import services.superadmin_data_service as superadmin_module  # noqa: E402
 from services.superadmin_data_service import (  # noqa: E402
+    FirebaseSuperadminStore,
     SuperadminDataService,
     SuperadminMutationPlanner,
     _preview_token,
@@ -165,6 +167,54 @@ def command(operation: str, **extra) -> dict:
         "expires_at": int(time.time()) + 300,
         **extra,
     }
+
+
+def test_firebase_store_routes_feedback_to_owner_only_root() -> None:
+    class FakeReference:
+        def __init__(self, fake_db, path: str) -> None:
+            self.fake_db = fake_db
+            self.path = path
+
+        def get(self):
+            return copy.deepcopy(self.fake_db.values.get(self.path))
+
+        def update(self, updates: dict) -> None:
+            self.fake_db.updates.append((self.path, copy.deepcopy(updates)))
+
+    class FakeDatabase:
+        def __init__(self) -> None:
+            self.values = {
+                "devices/avora-001": {"zones": {"zone-001": {"name": "Domates"}}},
+                "feedback_devices/avora-001/user_feedback": {
+                    "feedback-1": {"id": "feedback-1", "status": "new"},
+                },
+            }
+            self.updates = []
+
+        def reference(self, path: str):
+            return FakeReference(self, path)
+
+    fake = FakeDatabase()
+    original_db = superadmin_module.db
+    superadmin_module.db = fake
+    try:
+        store = FirebaseSuperadminStore("avora-001")
+        snapshot = store.device_snapshot()
+        assert snapshot["zones"]["zone-001"]["name"] == "Domates"
+        assert snapshot["user_feedback"]["feedback-1"]["status"] == "new"
+        store.apply({
+            "zones/zone-001/name": "Biber",
+            "user_feedback/feedback-1/status": "resolved",
+        })
+    finally:
+        superadmin_module.db = original_db
+
+    assert fake.updates == [
+        ("devices/avora-001", {"zones/zone-001/name": "Biber"}),
+        ("feedback_devices/avora-001/user_feedback", {
+            "feedback-1/status": "resolved",
+        }),
+    ]
 
 
 def test_planner_cascades_and_preserves_other_season() -> None:

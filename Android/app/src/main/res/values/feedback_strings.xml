@@ -19,12 +19,12 @@
     <string name="feedback_description_hint">Ne oldu veya nasıl geliştirebiliriz?</string>
     <string name="feedback_contact_hint">İletişim e-postası (isteğe bağlı)</string>
     <string name="feedback_diagnostics_title">Tanı bilgilerini ekle</string>
-    <string name="feedback_diagnostics_message">Uygulama sürümü, Android sürümü, telefon modeli ve AVORA cihaz kimliği eklenir.</string>
+    <string name="feedback_diagnostics_message">Uygulama ve Android sürümü ile telefon modeli eklenir. AVORA cihaz kimliği, tanı seçeneğinden bağımsız olarak gönderim için kaydedilir.</string>
     <string name="feedback_privacy_note">Bahçe kayıtları, fotoğraflar, şifreler ve API anahtarları geri bildirime eklenmez.</string>
     <string name="feedback_submit">Geri bildirimi gönder</string>
     <string name="feedback_sending">Gönderiliyor…</string>
     <string name="feedback_success">Teşekkürler. Geri bildiriminiz kaydedildi.</string>
-    <string name="feedback_error">Geri bildirim gönderilemedi. Bağlantıyı kontrol edip yeniden deneyin.</string>
+    <string name="feedback_error">Geri bildirim kaydedilemedi. İnternet bağlantınızı ve NAS erişiminizi kontrol edip yeniden deneyin.</string>
     <string name="feedback_subject_required">En az 4 karakterlik kısa bir başlık yazın.</string>
     <string name="feedback_description_required">Açıklama en az 10 karakter olmalıdır.</string>
     <string name="feedback_email_invalid">E-posta adresini kontrol edin veya alanı boş bırakın.</string>

@@ -2730,16 +2730,11 @@ class FirebaseService:
             },
         )
 
-    def get_user_feedback(self) -> dict[str, dict]:
-        """Return structured Android feedback records."""
+    def get_user_feedback(self, *, full_scan: bool = False) -> dict[str, dict]:
+        """Read recent feedback, periodically scanning older unsent records."""
 
-        values = (
-            self._device_ref()
-            .child("user_feedback")
-            .order_by_child("created_at")
-            .limit_to_last(50)
-            .get()
-        )
+        query = db.reference(f"feedback_devices/{AppConfig.DEVICE_ID}/user_feedback").order_by_child("created_at")
+        values = (query if full_scan else query.limit_to_last(50)).get()
         if not isinstance(values, dict):
             return {}
 
@@ -2784,8 +2779,7 @@ class FirebaseService:
         """Atomically claim one feedback email for this Pi process."""
 
         delivery_ref = (
-            self._device_ref()
-            .child("user_feedback")
+            db.reference(f"feedback_devices/{AppConfig.DEVICE_ID}/user_feedback")
             .child(feedback_id)
             .child("email_delivery")
         )
@@ -2843,8 +2837,7 @@ class FirebaseService:
         """Complete a claimed feedback email without overwriting another worker."""
 
         delivery_ref = (
-            self._device_ref()
-            .child("user_feedback")
+            db.reference(f"feedback_devices/{AppConfig.DEVICE_ID}/user_feedback")
             .child(feedback_id)
             .child("email_delivery")
         )
@@ -2878,8 +2871,7 @@ class FirebaseService:
         """Release a failed claim and schedule a bounded retry."""
 
         delivery_ref = (
-            self._device_ref()
-            .child("user_feedback")
+            db.reference(f"feedback_devices/{AppConfig.DEVICE_ID}/user_feedback")
             .child(feedback_id)
             .child("email_delivery")
         )

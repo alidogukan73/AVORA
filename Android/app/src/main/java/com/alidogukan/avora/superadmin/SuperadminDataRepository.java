@@ -55,9 +55,13 @@ public final class SuperadminDataRepository {
     public Task<RecordPage> loadRecordPage(String category, PageCursor before) {
         String path = categoryPath(category);
         String orderField = CATEGORY_ORDER_FIELDS.get(category);
+        DatabaseReference collection = "feedback".equals(category)
+                ? FirebaseDatabase.getInstance().getReference("feedback_devices")
+                        .child(AppInfo.DEVICE_ID).child("user_feedback")
+                : device.child(path);
         Query query = orderField == null || orderField.isBlank()
-                ? device.child(path).orderByKey()
-                : device.child(path).orderByChild(orderField);
+                ? collection.orderByKey()
+                : collection.orderByChild(orderField);
         if (before != null) {
             query = orderField == null || orderField.isBlank()
                     ? query.endBefore(before.key)
@@ -100,7 +104,11 @@ public final class SuperadminDataRepository {
     }
 
     public Task<String> loadRecordJson(String category, String recordId) {
-        return device.child(categoryPath(category)).child(safeId(recordId)).get()
+        DatabaseReference collection = "feedback".equals(category)
+                ? FirebaseDatabase.getInstance().getReference("feedback_devices")
+                        .child(AppInfo.DEVICE_ID).child("user_feedback")
+                : device.child(categoryPath(category));
+        return collection.child(safeId(recordId)).get()
                 .continueWith(task -> {
                     if (!task.isSuccessful() || task.getResult() == null
                             || !task.getResult().exists()) {

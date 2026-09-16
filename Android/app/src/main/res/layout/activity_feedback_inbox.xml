@@ -48,6 +48,11 @@
         <androidx.recyclerview.widget.RecyclerView android:id="@+id/recyclerFeedbackInbox"
             android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"
             android:clipToPadding="false" android:paddingBottom="20dp" />
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnFeedbackInboxMore"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="@string/feedback_inbox_load_more" android:visibility="gone" />
     </LinearLayout>
     <include android:id="@+id/feedbackInboxNavigation" layout="@layout/include_primary_navigation"
         android:layout_width="0dp" android:layout_height="60dp"

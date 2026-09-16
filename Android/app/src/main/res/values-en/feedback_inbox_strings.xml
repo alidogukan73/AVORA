@@ -11,6 +11,8 @@
     <string name="feedback_inbox_open">Open message</string>
     <string name="feedback_inbox_no_subject">Untitled feedback</string>
     <string name="feedback_inbox_summary">%1$d messages · %2$d unread</string>
+    <string name="feedback_inbox_summary_more">%1$d loaded · %2$d unread · Older messages available</string>
+    <string name="feedback_inbox_load_more">Load older messages</string>
     <string name="feedback_inbox_loading">Loading messages…</string>
     <string name="feedback_inbox_load_failed">Messages could not be loaded. Check the connection and refresh.</string>
     <string name="feedback_inbox_verifying">Verifying administrator account…</string>

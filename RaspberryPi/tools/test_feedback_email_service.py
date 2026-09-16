@@ -29,9 +29,14 @@ class FakeRepository:
     def __init__(self, activation_epoch: int, feedback: dict[str, dict]) -> None:
         self.activation_epoch = activation_epoch
         self.feedback = feedback
+        self.scan_modes: list[bool] = []
 
-    def get_user_feedback(self) -> dict[str, dict]:
-        return self.feedback
+    def get_user_feedback(self, *, full_scan: bool = False) -> dict[str, dict]:
+        self.scan_modes.append(full_scan)
+        if full_scan:
+            return self.feedback
+        recent = sorted(self.feedback.items(), key=lambda item: item[1]["created_at"])[-50:]
+        return dict(recent)
 
     def get_or_create_feedback_email_activation_epoch(
         self,
@@ -178,6 +183,7 @@ def main() -> None:
 
     assert service.process_once() == 1
     assert service.process_once() == 0
+    assert repository.scan_modes == [True, False]
     assert len(transport.messages) == 1
     message = transport.messages[0]
     assert message["To"] == "alidogukan@gmail.com"
@@ -189,6 +195,24 @@ def main() -> None:
     assert "must-not-leak" not in body
     assert feedback["new-feedback"]["email_delivery"]["status"] == "sent"
     assert "email_delivery" not in feedback["old-test"]
+
+    backlog = {
+        f"feedback-{index:03d}": {
+            "created_at": (now_epoch + index + 1) * 1000,
+            "type": "problem",
+            "subject": f"Sorun {index}",
+            "description": "Uzun kesinti sonrasında ulaşması gereken mesaj.",
+        }
+        for index in range(52)
+    }
+    backlog_repository = FakeRepository(now_epoch, backlog)
+    backlog_transport = FakeTransport()
+    backlog_service = FeedbackEmailService(
+        backlog_repository, settings=settings, transport=backlog_transport,
+    )
+    assert backlog_service.process_once() == 52
+    assert backlog_repository.scan_modes == [True]
+    assert len(backlog_transport.messages) == 52
 
     unsafe = build_feedback_email(
         "line\nbreak",

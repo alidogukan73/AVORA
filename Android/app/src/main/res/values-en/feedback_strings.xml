@@ -19,12 +19,12 @@
     <string name="feedback_description_hint">What happened, or how can we improve?</string>
     <string name="feedback_contact_hint">Contact email (optional)</string>
     <string name="feedback_diagnostics_title">Include diagnostic information</string>
-    <string name="feedback_diagnostics_message">App version, Android version, phone model, and AVORA device ID will be included.</string>
+    <string name="feedback_diagnostics_message">App and Android versions and the phone model are included. The AVORA device ID is saved for delivery regardless of this option.</string>
     <string name="feedback_privacy_note">Garden records, photos, passwords, and API keys are not included in feedback.</string>
     <string name="feedback_submit">Send feedback</string>
     <string name="feedback_sending">Sending…</string>
     <string name="feedback_success">Thank you. Your feedback has been saved.</string>
-    <string name="feedback_error">Could not send feedback. Check your connection and try again.</string>
+    <string name="feedback_error">Feedback could not be saved. Check your internet connection and NAS access, then try again.</string>
     <string name="feedback_subject_required">Enter a short title of at least 4 characters.</string>
     <string name="feedback_description_required">The description must be at least 10 characters.</string>
     <string name="feedback_email_invalid">Check the email address or leave the field blank.</string>

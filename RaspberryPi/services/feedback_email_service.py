@@ -248,7 +248,7 @@ class FeedbackEmailSettings:
 
 
 class FeedbackEmailRepository(Protocol):
-    def get_user_feedback(self) -> dict[str, dict]: ...
+    def get_user_feedback(self, *, full_scan: bool = False) -> dict[str, dict]: ...
 
     def get_or_create_feedback_email_activation_epoch(
         self,
@@ -445,6 +445,7 @@ class FeedbackEmailService:
         self._stop_event = threading.Event()
         self._thread: threading.Thread | None = None
         self._activation_epoch: int | None = None
+        self._last_full_scan_at: int | None = None
 
     def start(self) -> None:
         if self._thread is not None and self._thread.is_alive():
@@ -503,7 +504,13 @@ class FeedbackEmailService:
                 self._settings.send_existing,
             )
 
-        feedback_items = self._repository.get_user_feedback()
+        # Recent reads stay bounded; a periodic full scan recovers messages
+        # displaced from the newest 50 during an outage or a burst of reports.
+        full_scan = (self._last_full_scan_at is None
+                     or now_epoch - self._last_full_scan_at >= 900)
+        feedback_items = self._repository.get_user_feedback(full_scan=full_scan)
+        if full_scan:
+            self._last_full_scan_at = now_epoch
         ordered_items = sorted(
             feedback_items.items(),
             key=lambda item: (_created_epoch(item[1]), item[0]),

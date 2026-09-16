@@ -2629,7 +2629,8 @@ public class FirebaseRepository {
          );
       }
       payload.put("user_id", user.getUid());
-      return deviceRef.child("user_feedback").child(feedbackId).setValue(payload);
+      return FirebaseDatabase.getInstance().getReference("feedback_devices")
+            .child(AppInfo.DEVICE_ID).child("user_feedback").child(feedbackId).setValue(payload);
    }
 
    @SuppressLint("HardwareIds")

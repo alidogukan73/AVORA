@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <string name="data_sync_title">Data Synchronization</string>
+    <string name="data_sync_title">Data and Backup</string>
     <string name="data_sync_intro_title">AVORA data connection</string>
     <string name="data_sync_intro_waiting">Checking connection</string>
     <string name="data_sync_intro_connected">Firebase connection ready</string>
@@ -17,7 +17,6 @@
     <string name="data_sync_nas_account_connected">Connected as %1$s</string>
     <string name="data_sync_nas_account_connect">Connect NAS account</string>
     <string name="data_sync_nas_account_disconnect">Disconnect NAS account</string>
-    <string name="data_sync_nas_account_manage">Manage NAS account</string>
     <string name="data_sync_nas_manage_title">NAS account security</string>
     <string name="data_sync_nas_create_invite">Create invitation for a family member</string>
     <string name="data_sync_nas_invite_creating">Preparing a single-use NAS invitation…</string>
@@ -143,7 +142,7 @@
     <string name="data_sync_nas_auto_channel_description">Automatic NAS backup problems</string>
     <string name="data_sync_nas_auto_failure_title">Automatic NAS backup failed</string>
     <string name="data_sync_nas_auto_failure_session">Your NAS session expired. Tap to reconnect.</string>
-    <string name="data_sync_nas_auto_failure_firebase">Firebase device access could not be verified for this phone. Open Data Synchronization.</string>
+    <string name="data_sync_nas_auto_failure_firebase">Firebase device access could not be verified for this phone. Open Data and Backup.</string>
     <string name="data_sync_nas_auto_failure_connection">The NAS backup could not be sent. Check your internet and NAS connection.</string>
     <string name="data_sync_nas_photo_label">NAS photo archive</string>
     <string name="data_sync_nas_photo_checking">Checking photos…</string>
@@ -196,4 +195,7 @@
     <string name="data_sync_empty_error">No data for this device was found in Firebase.</string>
     <string name="data_sync_auto_enabled">Automatic refresh enabled.</string>
     <string name="data_sync_auto_disabled">Automatic refresh disabled. Screens will continue normal live data reads when opened.</string>
+    <string name="data_sync_portable_backup_section">Portable backups</string>
+    <string name="data_sync_portable_backup_title">File backup</string>
+    <string name="data_sync_portable_backup_message">Export settings and records to JSON, archive photos as ZIP, or restore them safely.</string>
 </resources>

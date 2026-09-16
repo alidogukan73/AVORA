@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel;
 
 import com.alidogukan.avora.feedback.FeedbackInboxRepository;
 import com.alidogukan.avora.feedback.FeedbackInboxRepository.Message;
+import com.alidogukan.avora.feedback.FeedbackInboxRepository.Page;
+import com.alidogukan.avora.feedback.FeedbackInboxRepository.PageCursor;
 import com.alidogukan.avora.superadmin.SuperadminDataRepository.CommandResult;
 import com.google.android.gms.tasks.Task;
 
@@ -14,7 +16,7 @@ public final class FeedbackInboxViewModel extends ViewModel {
     private final FeedbackInboxRepository repository = new FeedbackInboxRepository();
 
     public Task<Boolean> isCurrentUserOwner() { return repository.isCurrentUserOwner(); }
-    public Task<List<Message>> load() { return repository.load(); }
+    public Task<Page> loadPage(PageCursor before) { return repository.loadPage(before); }
     public Task<CommandResult> markRead(Message message) {
         return repository.updateStatus(message, "read");
     }

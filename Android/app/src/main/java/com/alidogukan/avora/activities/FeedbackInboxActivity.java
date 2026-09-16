@@ -19,6 +19,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.alidogukan.avora.R;
 import com.alidogukan.avora.adapters.FeedbackInboxAdapter;
 import com.alidogukan.avora.feedback.FeedbackInboxRepository.Message;
+import com.alidogukan.avora.feedback.FeedbackInboxRepository.PageCursor;
 import com.alidogukan.avora.ui.PrimaryBottomNavigation;
 import com.alidogukan.avora.viewmodels.FeedbackInboxViewModel;
 import com.google.android.material.button.MaterialButton;
@@ -36,6 +37,11 @@ public final class FeedbackInboxActivity extends EdgeToEdgeActivity {
     private FeedbackInboxAdapter adapter;
     private final List<Message> all = new ArrayList<>();
     private String filter = "all";
+    private boolean mutating;
+    private boolean loading;
+    private int loadGeneration;
+    private PageCursor nextCursor;
+    private MaterialButton moreButton;
     private LinearProgressIndicator progress;
     private TextView status;
     private MaterialButton allButton, newButton, readButton, resolvedButton;
@@ -56,6 +62,7 @@ public final class FeedbackInboxActivity extends EdgeToEdgeActivity {
         newButton = findViewById(R.id.btnFeedbackFilterNew);
         readButton = findViewById(R.id.btnFeedbackFilterRead);
         resolvedButton = findViewById(R.id.btnFeedbackFilterResolved);
+        moreButton = findViewById(R.id.btnFeedbackInboxMore);
         ((TextView) findViewById(R.id.txtSettingsToolbarTitle))
                 .setText(R.string.settings_feedback_inbox_title);
         findViewById(R.id.btnSettingsToolbarBack).setOnClickListener(view -> finish());
@@ -72,6 +79,7 @@ public final class FeedbackInboxActivity extends EdgeToEdgeActivity {
         bindFilter(readButton, "read");
         bindFilter(resolvedButton, "resolved");
         findViewById(R.id.btnFeedbackInboxRefresh).setOnClickListener(view -> load());
+        moreButton.setOnClickListener(view -> loadMore());
         PrimaryBottomNavigation.bind(this, PrimaryBottomNavigation.SETTINGS);
         requestDeviceVerification();
     }
@@ -113,15 +121,45 @@ public final class FeedbackInboxActivity extends EdgeToEdgeActivity {
     }
 
     private void load() {
+        if (mutating) return;
+        final int generation = ++loadGeneration;
+        loading = true;
         setBusy(true, R.string.feedback_inbox_loading);
-        viewModel.load().addOnCompleteListener(task -> {
-            if (isFinishing() || isDestroyed()) return;
+        viewModel.loadPage(null).addOnCompleteListener(task -> {
+            if (isFinishing() || isDestroyed() || generation != loadGeneration) return;
+            loading = false;
             if (!task.isSuccessful() || task.getResult() == null) {
                 setBusy(false, R.string.feedback_inbox_load_failed);
                 return;
             }
             all.clear();
-            all.addAll(task.getResult());
+            all.addAll(task.getResult().messages);
+            nextCursor = task.getResult().next;
+            setBusy(false, 0);
+            render();
+        });
+    }
+
+    private void loadMore() {
+        if (mutating || loading || nextCursor == null) return;
+        final int generation = ++loadGeneration;
+        loading = true;
+        setBusy(true, R.string.feedback_inbox_loading);
+        viewModel.loadPage(nextCursor).addOnCompleteListener(task -> {
+            if (isFinishing() || isDestroyed() || generation != loadGeneration) return;
+            loading = false;
+            if (!task.isSuccessful() || task.getResult() == null) {
+                setBusy(false, R.string.feedback_inbox_load_failed);
+                return;
+            }
+            for (Message message : task.getResult().messages) {
+                boolean alreadyLoaded = false;
+                for (Message existing : all) {
+                    if (existing.id.equals(message.id)) { alreadyLoaded = true; break; }
+                }
+                if (!alreadyLoaded) all.add(message);
+            }
+            nextCursor = task.getResult().next;
             setBusy(false, 0);
             render();
         });
@@ -135,7 +173,11 @@ public final class FeedbackInboxActivity extends EdgeToEdgeActivity {
             if (message.matches(filter)) visible.add(message);
         }
         adapter.submit(visible);
-        status.setText(getString(R.string.feedback_inbox_summary, all.size(), unread));
+        status.setText(getString(nextCursor == null
+                ? R.string.feedback_inbox_summary : R.string.feedback_inbox_summary_more,
+                all.size(), unread));
+        moreButton.setVisibility(nextCursor == null ? View.GONE : View.VISIBLE);
+        moreButton.setEnabled(!loading && !mutating);
         allButton.setChecked("all".equals(filter));
         newButton.setChecked("new".equals(filter));
         readButton.setChecked("read".equals(filter));
@@ -143,6 +185,7 @@ public final class FeedbackInboxActivity extends EdgeToEdgeActivity {
     }
 
     private void showMessage(Message message) {
+        if (mutating) return;
         String date = message.createdAt <= 0 ? "—" : DateFormat
                 .getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
                 .format(new Date(message.createdAt * 1000L));
@@ -167,23 +210,39 @@ public final class FeedbackInboxActivity extends EdgeToEdgeActivity {
     }
 
     private void confirmDelete(Message message) {
+        if (mutating) return;
         new MaterialAlertDialogBuilder(this).setTitle(R.string.feedback_inbox_delete_title)
                 .setMessage(getString(R.string.feedback_inbox_delete_message, message.subject))
                 .setNegativeButton(R.string.superadmin_cancel, null)
                 .setPositiveButton(R.string.superadmin_delete,
-                        (dialog, which) -> mutate(message, viewModel.delete(message))).show();
+                        (dialog, which) -> mutate(message, viewModel.delete(message), true)).show();
     }
 
     private void mutate(Message message,
                         com.google.android.gms.tasks.Task<?> operation) {
+        mutate(message, operation, false);
+    }
+
+    private void mutate(Message message,
+                        com.google.android.gms.tasks.Task<?> operation,
+                        boolean deleted) {
+        if (mutating) return;
+        mutating = true;
+        loading = false;
+        ++loadGeneration;
         setBusy(true, R.string.superadmin_command_waiting);
         operation.addOnCompleteListener(task -> {
             if (isFinishing() || isDestroyed()) return;
+            mutating = false;
             if (!task.isSuccessful()) {
                 setBusy(false, R.string.feedback_inbox_operation_failed);
                 Toast.makeText(this, R.string.feedback_inbox_operation_failed,
                         Toast.LENGTH_LONG).show();
                 return;
+            }
+            if (deleted) {
+                all.removeIf(value -> value.id.equals(message.id));
+                render();
             }
             load();
         });

@@ -267,6 +267,7 @@ class FirebaseSuperadminStore:
         self.device_id = device_id
         self.base_path = f"devices/{device_id}"
         self.superadmin_path = f"superadmin_devices/{device_id}"
+        self.feedback_path = f"feedback_devices/{device_id}/user_feedback"
 
     def migrate_legacy_data(self) -> int:
         legacy_reference = db.reference(f"{self.base_path}/superadmin")
@@ -351,10 +352,17 @@ class FirebaseSuperadminStore:
         ).update(values)
 
     def device_snapshot(self) -> dict:
-        return _dict(db.reference(self.base_path).get())
+        snapshot = _dict(db.reference(self.base_path).get())
+        snapshot["user_feedback"] = _dict(db.reference(self.feedback_path).get())
+        return snapshot
 
     def apply(self, updates: dict) -> None:
-        db.reference(self.base_path).update(updates)
+        feedback = {key[len("user_feedback/"):]: value for key, value in updates.items() if key.startswith("user_feedback/")}
+        device = {key: value for key, value in updates.items() if not key.startswith("user_feedback/")}
+        if device:
+            db.reference(self.base_path).update(device)
+        if feedback:
+            db.reference(self.feedback_path).update(feedback)
 
     def write_audit(self, operation_id: str, values: dict) -> None:
         db.reference(

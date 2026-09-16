@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <string name="data_sync_title">Veri Senkronizasyonu</string>
+    <string name="data_sync_title">Veriler ve Yedekleme</string>
     <string name="data_sync_intro_title">AVORA veri bağlantısı</string>
     <string name="data_sync_intro_waiting">Bağlantı denetleniyor</string>
     <string name="data_sync_intro_connected">Firebase bağlantısı hazır</string>
@@ -17,7 +17,6 @@
     <string name="data_sync_nas_account_connected">%1$s olarak bağlı</string>
     <string name="data_sync_nas_account_connect">NAS hesabına bağlan</string>
     <string name="data_sync_nas_account_disconnect">NAS bağlantısını kes</string>
-    <string name="data_sync_nas_account_manage">NAS hesabını yönet</string>
     <string name="data_sync_nas_manage_title">NAS hesap güvenliği</string>
     <string name="data_sync_nas_create_invite">Aile üyesi için davet oluştur</string>
     <string name="data_sync_nas_invite_creating">Tek kullanımlık NAS daveti hazırlanıyor…</string>
@@ -143,7 +142,7 @@
     <string name="data_sync_nas_auto_channel_description">Otomatik NAS yedekleme sorunları</string>
     <string name="data_sync_nas_auto_failure_title">Otomatik NAS yedeği yapılamadı</string>
     <string name="data_sync_nas_auto_failure_session">NAS oturumunun süresi doldu. Yeniden bağlanmak için dokunun.</string>
-    <string name="data_sync_nas_auto_failure_firebase">Telefonun Firebase cihaz yetkisi doğrulanamadı. Veri Senkronizasyonu ekranını açın.</string>
+    <string name="data_sync_nas_auto_failure_firebase">Telefonun Firebase cihaz yetkisi doğrulanamadı. Veriler ve Yedekleme ekranını açın.</string>
     <string name="data_sync_nas_auto_failure_connection">NAS yedeği gönderilemedi. İnternet ve NAS bağlantısını kontrol edin.</string>
     <string name="data_sync_nas_photo_label">NAS fotoğraf arşivi</string>
     <string name="data_sync_nas_photo_checking">Fotoğraflar denetleniyor…</string>
@@ -196,4 +195,7 @@
     <string name="data_sync_empty_error">Firebase’de bu cihaza ait veri bulunamadı.</string>
     <string name="data_sync_auto_enabled">Otomatik yenileme açıldı.</string>
     <string name="data_sync_auto_disabled">Otomatik yenileme kapatıldı. Ekranlar açıldığında normal canlı veri okumaları devam eder.</string>
+    <string name="data_sync_portable_backup_section">Taşınabilir yedekler</string>
+    <string name="data_sync_portable_backup_title">Dosyaya yedekleme</string>
+    <string name="data_sync_portable_backup_message">Ayar ve kayıtları JSON dosyasına, fotoğrafları ZIP arşivine aktarın veya güvenli biçimde geri yükleyin.</string>
 </resources>

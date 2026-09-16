@@ -1251,7 +1251,7 @@
     <string name="settings_quick_weather">Yağış\nAyarları</string>
     <string name="settings_quick_fertilization">Gübreleme\nAyarları</string>
     <string name="settings_quick_device">Cihaz\nBilgileri</string>
-    <string name="settings_quick_data_sync">Veri\nSenkronizasyonu</string>
+    <string name="settings_quick_data_sync">Veriler ve\nYedekleme</string>
     <string name="settings_quick_about">Uygulama\nHakkında</string>
     <string name="settings_quick_editor_title">Hızlı Ayarları düzenle</string>
     <string name="settings_quick_editor_message">Dört kısayol seçin, oklarla görünme sırasını değiştirin.</string>
@@ -1292,8 +1292,8 @@
     <string name="settings_device_info_subtitle">Raspberry Pi, ESP32, sensör ve bağlantılar</string>
     <string name="settings_nas_account_title">NAS Hesabı ve Güvenlik</string>
     <string name="settings_nas_account_subtitle">Hesap, parola, oturum ve erişim izinleri</string>
-    <string name="settings_sync_title">Veri Senkronizasyonu</string>
-    <string name="settings_sync_subtitle">Verilerin son eşitlenme durumunu görüntüleyin</string>
+    <string name="settings_sync_title">Veriler ve Yedekleme</string>
+    <string name="settings_sync_subtitle">Senkronizasyonu, NAS ve taşınabilir yedekleri tek yerden yönetin</string>
     <string name="settings_backup_title">Yedekleme</string>
     <string name="settings_backup_subtitle">Ayar ve kayıt yedeklerini yönetin</string>
     <string name="settings_theme_title">Tema</string>
