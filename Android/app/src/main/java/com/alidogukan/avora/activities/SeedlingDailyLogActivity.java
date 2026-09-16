@@ -132,7 +132,10 @@ public final class SeedlingDailyLogActivity extends EdgeToEdgeActivity {
             if (message != null) Toast.makeText(this, message, Toast.LENGTH_LONG).show();
         });
         freshnessTicker = new SeedlingTelemetryFreshnessTicker(
-                this, 45L, () -> renderNode(latestNodeState));
+                this, 45L, () -> {
+                    if (editingLogId.isBlank()) renderNode(latestNodeState);
+                    else renderStoredSensorSnapshot(editingLog);
+                });
         bindViews();
         save.setEnabled(false);
         if (state != null) {
@@ -217,6 +220,8 @@ public final class SeedlingDailyLogActivity extends EdgeToEdgeActivity {
                 finish();
                 return;
             }
+            stopObservingBatchNode();
+            renderStoredSensorSnapshot(editingLog);
             if (seededFromLatestLog) {
                 save.setEnabled(canSaveCurrentLog());
                 return;
@@ -252,6 +257,11 @@ public final class SeedlingDailyLogActivity extends EdgeToEdgeActivity {
 
     private void observeBatchNode() {
         if (batch == null) return;
+        if (!editingLogId.isBlank()) {
+            stopObservingBatchNode();
+            renderStoredSensorSnapshot(editingLog);
+            return;
+        }
         if (!viewModel.shouldObserveLiveTelemetry(batch)) {
             stopObservingBatchNode();
             renderArchivedSensorState();
@@ -305,6 +315,32 @@ public final class SeedlingDailyLogActivity extends EdgeToEdgeActivity {
                         localHour(nowMillis));
         renderWarning(fresh, assessment);
         renderAdvice(fresh, assessment);
+    }
+
+    private void renderStoredSensorSnapshot(@Nullable SeedlingDailyLog log) {
+        if (log == null) {
+            warningCard.setVisibility(View.VISIBLE);
+            warningTitle.setText(R.string.seedling_daily_snapshot_loading_title);
+            warningMessage.setText(R.string.seedling_daily_snapshot_loading_message);
+            adviceCard.setVisibility(View.GONE);
+            return;
+        }
+        SeedlingTelemetry telemetry = log.storedSensorSnapshot();
+        if (telemetry == null) {
+            warningCard.setVisibility(View.VISIBLE);
+            warningTitle.setText(R.string.seedling_daily_snapshot_missing_title);
+            warningMessage.setText(R.string.seedling_daily_snapshot_missing_message);
+            adviceCard.setVisibility(View.GONE);
+            return;
+        }
+        long capturedMillis = Math.max(0L, log.getSensor_captured_at_epoch()) * 1000L;
+        boolean freshAtCapture = log.isSensor_snapshot_fresh();
+        SeedlingEnvironmentGuide.Assessment assessment = SeedlingEnvironmentGuide.assess(
+                batch == null ? "" : batch.getPlant_type(),
+                batch == null ? "" : batch.getStage(),
+                freshAtCapture ? telemetry : null, localHour(capturedMillis));
+        renderWarning(freshAtCapture, assessment);
+        renderAdvice(freshAtCapture, assessment);
     }
 
     private void renderWarning(boolean fresh,
@@ -429,7 +465,8 @@ public final class SeedlingDailyLogActivity extends EdgeToEdgeActivity {
                 ? retainedPhotoStoragePath() : uploaded.getStoragePath();
         Task<Void> operation = !editing
                 ? viewModel.saveDailyLog(batchId, heightValue, leavesValue, healthyValue,
-                        watered, note.getText().toString().trim(), photoId, storagePath)
+                        watered, note.getText().toString().trim(), photoId, storagePath,
+                        latestNodeState == null ? null : latestNodeState.getLatest())
                 : viewModel.updateDailyLog(previousLog, heightValue, leavesValue, healthyValue,
                         watered, note.getText().toString().trim(), photoId, storagePath);
         operation

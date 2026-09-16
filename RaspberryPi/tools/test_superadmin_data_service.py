@@ -233,6 +233,44 @@ def test_delete_is_backed_up_and_restorable() -> None:
         assert at(root, "garden_journal/events/old-event") is not None
 
 
+def test_feedback_delete_is_single_step_backed_up_and_audited() -> None:
+    root = fixture()
+    feedback_id = "123e4567-e89b-12d3-a456-426614174099"
+    root["user_feedback"][feedback_id] = {
+        "id": feedback_id,
+        "subject": "Deneme geri bildirimi",
+        "status": "new",
+    }
+    command_id = "12121212-1212-1212-1212-121212121212"
+    store = FakeStore(root, {command_id: command(
+        "delete_feedback", category="feedback", record_id=feedback_id
+    )})
+    with tempfile.TemporaryDirectory() as folder:
+        service = SuperadminDataService(store, Path(folder), poll_seconds=2)
+        assert service.process_once() == 1
+        backup_id = store.commands[command_id]["backup_id"]
+        backup = json.loads(
+            (Path(folder) / f"{backup_id}.json").read_text(encoding="utf-8")
+        )
+    assert at(root, f"user_feedback/{feedback_id}") is None
+    assert backup["before"][f"user_feedback/{feedback_id}"]["status"] == "new"
+    assert store.commands[command_id]["status"] == "completed"
+    assert store.audit[command_id]["operation"] == "delete_feedback"
+
+
+def test_feedback_delete_cannot_target_another_category() -> None:
+    root = fixture()
+    command_id = "13131313-1313-1313-1313-131313131313"
+    store = FakeStore(root, {command_id: command(
+        "delete_feedback", category="seasons", record_id=OLD
+    )})
+    with tempfile.TemporaryDirectory() as folder:
+        service = SuperadminDataService(store, Path(folder), poll_seconds=2)
+        assert service.process_once() == 1
+    assert store.commands[command_id]["status"] == "failed"
+    assert at(root, f"garden_journal/seasons/{OLD}") is not None
+
+
 def test_non_owner_is_rejected() -> None:
     root = fixture()
     command_id = "44444444-4444-4444-4444-444444444444"

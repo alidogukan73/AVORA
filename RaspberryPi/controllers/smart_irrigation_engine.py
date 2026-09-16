@@ -4,6 +4,8 @@ Smart irrigation decision engine.
 
 from __future__ import annotations
 
+import math
+
 from controllers.moisture_trend_analyzer import (
     MoistureTrendAnalyzer,
 )
@@ -93,13 +95,40 @@ class SmartIrrigationEngine:
         Evaluate the latest sensor reading.
         """
 
-        moisture = int(
-            reading.moisture,
+        try:
+            moisture_value = float(reading.moisture)
+        except (TypeError, ValueError):
+            moisture_value = float("nan")
+
+        moisture_valid = (
+            math.isfinite(moisture_value)
+            and 0.0 <= moisture_value <= 100.0
+        )
+        moisture = (
+            int(round(moisture_value))
+            if moisture_valid
+            else 0
         )
 
-        moisture_limit = int(
-            commands.moisture_limit,
-        )
+        try:
+            moisture_limit = int(commands.moisture_limit)
+        except (TypeError, ValueError):
+            moisture_limit = IrrigationConfig.DEFAULT_MOISTURE_LIMIT
+        moisture_limit = max(0, min(100, moisture_limit))
+
+        # Sensor providers normally validate this range, but the decision
+        # engine is the final hardware safety boundary. Invalid telemetry
+        # must neither enter history nor be interpreted as critically dry.
+        if not moisture_valid:
+            return self._decision(
+                should_water=False,
+                reason="SENSOR_INVALID",
+                moisture=moisture,
+                moisture_limit=moisture_limit,
+                sensor_stable=False,
+                cooldown_active=cooldown_active,
+                trend=self.get_current_trend(),
+            )
 
         # Ölçüm yalnızca bir kez ortak geçmişe eklenir.
         trend = self.observe(moisture)
@@ -294,11 +323,17 @@ class SmartIrrigationEngine:
         every start before they can make an automatic watering decision.
         """
 
-        valid_samples = [
-            sample
-            for sample in samples
-            if 0 <= sample.moisture <= 100
-        ][-self._history_size:]
+        valid_samples = sorted(
+            (
+                sample
+                for sample in samples
+                if (
+                    0 <= sample.moisture <= 100
+                    and math.isfinite(float(sample.timestamp))
+                )
+            ),
+            key=lambda sample: sample.timestamp,
+        )[-self._history_size:]
 
         self._history.clear()
         self._history.extend(valid_samples)
@@ -313,8 +348,25 @@ class SmartIrrigationEngine:
     ) -> MoistureTrend:
         """Store one observation without making an irrigation decision."""
 
+        try:
+            moisture_value = float(moisture)
+        except (TypeError, ValueError):
+            return self._trend_analyzer.analyze()
+
+        if not math.isfinite(moisture_value) or not 0 <= moisture_value <= 100:
+            return self._trend_analyzer.analyze()
+
+        if timestamp is not None:
+            try:
+                timestamp_value = float(timestamp)
+            except (TypeError, ValueError):
+                return self._trend_analyzer.analyze()
+            if not math.isfinite(timestamp_value):
+                return self._trend_analyzer.analyze()
+            timestamp = timestamp_value
+
         self._history.add(
-            moisture,
+            int(round(moisture_value)),
             timestamp=timestamp,
         )
         return self._trend_analyzer.analyze()

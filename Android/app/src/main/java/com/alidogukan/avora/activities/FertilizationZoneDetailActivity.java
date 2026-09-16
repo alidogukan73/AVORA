@@ -504,7 +504,7 @@ public class FertilizationZoneDetailActivity
                     try {
                         double ph = parseOptionalDecimal(textOf(phInput));
                         double ec = parseOptionalDecimal(textOf(ecInput));
-                        if (ph < 0 || ph > 14 || ec < 0 || ec > 20) throw new IllegalArgumentException();
+                        if (!Double.isFinite(ph) || !Double.isFinite(ec) || ph < 0 || ph > 14 || ec < 0 || ec > 20) throw new IllegalArgumentException();
                         viewModel.updateWaterAnalysis(zoneId, ph, ec)
                                 .addOnFailureListener(error -> Toast.makeText(this,
                                         R.string.runtime_water_analysis_save_failed, Toast.LENGTH_LONG).show());
@@ -989,7 +989,7 @@ public class FertilizationZoneDetailActivity
                             .trim()
                             .replace(',', '.')
             );
-            return Math.max(0.0, value);
+            return Double.isFinite(value) ? Math.max(0.0, value) : 0.0;
         } catch (NumberFormatException ignored) {
             return 0.0;
         }
@@ -1681,7 +1681,7 @@ public class FertilizationZoneDetailActivity
                     } catch (Exception ignored) {
                         dose = 0.0;
                     }
-                    if (dose <= 0.0) {
+                    if (!Double.isFinite(dose) || dose <= 0.0) {
                         input.setError(
                                 getString(
                                         R.string.fertilization_invalid_dose

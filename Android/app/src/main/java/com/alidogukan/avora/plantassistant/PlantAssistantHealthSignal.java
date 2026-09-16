@@ -8,6 +8,8 @@ public final class PlantAssistantHealthSignal {
     private final String seasonId;
     private final String urgency;
     private final String title;
+    private final String advice;
+    private final String recordId;
     private final long createdAtEpoch;
 
     public PlantAssistantHealthSignal(String zoneId, String urgency, String title, long createdAtEpoch) {
@@ -16,10 +18,23 @@ public final class PlantAssistantHealthSignal {
 
     public PlantAssistantHealthSignal(String zoneId, String seasonId, String urgency,
                                       String title, long createdAtEpoch) {
+        this(zoneId, seasonId, urgency, title, "", createdAtEpoch);
+    }
+
+    public PlantAssistantHealthSignal(String zoneId, String seasonId, String urgency,
+                                      String title, String advice, long createdAtEpoch) {
+        this(zoneId, seasonId, urgency, title, advice, "", createdAtEpoch);
+    }
+
+    public PlantAssistantHealthSignal(String zoneId, String seasonId, String urgency,
+                                      String title, String advice, String recordId,
+                                      long createdAtEpoch) {
         this.zoneId = zoneId == null ? "" : zoneId;
         this.seasonId = seasonId == null ? "" : seasonId;
         this.urgency = urgency == null ? "" : urgency;
         this.title = title == null ? "" : title;
+        this.advice = advice == null ? "" : advice;
+        this.recordId = recordId == null ? "" : recordId;
         this.createdAtEpoch = createdAtEpoch;
     }
 
@@ -27,6 +42,8 @@ public final class PlantAssistantHealthSignal {
     public String getSeasonId() { return seasonId; }
     public String getUrgency() { return urgency; }
     public String getTitle() { return title; }
+    public String getAdvice() { return advice; }
+    public String getRecordId() { return recordId; }
 
     public long getCreatedAtEpoch() { return createdAtEpoch; }
 

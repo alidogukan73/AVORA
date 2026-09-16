@@ -35,6 +35,7 @@ import com.alidogukan.avora.models.UnifiedConfidence;
 import com.alidogukan.avora.models.SoilLearningProfile;
 import com.alidogukan.avora.models.GardenZone;
 import com.alidogukan.avora.models.ZoneAIState;
+import com.alidogukan.avora.ui.irrigationassistant.ZoneAIStateFreshnessChecker;
 import com.alidogukan.avora.models.WeatherForecast;
 
 import com.google.android.material.button.MaterialButton;
@@ -2504,7 +2505,11 @@ public class AIAssistantActivity extends EdgeToEdgeActivity {
         return !zoneId.isEmpty()
                 && !sensorId.isEmpty()
                 && zoneId.equals(aiZoneId)
-                && sensorId.equals(aiSensorId);
+                && sensorId.equals(aiSensorId)
+                && ZoneAIStateFreshnessChecker.isFresh(
+                        zoneAI.getUpdatedAt(),
+                        java.time.LocalDateTime.now()
+                );
     }
 
     private void renderZoneAIWaiting(GardenZone zone) {

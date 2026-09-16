@@ -3,6 +3,9 @@ package com.alidogukan.avora.plantassistant;
 import android.content.Context;
 import android.content.SharedPreferences;
 
+import com.alidogukan.avora.models.GardenPhoto;
+import com.alidogukan.avora.photos.LocalGardenPhotoStore;
+
 import org.json.JSONObject;
 
 import java.util.ArrayList;
@@ -16,6 +19,7 @@ public final class PlantAssistantRecommendationStore {
     private static final String LEGACY_PREFS = "plant_doctor_recommendation";
     private static final String KEY_TITLE = "title";
     private static final String KEY_ADVICE = "advice";
+    private static final String KEY_RECORD_ID = "record_id";
     private static final String KEY_ZONE_ID = "zone_id";
     private static final String KEY_SEASON_ID = "season_id";
     private static final String KEY_URGENCY = "urgency";
@@ -42,6 +46,11 @@ public final class PlantAssistantRecommendationStore {
 
     public static void save(Context context, String zoneId, String seasonId,
                             String urgency, String title, String advice) {
+        save(context, zoneId, seasonId, urgency, title, advice, "");
+    }
+
+    public static void save(Context context, String zoneId, String seasonId,
+                            String urgency, String title, String advice, String recordId) {
         String cleanAdvice = clean(advice);
         if (cleanAdvice.isEmpty()) return;
         String cleanZoneId = clean(zoneId);
@@ -57,12 +66,13 @@ public final class PlantAssistantRecommendationStore {
                     .putString(KEY_ZONE_ID, cleanZoneId)
                     .putString(KEY_SEASON_ID, cleanSeasonId)
                     .putString(KEY_URGENCY, clean(urgency))
+                    .putString(KEY_RECORD_ID, clean(recordId))
                     .putLong(KEY_CREATED_AT, createdAt);
             if (!cleanZoneId.isEmpty()) {
                 editor.putString(KEY_HEALTH_SIGNALS, updatedSignals(
                         signalJson,
                         cleanZoneId, cleanSeasonId, clean(urgency),
-                        clean(title), createdAt));
+                        clean(title), cleanAdvice, clean(recordId), createdAt));
             }
             editor.apply();
         }
@@ -78,6 +88,7 @@ public final class PlantAssistantRecommendationStore {
         synchronized (LOCK) {
             SharedPreferences preferences = preferences(context);
             List<PlantAssistantHealthSignal> result = new ArrayList<>();
+            PlantAssistantHealthSignal legacy = signalFromLegacy(preferences);
             try {
                 JSONObject values = new JSONObject(
                         preferences.getString(KEY_HEALTH_SIGNALS, "{}"));
@@ -85,22 +96,42 @@ public final class PlantAssistantRecommendationStore {
                 while (keys.hasNext()) {
                     JSONObject item = values.optJSONObject(keys.next());
                     if (item == null) continue;
+                    String zoneId = clean(item.optString(KEY_ZONE_ID));
+                    String seasonId = clean(item.optString(KEY_SEASON_ID));
+                    String advice = clean(item.optString(KEY_ADVICE));
+                    if (advice.isEmpty() && zoneId.equals(legacy.getZoneId())
+                            && seasonId.equals(legacy.getSeasonId())) {
+                        advice = clean(legacy.getAdvice());
+                    }
                     PlantAssistantHealthSignal signal = new PlantAssistantHealthSignal(
-                            clean(item.optString(KEY_ZONE_ID)),
-                            clean(item.optString(KEY_SEASON_ID)),
+                            zoneId, seasonId,
                             clean(item.optString(KEY_URGENCY)),
                             clean(item.optString(KEY_TITLE)),
+                            advice,
+                            clean(item.optString(KEY_RECORD_ID)),
                             item.optLong(KEY_CREATED_AT, 0L)
                     );
                     if (!signal.getZoneId().isEmpty()) result.add(signal);
                 }
             } catch (Exception ignored) { }
-            PlantAssistantHealthSignal legacy = signalFromLegacy(preferences);
             if (!legacy.getZoneId().isEmpty() && !containsScope(
                     result, legacy.getZoneId(), legacy.getSeasonId())) {
                 result.add(legacy);
             }
-            return result;
+            boolean needsPhotoLookup = false;
+            for (PlantAssistantHealthSignal signal : result) {
+                if (clean(signal.getAdvice()).isEmpty()) {
+                    needsPhotoLookup = true;
+                    break;
+                }
+            }
+            if (!needsPhotoLookup) return result;
+            List<GardenPhoto> photos = new LocalGardenPhotoStore(context).load();
+            List<PlantAssistantHealthSignal> enriched = new ArrayList<>(result.size());
+            for (PlantAssistantHealthSignal signal : result) {
+                enriched.add(PlantAssistantRecordResolver.enrich(signal, photos));
+            }
+            return enriched;
         }
     }
 
@@ -118,7 +149,8 @@ public final class PlantAssistantRecommendationStore {
     }
 
     private static String updatedSignals(String raw, String zoneId, String seasonId,
-                                         String urgency, String title, long createdAt) {
+                                         String urgency, String title, String advice,
+                                         String recordId, long createdAt) {
         JSONObject values;
         try {
             values = new JSONObject(raw == null ? "{}" : raw);
@@ -142,6 +174,8 @@ public final class PlantAssistantRecommendationStore {
             item.put(KEY_SEASON_ID, seasonId);
             item.put(KEY_URGENCY, urgency);
             item.put(KEY_TITLE, title);
+            item.put(KEY_ADVICE, advice);
+            item.put(KEY_RECORD_ID, recordId);
             item.put(KEY_CREATED_AT, createdAt);
             if (!seasonId.isEmpty()) {
                 values.remove(scopeKey(zoneId, ""));
@@ -176,6 +210,8 @@ public final class PlantAssistantRecommendationStore {
             item.put(KEY_SEASON_ID, legacy.getSeasonId());
             item.put(KEY_URGENCY, legacy.getUrgency());
             item.put(KEY_TITLE, legacy.getTitle());
+            item.put(KEY_ADVICE, legacy.getAdvice());
+            item.put(KEY_RECORD_ID, legacy.getRecordId());
             item.put(KEY_CREATED_AT, createdAt);
             values.put(key, item);
         } catch (Exception ignored) { }
@@ -202,6 +238,8 @@ public final class PlantAssistantRecommendationStore {
                 preferences.getString(KEY_SEASON_ID, ""),
                 preferences.getString(KEY_URGENCY, ""),
                 preferences.getString(KEY_TITLE, ""),
+                preferences.getString(KEY_ADVICE, ""),
+                preferences.getString(KEY_RECORD_ID, ""),
                 preferences.getLong(KEY_CREATED_AT, 0L)
         );
     }

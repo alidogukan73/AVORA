@@ -365,7 +365,7 @@ public class FertilizerHistoryActivity extends EdgeToEdgeActivity {
                                                 "dd-MM-yyyy"
                                         )
                                 );
-                                if (dose <= 0.0) {
+                                if (!Double.isFinite(dose) || dose <= 0.0 || selected.isAfter(LocalDate.now())) {
                                     return;
                                 }
                                 long intervalSeconds = Math.max(

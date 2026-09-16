@@ -12,7 +12,7 @@ class AppConfig:
 
     DEVICE_ID = "avora-001"
 
-    VERSION = "2.12.2"
+    VERSION = "2.12.3"
 
     LOOP_DELAY_SECONDS = 2.0
 

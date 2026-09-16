@@ -689,7 +689,7 @@ public class FertilizerProductsActivity extends EdgeToEdgeActivity {
         try {
             double dose = Double.parseDouble(doseText);
             int interval = Integer.parseInt(intervalText);
-            if (dose <= 0 || interval < 0 || interval > 365) {
+            if (!Double.isFinite(dose) || dose <= 0 || interval < 0 || interval > 365) {
                 return null;
             }
             FertilizerProduct product = existing == null
@@ -747,7 +747,9 @@ public class FertilizerProductsActivity extends EdgeToEdgeActivity {
             return 0.0;
         }
         try {
-            return Math.max(0.0, Double.parseDouble(value));
+            double parsed = Double.parseDouble(value);
+            if (!Double.isFinite(parsed) || parsed < 0.0) throw new NumberFormatException();
+            return parsed;
         } catch (NumberFormatException ignored) {
             return 0.0;
         }

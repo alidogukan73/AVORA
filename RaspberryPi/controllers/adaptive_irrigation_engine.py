@@ -40,6 +40,8 @@ class AdaptiveIrrigationEngine:
     HIGH_CONFIDENCE = 0.85
 
     MAXIMUM_CHANGE_RATIO = 0.20
+    MINIMUM_COMPARABLE_DURATION_RATIO = 0.50
+    MAXIMUM_COMPARABLE_DURATION_RATIO = 1.50
 
     MINIMUM_VALID_MOISTURE_GAIN = 1
     MAXIMUM_VALID_MOISTURE_GAIN = 30
@@ -63,6 +65,30 @@ class AdaptiveIrrigationEngine:
         eligible_records = self._eligible_records(
             records
         )
+        configured_duration = max(1, int(current_pump_duration_seconds))
+        minimum_comparable_duration = max(
+            1,
+            round(
+                configured_duration
+                * self.MINIMUM_COMPARABLE_DURATION_RATIO
+            ),
+        )
+        maximum_comparable_duration = max(
+            minimum_comparable_duration,
+            round(
+                configured_duration
+                * self.MAXIMUM_COMPARABLE_DURATION_RATIO
+            ),
+        )
+        eligible_records = [
+            record
+            for record in eligible_records
+            if (
+                minimum_comparable_duration
+                <= record.duration
+                <= maximum_comparable_duration
+            )
+        ]
 
         watering_count = len(
             eligible_records
@@ -231,6 +257,12 @@ class AdaptiveIrrigationEngine:
             if record.duration <= 0:
                 continue
 
+            if not (
+                0 <= record.moisture_before <= 100
+                and 0 <= record.moisture_after <= 100
+            ):
+                continue
+
             if not record.firmware.startswith(
                 self.SUPPORTED_FIRMWARE_PREFIXES
             ):
@@ -248,10 +280,15 @@ class AdaptiveIrrigationEngine:
             ):
                 continue
 
-            if (
+            observed_delta = (
                 record.moisture_after
-                < record.moisture_before
-            ):
+                - record.moisture_before
+            )
+
+            if observed_delta < 0:
+                continue
+
+            if abs(record.moisture_delta - observed_delta) > 0.01:
                 continue
 
             eligible_records.append(

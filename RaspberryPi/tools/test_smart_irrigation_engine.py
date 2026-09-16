@@ -147,6 +147,24 @@ def run_hysteresis_scenario() -> None:
     )
 
 
+def run_invalid_sensor_scenario() -> None:
+    """Invalid telemetry must never enter history or request watering."""
+
+    engine = SmartIrrigationEngine()
+    commands = create_commands()
+    for moisture in (-1, 101, float("nan")):
+        decision = engine.evaluate(
+            reading=create_reading(moisture),
+            commands=commands,
+            cooldown_active=False,
+        )
+        assert decision.should_water is False
+        assert decision.reason == "SENSOR_INVALID"
+        assert decision.trend_sample_count == 0
+
+    print("Scenario 6 - Invalid sensor fail-safe: PASS")
+
+
 def main() -> None:
     """
     Run manual engine tests.
@@ -164,6 +182,7 @@ def main() -> None:
     )
 
     run_hysteresis_scenario()
+    run_invalid_sensor_scenario()
 
     run_scenario(
         "Senaryo 2 - Nem düşük ve sensör kararlı",

@@ -79,6 +79,23 @@ public final class GardenHealthNavigationTest {
     }
 
     @Test
+    public void assistantWarningExplainsFindingAndNextAction() {
+        PlantAssistantHealthSignal signal = new PlantAssistantHealthSignal(
+                "zone-001", "season-001", "Orta", "Alt yapraklarda sararma",
+                "Yaprak altlarını zararlı açısından kontrol edin ve iki gün sonra yeni fotoğraf ekleyin.",
+                NOW);
+        GardenHealthZoneResult result = evaluate(zone(), signal);
+        String reason = result.getIssues().get(0).getReason();
+        assertTrue(reason.contains("Alt yapraklarda sararma"));
+        assertTrue(reason.contains("Yapılacak:"));
+        assertTrue(reason.contains("Yaprak altlarını"));
+        GardenHealthSummary summary = GardenHealthCalculator.calculate(
+                Arrays.asList(zone()), NOW, signal);
+        assertTrue(summary.getDetail().startsWith("1. Bölge · Bitki Asistanı:"));
+        assertTrue(summary.getDetail().contains("iki gün sonra yeni fotoğraf"));
+    }
+
+    @Test
     public void normalAreaHasNoIssueAndKeeps100() {
         GardenHealthZoneResult result = evaluate(zone(), null);
         assertEquals(100, result.getScore());

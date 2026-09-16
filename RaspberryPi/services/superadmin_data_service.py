@@ -815,6 +815,12 @@ class SuperadminDataService:
                     raise ValueError(
                         "Veriler önizlemeden sonra değişti. Silme önizlemesini yenileyin."
                     )
+            elif operation == "delete_feedback":
+                if category != "feedback":
+                    raise ValueError(
+                        "Hızlı silme yalnız geri bildirim kayıtlarında kullanılabilir."
+                    )
+                updates = SuperadminMutationPlanner.delete(root, category, record_id)
             elif operation == "update":
                 updates = self._update_plan(root, command, category, record_id)
             elif operation == "restore":

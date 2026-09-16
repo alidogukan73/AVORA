@@ -3,6 +3,8 @@
     <string name="settings_superadmin_category">Administrator tools</string>
     <string name="settings_superadmin_title">Superadmin Data Management</string>
     <string name="settings_superadmin_subtitle">Inspect, correct, safely delete, and restore records</string>
+    <string name="settings_feedback_inbox_title">Feedback Inbox</string>
+    <string name="settings_feedback_inbox_subtitle">Review, update, or safely delete user messages</string>
     <string name="superadmin_owner_verified">Device owner verification required</string>
     <string name="superadmin_intro">Every change is applied by Raspberry Pi, privately backed up first, and added to the audit history.</string>
     <string name="superadmin_category_label">Data type</string>

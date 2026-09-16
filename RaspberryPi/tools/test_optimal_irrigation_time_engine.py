@@ -1,5 +1,7 @@
 """Safety and scheduling checks for optimal irrigation time planning."""
 
+from dataclasses import replace
+
 from controllers.optimal_irrigation_time_engine import OptimalIrrigationTimeEngine
 
 
@@ -59,6 +61,31 @@ def main() -> None:
         now_epoch=NOW + 60,
     )
     assert persisted.recommended_at_epoch == planned.recommended_at_epoch
+
+    scoped_plan = replace(
+        planned,
+        scope_key="season-2026",
+        sensor_id="soil-001",
+    )
+    same_scope = engine.evaluate(
+        forecast=forecast(slot(2, 6)),
+        moisture_deficit=6,
+        existing_plan=scoped_plan.to_dict(),
+        now_epoch=NOW + 60,
+        scope_key="season-2026",
+        sensor_id="soil-001",
+    )
+    assert same_scope.recommended_at_epoch == planned.recommended_at_epoch
+
+    changed_scope = engine.evaluate(
+        forecast=forecast(slot(2, 6)),
+        moisture_deficit=6,
+        existing_plan=scoped_plan.to_dict(),
+        now_epoch=NOW + 60,
+        scope_key="season-2027",
+        sensor_id="soil-001",
+    )
+    assert changed_scope.recommended_at_epoch != planned.recommended_at_epoch
 
     due = engine.evaluate(
         forecast=forecast(slot(1, 6)),

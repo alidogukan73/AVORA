@@ -211,6 +211,36 @@ def main() -> None:
 
     engine = AIDecisionEngine()
 
+    disabled_without_samples = engine.analyze(
+        irrigation_decision=create_irrigation_decision(
+            reason="SYSTEM_DISABLED",
+            sensor_stable=False,
+        ),
+        adaptive_recommendation=create_adaptive_recommendation(),
+        soil_profile=create_soil_profile(),
+    )
+    assert disabled_without_samples.decision_code == "SYSTEM_DISABLED"
+
+    learning_but_watering = engine.analyze(
+        irrigation_decision=create_irrigation_decision(
+            should_water=True,
+            reason="MOISTURE_BELOW_LIMIT",
+        ),
+        adaptive_recommendation=create_adaptive_recommendation(
+            recommendation_type="INSUFFICIENT_DATA",
+            confidence=0.0,
+            confidence_level="LOW",
+        ),
+        soil_profile=create_soil_profile(
+            profile_status="INSUFFICIENT_DATA",
+            soil_classification="UNKNOWN",
+            confidence=0.0,
+            confidence_level="LOW",
+        ),
+    )
+    assert learning_but_watering.decision_code == "WATERING_RECOMMENDED"
+    assert learning_but_watering.should_water is True
+
     run_scenario(
         engine,
         name="Senaryo 1 - Sensör kararsız",

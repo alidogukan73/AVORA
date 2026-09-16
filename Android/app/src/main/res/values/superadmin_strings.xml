@@ -3,6 +3,8 @@
     <string name="settings_superadmin_category">Yönetici araçları</string>
     <string name="settings_superadmin_title">Superadmin Veri Yönetimi</string>
     <string name="settings_superadmin_subtitle">Kayıtları denetle, düzelt, yedekli sil ve geri al</string>
+    <string name="settings_feedback_inbox_title">Geri Bildirim Kutusu</string>
+    <string name="settings_feedback_inbox_subtitle">Kullanıcı mesajlarını incele, güncelle veya yedekli sil</string>
     <string name="superadmin_owner_verified">Cihaz sahibi doğrulaması gerekli</string>
     <string name="superadmin_intro">Her değişiklik Raspberry Pi tarafından uygulanır, önce özel olarak yedeklenir ve işlem geçmişine kaydedilir.</string>
     <string name="superadmin_category_label">Veri türü</string>

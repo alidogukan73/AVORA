@@ -18,6 +18,19 @@ import java.util.Map;
 public class FertilizerApplicationSafetyTest {
 
     @Test
+    public void nonFiniteDoseAndStockAreNeverReady() {
+        FertilizationProfile profile = profile(20.0, 100.0, "FRUITING");
+        assertFalse(FertilizerApplicationSafety.calculateDose(
+                profile, Double.NaN, 5.0, "kg/dekar").isSupported());
+        assertFalse(FertilizerApplicationSafety.calculateDose(
+                profile, Double.POSITIVE_INFINITY, 5.0, "kg/dekar").isSupported());
+        FertilizerProduct product = product("kg/dekar", 5.0);
+        product.setStock_amount(Double.POSITIVE_INFINITY);
+        assertFalse(FertilizerApplicationSafety.hasEnoughStock(product, 100.0));
+        product.setStock_amount(200.0);
+        assertFalse(FertilizerApplicationSafety.hasEnoughStock(product, Double.NaN));
+    }
+    @Test
     public void kilogramPerDecareIsConvertedToGramsForZoneArea() {
         FertilizerProduct product = product("kg/dekar · 1 ton su ile", 5.0);
         FertilizationProfile profile = profile(20.0, 100.0, "FRUITING");

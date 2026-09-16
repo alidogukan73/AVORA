@@ -38,6 +38,7 @@ class PredictionValidationQueue:
     """
 
     TARGET_MINUTES = 60
+    MAX_VALIDATION_DELAY_SECONDS = 15 * 60
 
     def __init__(self) -> None:
         self._engine = PredictionValidationEngine()
@@ -45,6 +46,13 @@ class PredictionValidationQueue:
         self._pending: list[
             PendingPredictionValidation
         ] = []
+        self._last_expired_count = 0
+
+    @property
+    def last_expired_count(self) -> int:
+        """Return how many overdue predictions the latest validation dropped."""
+
+        return self._last_expired_count
 
     @property
     def count(self) -> int:
@@ -183,6 +191,7 @@ class PredictionValidationQueue:
         """
 
         now = current_time or datetime.now()
+        self._last_expired_count = 0
 
         validated: list[
             tuple[
@@ -196,6 +205,22 @@ class PredictionValidationQueue:
         ] = []
 
         for pending in self._pending:
+
+            try:
+                validate_at = datetime.fromisoformat(pending.validate_at)
+            except ValueError:
+                # A malformed persisted timestamp can never be validated
+                # safely, so remove it instead of blocking the queue.
+                self._last_expired_count += 1
+                continue
+
+            if (
+                now - validate_at
+            ).total_seconds() > self.MAX_VALIDATION_DELAY_SECONDS:
+                # A reading received long after the intended target time is
+                # not evidence for one-hour forecast accuracy.
+                self._last_expired_count += 1
+                continue
 
             result = self._engine.validate(
                 pending=pending,

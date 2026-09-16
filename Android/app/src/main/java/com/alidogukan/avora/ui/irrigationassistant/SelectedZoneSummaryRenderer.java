@@ -24,6 +24,7 @@ import static com.alidogukan.avora.ui.irrigationassistant.IrrigationAssistantCod
 import static com.alidogukan.avora.ui.irrigationassistant.IrrigationAssistantCodes.INSUFFICIENT_SENSOR_SAMPLES;
 import static com.alidogukan.avora.ui.irrigationassistant.IrrigationAssistantCodes.MOISTURE_BELOW_LIMIT;
 import static com.alidogukan.avora.ui.irrigationassistant.IrrigationAssistantCodes.MOISTURE_SUFFICIENT;
+import static com.alidogukan.avora.ui.irrigationassistant.IrrigationAssistantCodes.SENSOR_INVALID;
 import static com.alidogukan.avora.ui.irrigationassistant.IrrigationAssistantCodes.SENSOR_UNSTABLE;
 import static com.alidogukan.avora.ui.irrigationassistant.IrrigationAssistantCodes.SYSTEM_DISABLED;
 import static com.alidogukan.avora.ui.irrigationassistant.IrrigationAssistantCodes.VALVE_NOT_PHYSICAL;
@@ -271,7 +272,7 @@ public final class SelectedZoneSummaryRenderer {
         if (WEATHER_WIND_DELAY.equals(reason)) {
             return context.getString(R.string.ai_zone_weather_wind_delay);
         }
-        if (SENSOR_UNSTABLE.equals(reason)) {
+        if (SENSOR_UNSTABLE.equals(reason) || SENSOR_INVALID.equals(reason)) {
             return context.getString(R.string.ai_zone_unstable);
         }
         return context.getString(R.string.ai_zone_learning);
@@ -282,6 +283,7 @@ public final class SelectedZoneSummaryRenderer {
                 || WAITING_FOR_MOISTURE_RECOVERY.equals(reason)
                 || VALVE_NOT_PHYSICAL.equals(reason)
                 || SENSOR_UNSTABLE.equals(reason)
+                || SENSOR_INVALID.equals(reason)
                 || WEATHER_RAIN_DELAY.equals(reason)
                 || WEATHER_WIND_DELAY.equals(reason);
     }

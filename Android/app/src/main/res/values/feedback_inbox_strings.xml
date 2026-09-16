@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="feedback_inbox_intro">Kullanıcı geri bildirimlerini burada takip edin. Teknik veri düzenlemeleri Superadmin Veri Yönetimi’nde kalır.</string>
+    <string name="feedback_inbox_filter_all">Tümü</string>
+    <string name="feedback_inbox_filter_new">Okunmadı</string>
+    <string name="feedback_inbox_filter_read">Okundu</string>
+    <string name="feedback_inbox_filter_resolved">Çözüldü</string>
+    <string name="feedback_inbox_status_new">OKUNMADI</string>
+    <string name="feedback_inbox_status_read">OKUNDU</string>
+    <string name="feedback_inbox_status_resolved">ÇÖZÜLDÜ</string>
+    <string name="feedback_inbox_open">Mesajı aç</string>
+    <string name="feedback_inbox_no_subject">Başlıksız geri bildirim</string>
+    <string name="feedback_inbox_summary">%1$d mesaj · %2$d okunmadı</string>
+    <string name="feedback_inbox_loading">Mesajlar yükleniyor…</string>
+    <string name="feedback_inbox_load_failed">Mesajlar yüklenemedi. Bağlantıyı kontrol edip yenileyin.</string>
+    <string name="feedback_inbox_verifying">Yönetici hesabı doğrulanıyor…</string>
+    <string name="feedback_inbox_unlock_title">Geri Bildirim Kutusu doğrulaması</string>
+    <string name="feedback_inbox_unlock_message">Kullanıcı mesajlarını yönetmek için ekran kilidinizle doğrulayın.</string>
+    <string name="feedback_inbox_detail_format">Bölüm: %1$s\nTarih: %2$s\nTür: %3$s\nİletişim: %4$s\n\n%5$s</string>
+    <string name="feedback_inbox_mark_read">Okundu işaretle</string>
+    <string name="feedback_inbox_resolve">Çözüldü</string>
+    <string name="feedback_inbox_reopen">Yeniden aç</string>
+    <string name="feedback_inbox_delete_title">Geri bildirim silinsin mi?</string>
+    <string name="feedback_inbox_delete_message">“%1$s” geri bildirimi önce yedeklenip ardından silinecek.</string>
+    <string name="feedback_inbox_operation_failed">İşlem tamamlanamadı.</string>
+</resources>

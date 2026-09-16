@@ -292,7 +292,7 @@ public final class PlantAssistantViewModel extends AndroidViewModel {
                 }
                 if (actionable) {
                     PlantAssistantRecommendationStore.save(
-                            getApplication(), zoneId, seasonId, urgency, title, advice);
+                            getApplication(), zoneId, seasonId, urgency, title, advice, photoId);
                 }
                 syncPhoto(updated, syncFailure);
                 if (actionable) {

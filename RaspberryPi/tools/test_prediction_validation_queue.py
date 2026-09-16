@@ -176,6 +176,27 @@ def test_due_item_is_validated() -> None:
     )
 
 
+def test_stale_due_item_is_discarded() -> None:
+    """A late sensor reconnect must not corrupt one-hour accuracy."""
+
+    queue = PredictionValidationQueue()
+    start_time = datetime.now()
+    queue.enqueue(
+        prediction=create_prediction(),
+        current_time=start_time,
+    )
+
+    validated = queue.validate_due(
+        actual_moisture=10.0,
+        current_time=start_time + timedelta(minutes=76),
+    )
+
+    assert validated == []
+    assert queue.count == 0
+    assert queue.last_expired_count == 1
+    print("[PASS] Late prediction validation discarded.")
+
+
 def test_cancel_all() -> None:
     """
     Test cancellation when irrigation occurs.
@@ -341,6 +362,7 @@ def main() -> None:
     test_duplicate_is_rejected()
     test_not_due_item_remains()
     test_due_item_is_validated()
+    test_stale_due_item_is_discarded()
     test_cancel_all()
     test_new_item_after_validation()
 

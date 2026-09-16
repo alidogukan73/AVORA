@@ -45,7 +45,12 @@ public final class FertilizerDecisionEngine {
                                            long now,
                                            boolean preferOrganicInputs,
                                            DisplayUnitFormatter units) {
+        if (zone == null) {
+            return new FertilizerAdvice("Bölge", FertilizerAdvice.STATUS_PLAN_NOT_READY,
+                    "Gübreleme önerisi için bir bölge seçin.", "", new ArrayList<>(), new ArrayList<>());
+        }
         FertilizationProfile profile = zone.getFertilization();
+        if (products == null) products = new ArrayList<>();
         String title = com.alidogukan.avora.zones.PhysicalZoneIdentity.name(zone);
         String normalizedStage = profile == null
                 ? "NOT_SET"
@@ -77,7 +82,7 @@ public final class FertilizerDecisionEngine {
                 candidates.add(score(
                         product,
                         profile,
-                        remainingDays(profile, product),
+                        remainingDays(profile, product, now),
                         FertilizerPerformanceAdvisor.evaluate(
                                 zone, product, history, now
                         ),
@@ -350,7 +355,7 @@ public final class FertilizerDecisionEngine {
                                        WeatherForecast weather, long now,
                                        DisplayUnitFormatter units) {
         List<String> parts = new ArrayList<>();
-        long age = plantAge(profile.getPlanting_date());
+        long age = plantAge(profile.getPlanting_date(), now);
         if (age >= 0) parts.add(age + " günlük");
         parts.add(stageLabel(profile.getGrowth_stage()));
         if (FertilizerDataFreshnessPolicy.isSensorFresh(zone, now)) {
@@ -367,20 +372,24 @@ public final class FertilizerDecisionEngine {
         return String.join(" · ", parts);
     }
 
-    private static long plantAge(String value) {
-        try { return ChronoUnit.DAYS.between(LocalDate.parse(value, java.time.format.DateTimeFormatter.ofPattern("dd-MM-yyyy")), LocalDate.now()) + 1; }
+    private static long plantAge(String value, long now) {
+        try { return ChronoUnit.DAYS.between(LocalDate.parse(value, java.time.format.DateTimeFormatter.ofPattern("dd-MM-yyyy")), dateAt(now)) + 1; }
         catch (Exception ignored) { return -1; }
     }
     private static long remainingDays(FertilizationProfile profile,
-                                      FertilizerProduct product) {
+                                      FertilizerProduct product, long now) {
         return daysUntil(FertilizerApplicationSafety.nextApplicationAt(
-                profile, applicationType(product)));
+                profile, applicationType(product)), now);
     }
-    private static long daysUntil(long epoch) {
-        if (epoch <= 0) return 0L;
-        return Math.max(0L, ChronoUnit.DAYS.between(LocalDate.now(),
+    private static long daysUntil(long epoch, long now) {
+        if (epoch <= now) return 0L;
+        return Math.max(1L, ChronoUnit.DAYS.between(dateAt(now),
                 java.time.Instant.ofEpochSecond(epoch)
                         .atZone(java.time.ZoneId.systemDefault()).toLocalDate()));
+    }
+    private static LocalDate dateAt(long epoch) {
+        return java.time.Instant.ofEpochSecond(epoch)
+                .atZone(java.time.ZoneId.systemDefault()).toLocalDate();
     }
     private static long nearestWait(List<Candidate> candidates) {
         long nearest = Long.MAX_VALUE;

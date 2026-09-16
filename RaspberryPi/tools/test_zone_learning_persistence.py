@@ -28,6 +28,7 @@ install_hardware_import_stubs()
 
 from controllers.multi_zone_decision_engine import MultiZoneDecisionEngine
 from models.sensor_reading import SensorReading
+from models.watering_record import WateringRecord
 from services.irrigation_service import IrrigationService
 
 
@@ -52,6 +53,7 @@ class FakeFirebase:
         }
         self.load_calls: list[tuple[str, str, int]] = []
         self.saved = []
+        self.watering_records = []
 
     def get_all_zone_configs_by_sensor(self) -> dict[str, dict]:
         return self.configs
@@ -80,6 +82,18 @@ class FakeFirebase:
 
     def save_sensor_history(self, entry) -> None:
         self.saved.append(entry)
+
+    def get_recent_watering_records(self, **kwargs) -> list:
+        zone_id = str(kwargs.get("zone_id", ""))
+        sensor_id = str(kwargs.get("sensor_id", ""))
+        return [
+            record
+            for record in self.watering_records
+            if (
+                (not zone_id or record.zone_id == zone_id)
+                and (not sensor_id or record.sensor_id == sensor_id)
+            )
+        ]
 
 
 def reading(sensor_id: str, moisture: int) -> SensorReading:
@@ -115,6 +129,47 @@ def main() -> None:
     assert second.sample_count == 100
     assert first.change_per_minute < 0
     assert second.change_per_minute == 0
+
+    finished = datetime.now() - timedelta(minutes=60)
+    firebase.watering_records = [
+        WateringRecord(
+            started_at=(finished - timedelta(seconds=10)).isoformat(),
+            finished_at=finished.isoformat(),
+            duration=10,
+            moisture_before=35,
+            moisture_after=45,
+            moisture_delta=10,
+            moisture_limit=40,
+            restart_delta=10,
+            cooldown_seconds=600,
+            completed=True,
+            stop_reason="COMPLETED",
+            mode="AUTO",
+            firmware="2.12.2",
+            zone_id="zone-001",
+            sensor_id="soil-001",
+        )
+    ]
+    after_watering = IrrigationService.__new__(IrrigationService)
+    after_watering._firebase = firebase
+    after_watering._multi_zone_engine = MultiZoneDecisionEngine()
+    after_watering._pending_watering_measurements = []
+    after_watering._logger = logging.getLogger("zone-cutoff-test")
+    after_watering._restore_zone_learning_histories()
+    post_watering_trend = after_watering._multi_zone_engine.get_learning_trend(
+        zone_id="zone-001",
+        sensor_id="soil-001",
+    )
+    # The fake history creates its own ``now`` a few milliseconds after the
+    # watering cutoff is calculated, so the boundary sample may be included.
+    # In either case, no pre-watering history may survive the restore.
+    assert 10 <= post_watering_trend.sample_count <= 11
+    assert post_watering_trend.first_moisture >= 61
+    assert after_watering._multi_zone_engine.get_learning_trend(
+        zone_id="zone-002",
+        sensor_id="soil-002",
+    ).sample_count == 100
+    firebase.watering_records = []
 
     sampler = IrrigationService.__new__(IrrigationService)
     sampler._firebase = firebase

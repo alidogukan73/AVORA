@@ -126,6 +126,10 @@ public final class SuperadminDataRepository {
         return submit("delete", category, recordId, null, null, previewToken, null);
     }
 
+    public Task<CommandResult> deleteFeedback(String recordId) {
+        return submit("delete_feedback", "feedback", recordId, null, null, null, null);
+    }
+
     public Task<CommandResult> update(
             String category, String recordId, String replacementJson,
             String expectedRecordJson

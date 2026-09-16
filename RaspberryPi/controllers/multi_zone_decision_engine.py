@@ -163,6 +163,16 @@ class MultiZoneDecisionEngine:
                 self._learning_engines[scope] = engine
         return engine.get_current_trend()
 
+    def reset_learning_history(self, *, zone_id: str, sensor_id: str) -> bool:
+        """Start a fresh natural dry-down window after water is applied."""
+
+        scope = self._learning_scope(zone_id, sensor_id)
+        engine = self._learning_engines.get(scope)
+        if engine is None:
+            return False
+        engine.reset()
+        return True
+
     def restore_safety_state(
         self,
         sensor_id: str,

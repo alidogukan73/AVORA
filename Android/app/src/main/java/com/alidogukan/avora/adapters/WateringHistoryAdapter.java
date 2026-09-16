@@ -20,6 +20,7 @@ import com.alidogukan.avora.history.WateringHistoryPresentation;
 import com.google.android.material.card.MaterialCardView;
 
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.Locale;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +37,13 @@ public class WateringHistoryAdapter extends ListAdapter<
     public WateringHistoryAdapter() { super(DIFF_CALLBACK); }
 
     public void setDisplayContext(List<GardenZone> zoneValues, List<GardenSeason> seasonValues) {
+        List<String> previousLabels = new ArrayList<>(getItemCount());
+        for (int index = 0; index < getItemCount(); index++) {
+            previousLabels.add(WateringHistoryPresentation.label(
+                    getItem(index), zones, seasons, ""
+            ));
+        }
+
         zones.clear();
         seasons.clear();
         if (zoneValues != null) for (GardenZone zone : zoneValues) {
@@ -44,7 +52,14 @@ public class WateringHistoryAdapter extends ListAdapter<
         if (seasonValues != null) for (GardenSeason season : seasonValues) {
             if (season != null) seasons.put(season.getSeason_id(), season);
         }
-        if (getItemCount() > 0) notifyItemRangeChanged(0, getItemCount());
+        for (int index = 0; index < getItemCount(); index++) {
+            String currentLabel = WateringHistoryPresentation.label(
+                    getItem(index), zones, seasons, ""
+            );
+            if (!previousLabels.get(index).equals(currentLabel)) {
+                notifyItemChanged(index);
+            }
+        }
     }
 
     private static final DiffUtil.ItemCallback<WateringHistory>

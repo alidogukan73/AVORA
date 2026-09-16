@@ -10,6 +10,7 @@ import com.alidogukan.avora.season.SeasonScope;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 
 import static com.alidogukan.avora.health.GardenHealthIssue.Target.*;
 
@@ -121,14 +122,15 @@ public final class GardenHealthCalculator {
                 && profile.getNext_application_at_epoch() <= now) {
             issues.add(new GardenHealthIssue("Gübreleme kaydı bekleniyor", 10, FERTILIZATION));
         }
-        if (assistantSignal != null && assistantSignal.appliesTo(zone, now)) {
+        if (assistantSignal != null && assistantSignal.appliesTo(zone, now)
+                && !resolvedByNewSensorReading(zone, now, assistantSignal)) {
             int severity = PlantAssistantUrgency.severity(assistantSignal.getUrgency());
             if (severity >= 2) {
-                issues.add(new GardenHealthIssue("Bitki Asistanı: yüksek aciliyet",
-                        25, PLANT_ASSISTANT, assistantSignal.getSeasonId()));
+                issues.add(new GardenHealthIssue(assistantIssue(assistantSignal, true),
+                        25, PLANT_ASSISTANT, assistantSignal.getSeasonId(), assistantSignal.getRecordId()));
             } else if (severity == 1) {
-                issues.add(new GardenHealthIssue("Bitki Asistanı: orta aciliyet",
-                        12, PLANT_ASSISTANT, assistantSignal.getSeasonId()));
+                issues.add(new GardenHealthIssue(assistantIssue(assistantSignal, false),
+                        12, PLANT_ASSISTANT, assistantSignal.getSeasonId(), assistantSignal.getRecordId()));
             }
             // A routine, low-urgency observation is not an unresolved health problem.
             // Keep its recommendation/history, but only medium/high findings reduce the score.
@@ -153,7 +155,8 @@ public final class GardenHealthCalculator {
         int selectedSeverity = -1;
         if (values == null) return null;
         for (PlantAssistantHealthSignal value : values) {
-            if (value == null || !value.appliesTo(zone, now)) continue;
+            if (value == null || !value.appliesTo(zone, now)
+                    || resolvedByNewSensorReading(zone, now, value)) continue;
             int severity = PlantAssistantUrgency.severity(value.getUrgency());
             if (selected == null || severity > selectedSeverity
                     || (severity == selectedSeverity
@@ -163,6 +166,57 @@ public final class GardenHealthCalculator {
             }
         }
         return selected;
+    }
+
+    static boolean resolvedByNewSensorReading(GardenZone zone, long now,
+                                              PlantAssistantHealthSignal signal) {
+        if (zone == null || signal == null || !zone.isSensor_enabled() || !zone.hasSensorData()) {
+            return false;
+        }
+        long measuredAt = zone.getUpdated_at_epoch();
+        if (measuredAt < signal.getCreatedAtEpoch() || measuredAt > now
+                || now - measuredAt > 15L * 60L) return false;
+
+        String finding = (clean(signal.getTitle()) + " " + clean(signal.getAdvice()))
+                .toLowerCase(Locale.forLanguageTag("tr-TR"));
+        boolean highMoisture = finding.contains("toprak nemi yüksek")
+                || finding.contains("toprak neminin yüksek")
+                || finding.contains("aşırı toprak nemi")
+                || finding.contains("toprak fazla ıslak")
+                || finding.contains("aşırı ıslak");
+        int idealUpper = Math.min(100, Math.max(0, zone.getMoisture_limit()) + 20);
+        if (highMoisture) return zone.getMoisture() <= idealUpper;
+
+        boolean lowMoisture = finding.contains("toprak nemi düşük")
+                || finding.contains("toprak kuru")
+                || finding.contains("su stresi");
+        return lowMoisture && zone.getMoisture() >= zone.getMoisture_limit();
+    }
+
+
+    private static String assistantIssue(PlantAssistantHealthSignal signal,
+                                         boolean highUrgency) {
+        String title = clean(signal == null ? "" : signal.getTitle());
+        String advice = clean(signal == null ? "" : signal.getAdvice());
+        StringBuilder message = new StringBuilder("Bitki Asistanı: ");
+        message.append(title.isEmpty()
+                ? (highUrgency ? "öncelikli bitki kontrolü gerekiyor"
+                : "bitki kontrolü öneriliyor")
+                : title);
+        message.append(". Yapılacak: ");
+        message.append(advice.isEmpty()
+                ? "Bitki Asistanı'nı açın, son analizi inceleyin ve belirtilen kontrolü uygulayın"
+                : shortened(advice, 220));
+        return message.toString();
+    }
+
+    private static String shortened(String value, int maximum) {
+        if (value.length() <= maximum) return value;
+        return value.substring(0, Math.max(0, maximum - 1)).trim() + "…";
+    }
+
+    private static String clean(String value) {
+        return value == null ? "" : value.replaceAll("\\s+", " ").trim();
     }
 
     private static String safeName(GardenZone zone) {

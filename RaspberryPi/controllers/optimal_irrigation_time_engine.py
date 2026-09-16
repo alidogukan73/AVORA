@@ -22,6 +22,8 @@ class IrrigationTimePlan:
     emergency: bool = False
     weather_based: bool = False
     recheck_before_watering: bool = True
+    scope_key: str = ""
+    sensor_id: str = ""
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -91,6 +93,8 @@ class OptimalIrrigationTimeEngine:
         zone_settings: dict | None = None,
         existing_plan: dict | None = None,
         now_epoch: int | None = None,
+        scope_key: str = "",
+        sensor_id: str = "",
     ) -> IrrigationTimePlan:
         now = int(time.time() if now_epoch is None else now_epoch)
         values = zone_settings if isinstance(zone_settings, dict) else {}
@@ -157,7 +161,11 @@ class OptimalIrrigationTimeEngine:
             )
 
         persisted = self._valid_existing_plan(
-            existing_plan, now, max_defer * 60
+            existing_plan,
+            now,
+            max_defer * 60,
+            expected_scope_key=str(scope_key or "").strip(),
+            expected_sensor_id=str(sensor_id or "").strip(),
         )
         if persisted is not None:
             if persisted.recommended_at_epoch <= now:
@@ -343,9 +351,19 @@ class OptimalIrrigationTimeEngine:
         return int(target.timestamp()) if target.timestamp() <= deadline_epoch else now_epoch
 
     def _valid_existing_plan(
-        self, existing: dict | None, now_epoch: int, max_defer_seconds: int
+        self,
+        existing: dict | None,
+        now_epoch: int,
+        max_defer_seconds: int,
+        *,
+        expected_scope_key: str = "",
+        expected_sensor_id: str = "",
     ) -> IrrigationTimePlan | None:
         if not isinstance(existing, dict) or existing.get("status") != "SCHEDULED":
+            return None
+        if expected_scope_key and str(existing.get("scope_key", "")).strip() != expected_scope_key:
+            return None
+        if expected_sensor_id and str(existing.get("sensor_id", "")).strip() != expected_sensor_id:
             return None
         recommended = self._integer(
             existing.get("recommended_at_epoch", 0), 0, 4_000_000_000, 0
@@ -363,6 +381,8 @@ class OptimalIrrigationTimeEngine:
             score=self._integer(existing.get("score", 0), -1000, 1000, 0),
             weather_based=bool(existing.get("weather_based", False)),
             recheck_before_watering=True,
+            scope_key=str(existing.get("scope_key", "")).strip(),
+            sensor_id=str(existing.get("sensor_id", "")).strip(),
         )
 
     def _forecast_fresh(self, forecast: dict | None, now_epoch: int) -> bool:

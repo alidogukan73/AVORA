@@ -127,6 +127,19 @@ def main() -> None:
     )
     assert reassigned.sample_count == 0
 
+    assert learning_engine.reset_learning_history(
+        zone_id="zone-001",
+        sensor_id="soil-001",
+    ) is True
+    assert learning_engine.get_learning_trend(
+        zone_id="zone-001",
+        sensor_id="soil-001",
+    ).sample_count == 0
+    assert learning_engine.get_learning_trend(
+        zone_id="zone-002",
+        sensor_id="soil-002",
+    ).sample_count == 20
+
     restored_engine = MultiZoneDecisionEngine()
     restored = restored_engine.restore_learning_history(
         zone_id="zone-001",

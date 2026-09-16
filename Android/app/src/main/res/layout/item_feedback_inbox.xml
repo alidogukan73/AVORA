@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto" android:layout_width="match_parent"
+    android:layout_height="wrap_content" android:layout_marginTop="8dp"
+    app:cardBackgroundColor="@color/card" app:cardCornerRadius="16dp" app:cardElevation="0dp"
+    app:strokeColor="@color/border" app:strokeWidth="1dp">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="vertical" android:padding="14dp">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:gravity="center_vertical" android:orientation="horizontal">
+            <TextView android:id="@+id/txtFeedbackInboxTitle" android:layout_width="0dp"
+                android:layout_height="wrap_content" android:layout_weight="1"
+                android:textColor="@color/textPrimary" android:textSize="15sp" android:textStyle="bold" />
+            <TextView android:id="@+id/txtFeedbackInboxStatus" android:layout_width="wrap_content"
+                android:layout_height="wrap_content" android:textColor="@color/primary"
+                android:textSize="11sp" android:textStyle="bold" />
+        </LinearLayout>
+        <TextView android:id="@+id/txtFeedbackInboxMeta" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:layout_marginTop="4dp"
+            android:textColor="@color/textSecondary" android:textSize="12sp" />
+        <TextView android:id="@+id/txtFeedbackInboxPreview" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:layout_marginTop="8dp" android:ellipsize="end"
+            android:maxLines="3" android:textColor="@color/textPrimary" android:textSize="13sp" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="8dp" android:gravity="end" android:orientation="horizontal">
+            <com.google.android.material.button.MaterialButton android:id="@+id/btnFeedbackInboxOpen"
+                style="@style/Widget.Material3.Button.TextButton" android:layout_width="wrap_content"
+                android:layout_height="wrap_content" android:text="@string/feedback_inbox_open" />
+            <com.google.android.material.button.MaterialButton android:id="@+id/btnFeedbackInboxDelete"
+                style="@style/Widget.Material3.Button.TextButton" android:layout_width="wrap_content"
+                android:layout_height="wrap_content" android:text="@string/superadmin_delete"
+                android:textColor="@color/error" />
+        </LinearLayout>
+    </LinearLayout>
+</com.google.android.material.card.MaterialCardView>

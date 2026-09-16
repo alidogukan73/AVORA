@@ -247,7 +247,7 @@ class AIPipeline:
             return 1.0
         if decision.reason == "INSUFFICIENT_SENSOR_SAMPLES":
             return 0.55
-        if decision.reason == "SENSOR_UNSTABLE":
+        if decision.reason in {"SENSOR_UNSTABLE", "SENSOR_INVALID"}:
             return 0.20
         return 0.45
 
@@ -258,7 +258,7 @@ class AIPipeline:
     ) -> float:
         """Score how much valid evidence supports the current decision."""
 
-        if decision.reason == "SENSOR_UNSTABLE":
+        if decision.reason in {"SENSOR_UNSTABLE", "SENSOR_INVALID"}:
             return 0.15
         if decision.reason == "INSUFFICIENT_SENSOR_SAMPLES":
             return 0.30

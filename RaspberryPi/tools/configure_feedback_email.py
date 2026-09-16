@@ -12,7 +12,7 @@ from pathlib import Path
 
 
 DEFAULT_SENDER_EMAIL = "alidogukan@gmail.com"
-DEFAULT_RECIPIENT_EMAIL = "alidogukan+avora@gmail.com"
+DEFAULT_RECIPIENT_EMAIL = "alidogukan@gmail.com"
 DEFAULT_TARGET = Path("/etc/avora/feedback-email.env")
 EMAIL_PATTERN = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 

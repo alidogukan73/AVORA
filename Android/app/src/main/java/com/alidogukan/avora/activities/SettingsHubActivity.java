@@ -450,6 +450,10 @@ public class SettingsHubActivity extends AppCompatActivity {
 
         if (superadminVisible) {
             addSection(R.string.settings_superadmin_category,
+                    item(R.drawable.ic_feedback_24,
+                            R.string.settings_feedback_inbox_title,
+                            R.string.settings_feedback_inbox_subtitle,
+                            this::openFeedbackInbox),
                     item(R.drawable.ic_nas_security_shield_24,
                             R.string.settings_superadmin_title,
                             R.string.settings_superadmin_subtitle,
@@ -521,6 +525,10 @@ public class SettingsHubActivity extends AppCompatActivity {
     private MenuItem item(@DrawableRes int icon, @StringRes int title,
                           @StringRes int subtitle, Runnable action) {
         return new MenuItem(icon, title, subtitle, action);
+    }
+
+    private void openFeedbackInbox() {
+        open(FeedbackInboxActivity.class);
     }
 
     private void open(Class<?> target) {

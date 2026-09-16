@@ -211,6 +211,10 @@
     <string name="seedling_daily_warning_wet_message">Check drainage and soil before watering again.</string>
     <string name="seedling_daily_advice_waiting_title">Preparing recommendation</string>
     <string name="seedling_daily_advice_waiting_message">The recommended action will appear when current sensor data arrives.</string>
+    <string name="seedling_daily_snapshot_loading_title">Loading recorded sensor data</string>
+    <string name="seedling_daily_snapshot_loading_message">The fixed sensor snapshot for this log is being prepared.</string>
+    <string name="seedling_daily_snapshot_missing_title">No sensor data was recorded</string>
+    <string name="seedling_daily_snapshot_missing_message">This older log was created without a sensor snapshot. Live values are not shown in place of historical data.</string>
     <string name="seedling_daily_recommended_action">Recommended action: %1$s</string>
     <string name="seedling_save_log">Save Record</string>
     <string name="seedling_log_saved">Daily record saved.</string>

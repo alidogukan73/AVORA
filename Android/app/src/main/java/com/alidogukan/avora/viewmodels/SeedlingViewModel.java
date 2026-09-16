@@ -14,6 +14,7 @@ import com.alidogukan.avora.models.CropCatalogItem;
 import com.alidogukan.avora.models.SeedlingBatch;
 import com.alidogukan.avora.models.SeedlingDailyLog;
 import com.alidogukan.avora.models.SeedlingNodeState;
+import com.alidogukan.avora.models.SeedlingTelemetry;
 import com.alidogukan.avora.models.GardenPhoto;
 import com.alidogukan.avora.models.SeedlingPhotoUpload;
 import com.alidogukan.avora.seedling.SeedlingRepository;
@@ -114,7 +115,8 @@ public final class SeedlingViewModel extends AndroidViewModel {
 
     public Task<Void> saveDailyLog(String batchId, double height, int leaves,
                                    int healthy, boolean watered, String note,
-                                   String photoId, String photoStoragePath) {
+                                   String photoId, String photoStoragePath,
+                                   SeedlingTelemetry telemetry) {
         SeedlingDailyLog log = new SeedlingDailyLog();
         log.setBatch_id(batchId);
         log.setHeight_cm(height);
@@ -124,7 +126,9 @@ public final class SeedlingViewModel extends AndroidViewModel {
         log.setNote(note);
         log.setPhoto_id(photoId);
         log.setPhoto_storage_path(photoStoragePath);
-        log.setCreated_at_epoch(System.currentTimeMillis() / 1000L);
+        long nowEpoch = System.currentTimeMillis() / 1000L;
+        log.setCreated_at_epoch(nowEpoch);
+        log.captureSensorSnapshot(telemetry, nowEpoch, 45L);
         return repository.saveLog(log);
     }
 
@@ -146,6 +150,7 @@ public final class SeedlingViewModel extends AndroidViewModel {
         log.setPhoto_id(photoId);
         log.setPhoto_storage_path(photoStoragePath);
         log.setCreated_at_epoch(existing.getCreated_at_epoch());
+        log.copySensorSnapshotFrom(existing);
         return repository.updateLog(log);
     }
 

@@ -8,20 +8,28 @@ public final class GardenHealthIssue {
     private final int deduction;
     private final Target target;
     private final String seasonId;
+    private final String recordId;
 
     public GardenHealthIssue(String reason, int deduction, Target target) {
         this(reason, deduction, target, "");
     }
 
     public GardenHealthIssue(String reason, int deduction, Target target, String seasonId) {
+        this(reason, deduction, target, seasonId, "");
+    }
+
+    public GardenHealthIssue(String reason, int deduction, Target target,
+                             String seasonId, String recordId) {
         this.reason = reason;
         this.deduction = Math.max(0, deduction);
         this.target = target;
         this.seasonId = seasonId == null ? "" : seasonId;
+        this.recordId = recordId == null ? "" : recordId;
     }
 
     public String getReason() { return reason; }
     public int getDeduction() { return deduction; }
     public Target getTarget() { return target; }
     public String getSeasonId() { return seasonId; }
+    public String getRecordId() { return recordId; }
 }

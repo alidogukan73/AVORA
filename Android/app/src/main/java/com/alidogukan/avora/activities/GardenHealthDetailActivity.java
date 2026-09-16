@@ -19,7 +19,10 @@ import com.alidogukan.avora.health.GardenHealthCalculator;
 import com.alidogukan.avora.health.GardenHealthSummary;
 import com.alidogukan.avora.health.GardenHealthIssue;
 import com.alidogukan.avora.health.GardenHealthZoneResult;
+import com.alidogukan.avora.models.GardenPhoto;
 import com.alidogukan.avora.models.GardenZone;
+import com.alidogukan.avora.plantassistant.PlantAssistantRecordResolver;
+import com.alidogukan.avora.viewmodels.GardenPhotoGalleryViewModel;
 import com.alidogukan.avora.viewmodels.MainViewModel;
 import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
@@ -34,6 +37,7 @@ public class GardenHealthDetailActivity extends AppCompatActivity {
     private TextView summaryDetail;
     private LinearLayout zoneList;
     private MainViewModel viewModel;
+    private GardenPhotoGalleryViewModel photoViewModel;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -56,6 +60,7 @@ public class GardenHealthDetailActivity extends AppCompatActivity {
         zoneList = findViewById(R.id.layoutGardenHealthZones);
 
         viewModel = new ViewModelProvider(this).get(MainViewModel.class);
+        photoViewModel = new ViewModelProvider(this).get(GardenPhotoGalleryViewModel.class);
         viewModel.getGardenZones().observe(this, this::render);
     }
 
@@ -188,10 +193,24 @@ public class GardenHealthDetailActivity extends AppCompatActivity {
         Intent intent;
         switch (issue.getTarget()) {
             case PLANT_ASSISTANT:
-                intent = new Intent(this, PlantAssistantActivity.class);
-                intent.putExtra("zone_id", zone.getZone_id());
-                if (!issue.getSeasonId().isBlank()) {
-                    intent.putExtra("season_id", issue.getSeasonId());
+                GardenPhoto record = PlantAssistantRecordResolver.find(
+                        photoViewModel.load(), zone.getZone_id(),
+                        issue.getSeasonId(), issue.getRecordId(), issue.getReason());
+                if (record != null) {
+                    intent = new Intent(this, JournalRecordDetailActivity.class);
+                    intent.putExtra("title", record.getAnalysis_title());
+                    intent.putExtra("detail", record.getAnalysis_context());
+                    intent.putExtra("icon", getString(R.string.symbol_plant));
+                    intent.putExtra("time", record.getCaptured_at_epoch());
+                    intent.putExtra("zone_id", zone.getZone_id());
+                    intent.putExtra("season_id", record.getSeason_id());
+                    intent.putExtra("photo_path", record.getLocal_path());
+                    intent.putExtra("photo_group_id", record.getRelated_application_id());
+                    intent.putExtra("advice", record.getAnalysis_advice());
+                } else {
+                    intent = new Intent(this, PlantAssistantActivity.class);
+                    intent.putExtra("zone_id", zone.getZone_id());
+                    if (!issue.getSeasonId().isBlank()) intent.putExtra("season_id", issue.getSeasonId());
                 }
                 break;
             case FERTILIZATION:

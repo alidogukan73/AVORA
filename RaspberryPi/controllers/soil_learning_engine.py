@@ -241,10 +241,27 @@ class SoilLearningEngine:
             if record.mode != "AUTO":
                 continue
 
-            if record.moisture_delta < 0:
+            if record.duration <= 0:
                 continue
 
-            if record.moisture_delta > 40:
+            if not (
+                0 <= record.moisture_before <= 100
+                and 0 <= record.moisture_after <= 100
+            ):
+                continue
+
+            observed_delta = (
+                record.moisture_after
+                - record.moisture_before
+            )
+
+            if observed_delta < 0:
+                continue
+
+            if observed_delta > 40:
+                continue
+
+            if abs(record.moisture_delta - observed_delta) > 0.01:
                 continue
 
             filtered.append(

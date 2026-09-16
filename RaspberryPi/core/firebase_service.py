@@ -3829,6 +3829,10 @@ class FirebaseService:
                 float,
             ]
         ],
+        *,
+        zone_id: str = "",
+        sensor_id: str = "",
+        season_scope: str = "",
     ) -> None:
         """
         Save prediction history to Firebase.
@@ -3898,11 +3902,16 @@ class FirebaseService:
                     actual_moisture,
             }
 
-        history_ref = (
-            self._device_ref()
-            .child("ai")
-            .child("prediction_history")
-        )
+        normalized_zone_id = str(zone_id or "").strip()
+        history_ref = self._device_ref().child("ai")
+        if normalized_zone_id:
+            history_ref = (
+                history_ref
+                .child("zone_prediction_history")
+                .child(normalized_zone_id)
+            )
+        else:
+            history_ref = history_ref.child("prediction_history")
 
         if not history_data:
             history_ref.delete()
@@ -3913,7 +3922,18 @@ class FirebaseService:
 
             return
 
-        history_ref.set(history_data)
+        if normalized_zone_id:
+            history_ref.set(
+                {
+                    "zone_id": normalized_zone_id,
+                    "sensor_id": str(sensor_id or "").strip(),
+                    "season_scope": str(season_scope or "").strip(),
+                    "items": history_data,
+                    "updated_at": datetime.now().isoformat(),
+                }
+            )
+        else:
+            history_ref.set(history_data)
 
         self._logger.debug(
             "Prediction history saved. count=%d",
@@ -3922,6 +3942,10 @@ class FirebaseService:
 
     def load_prediction_history(
         self,
+        *,
+        zone_id: str = "",
+        sensor_id: str = "",
+        season_scope: str = "",
     ) -> list[
         tuple[
             MoisturePrediction,
@@ -3936,13 +3960,41 @@ class FirebaseService:
         Observation mode only.
         """
 
-        history_ref = (
-            self._device_ref()
-            .child("ai")
-            .child("prediction_history")
-        )
+        normalized_zone_id = str(zone_id or "").strip()
+        normalized_sensor_id = str(sensor_id or "").strip()
+        normalized_season_scope = str(season_scope or "").strip()
+        history_ref = self._device_ref().child("ai")
+        if normalized_zone_id:
+            history_ref = (
+                history_ref
+                .child("zone_prediction_history")
+                .child(normalized_zone_id)
+            )
+        else:
+            history_ref = history_ref.child("prediction_history")
 
         history_data = history_ref.get()
+
+        if normalized_zone_id and isinstance(history_data, dict):
+            stored_zone_id = str(history_data.get("zone_id", "")).strip()
+            stored_sensor_id = str(history_data.get("sensor_id", "")).strip()
+            stored_season_scope = str(
+                history_data.get("season_scope", "")
+            ).strip()
+            if (
+                stored_zone_id != normalized_zone_id
+                or stored_sensor_id != normalized_sensor_id
+                or stored_season_scope != normalized_season_scope
+            ):
+                self._logger.info(
+                    "Zone prediction history scope changed; old history ignored. "
+                    "zone_id=%s sensor_id=%s season_scope=%s",
+                    normalized_zone_id,
+                    normalized_sensor_id,
+                    normalized_season_scope,
+                )
+                return []
+            history_data = history_data.get("items")
 
         if not isinstance(
             history_data,
@@ -4076,3 +4128,17 @@ class FirebaseService:
         )
 
         return loaded_history
+
+    def clear_zone_prediction_history(self, zone_id: str) -> None:
+        """Delete prediction accuracy data when a zone learning scope changes."""
+
+        normalized_zone_id = str(zone_id or "").strip()
+        if not normalized_zone_id:
+            return
+        (
+            self._device_ref()
+            .child("ai")
+            .child("zone_prediction_history")
+            .child(normalized_zone_id)
+            .delete()
+        )

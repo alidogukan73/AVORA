@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="feedback_inbox_intro">Track user feedback here. Technical data edits remain in Superadmin Data Management.</string>
+    <string name="feedback_inbox_filter_all">All</string>
+    <string name="feedback_inbox_filter_new">Unread</string>
+    <string name="feedback_inbox_filter_read">Read</string>
+    <string name="feedback_inbox_filter_resolved">Resolved</string>
+    <string name="feedback_inbox_status_new">UNREAD</string>
+    <string name="feedback_inbox_status_read">READ</string>
+    <string name="feedback_inbox_status_resolved">RESOLVED</string>
+    <string name="feedback_inbox_open">Open message</string>
+    <string name="feedback_inbox_no_subject">Untitled feedback</string>
+    <string name="feedback_inbox_summary">%1$d messages · %2$d unread</string>
+    <string name="feedback_inbox_loading">Loading messages…</string>
+    <string name="feedback_inbox_load_failed">Messages could not be loaded. Check the connection and refresh.</string>
+    <string name="feedback_inbox_verifying">Verifying administrator account…</string>
+    <string name="feedback_inbox_unlock_title">Feedback Inbox verification</string>
+    <string name="feedback_inbox_unlock_message">Verify with your screen lock to manage user messages.</string>
+    <string name="feedback_inbox_detail_format">Area: %1$s\nDate: %2$s\nType: %3$s\nContact: %4$s\n\n%5$s</string>
+    <string name="feedback_inbox_mark_read">Mark as read</string>
+    <string name="feedback_inbox_resolve">Resolve</string>
+    <string name="feedback_inbox_reopen">Reopen</string>
+    <string name="feedback_inbox_delete_title">Delete feedback?</string>
+    <string name="feedback_inbox_delete_message">“%1$s” will be backed up before deletion.</string>
+    <string name="feedback_inbox_operation_failed">The operation could not be completed.</string>
+</resources>

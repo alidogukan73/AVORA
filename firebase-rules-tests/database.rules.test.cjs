@@ -245,6 +245,27 @@ test("only the device owner can create bounded superadmin commands", async () =>
       preview_token: "not-a-valid-token",
     }),
   ));
+  await assertSucceeds(set(
+    ref(owner, `superadmin_devices/${DEVICE_ID}/commands/10101010-1010-1010-1010-101010101010`),
+    validSuperadminCommand("10101010-1010-1010-1010-101010101010", {
+      operation: "delete_feedback",
+      category: "feedback",
+      record_id: "123e4567-e89b-12d3-a456-426614174099",
+    }),
+  ));
+  await assertFails(set(
+    ref(owner, `superadmin_devices/${DEVICE_ID}/commands/11111111-1010-1010-1010-101010101010`),
+    validSuperadminCommand("11111111-1010-1010-1010-101010101010", {
+      operation: "delete_feedback",
+      category: "seasons",
+    }),
+  ));
+  await assertFails(set(
+    ref(family, `superadmin_devices/${DEVICE_ID}/commands/12121212-1010-1010-1010-101010101010`),
+    validSuperadminCommand("12121212-1010-1010-1010-101010101010", {
+      operation: "delete_feedback", category: "feedback", requested_by_uid: FAMILY_UID,
+    }),
+  ));
 });
 
 test("owner approval grants only the selected Firebase user device access", async () => {
@@ -616,6 +637,21 @@ test("owner can manage bounded seedling batches and daily observations", async (
     watered: true,
     note: "Gelişim dengeli.",
     created_at_epoch: 1788357600,
+    sensor_snapshot_available: true,
+    sensor_snapshot_fresh: true,
+    sensor_node_id: "seedling-001",
+    sensor_air_temperature_c: 24.5,
+    sensor_air_humidity_pct: 71,
+    sensor_root_temperature_c: 23,
+    sensor_soil_moisture_available: true,
+    sensor_soil_moisture_pct: 62,
+    sensor_soil_raw: 12000,
+    sensor_light_lux: 8400,
+    sensor_received_at_epoch: 1788357595,
+    sensor_captured_at_epoch: 1788357600,
+  }));
+  await assertFails(update(ref(owner, logPath), {
+    sensor_air_humidity_pct: 140,
   }));
 
   const photoId = "550e8400-e29b-41d4-a716-446655440000";

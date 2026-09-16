@@ -36,34 +36,6 @@ class AIDecisionEngine:
         Produce one unified AI decision.
         """
 
-        if not irrigation_decision.sensor_stable:
-
-            return self._summary(
-                decision_code="SENSOR_UNSTABLE",
-                decision_title="Sensör verisi kararsız",
-                decision_message=(
-                    "Sulama kararı verilmeden önce sensör "
-                    "ölçümlerinin kararlı hale gelmesi bekleniyor."
-                ),
-                severity="WARNING",
-                confidence=0.0,
-                confidence_level="LOW",
-                should_water=False,
-                recommendation_type=(
-                    adaptive_recommendation.recommendation_type
-                ),
-                soil_classification=(
-                    soil_profile.soil_classification
-                ),
-                trend_classification=(
-                    irrigation_decision.trend_classification
-                ),
-                primary_reason="SENSOR_UNSTABLE",
-                secondary_reason=(
-                    irrigation_decision.reason
-                ),
-            )
-
         if (
             irrigation_decision.reason
             == "SYSTEM_DISABLED"
@@ -122,9 +94,42 @@ class AIDecisionEngine:
                 secondary_reason="MANUAL_CONTROL_ACTIVE",
             )
 
+        if not irrigation_decision.sensor_stable:
+
+            return self._summary(
+                decision_code="SENSOR_UNSTABLE",
+                decision_title="Sensör verisi kararsız",
+                decision_message=(
+                    "Sulama kararı verilmeden önce sensör "
+                    "ölçümlerinin kararlı hale gelmesi bekleniyor."
+                ),
+                severity="WARNING",
+                confidence=0.0,
+                confidence_level="LOW",
+                should_water=False,
+                recommendation_type=(
+                    adaptive_recommendation.recommendation_type
+                ),
+                soil_classification=(
+                    soil_profile.soil_classification
+                ),
+                trend_classification=(
+                    irrigation_decision.trend_classification
+                ),
+                primary_reason=(
+                    "SENSOR_INVALID"
+                    if irrigation_decision.reason == "SENSOR_INVALID"
+                    else "SENSOR_UNSTABLE"
+                ),
+                secondary_reason=(
+                    irrigation_decision.reason
+                ),
+            )
+
         if (
             soil_profile.profile_status
             != "READY"
+            and not irrigation_decision.should_water
         ):
 
             return self._summary(

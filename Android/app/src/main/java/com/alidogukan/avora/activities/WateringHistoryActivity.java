@@ -65,6 +65,10 @@ public class WateringHistoryActivity extends AppCompatActivity {
         recyclerHistory.setLayoutManager(new LinearLayoutManager(this));
         recyclerHistory.setAdapter(adapter);
         recyclerHistory.setHasFixedSize(true);
+        // Live zone/season metadata can refresh without changing the records.
+        // Avoid RecyclerView's default cross-fade, which makes the whole
+        // history appear to blink during those metadata updates.
+        recyclerHistory.setItemAnimator(null);
         viewModel = new ViewModelProvider(this).get(WateringHistoryViewModel.class);
         findViewById(R.id.btnBack).setOnClickListener(view -> finish());
         btnHistoryRetry.setOnClickListener(view -> viewModel.retry());

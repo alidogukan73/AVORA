@@ -167,7 +167,7 @@ class FeedbackEmailSettings:
             ).strip(),
             recipient=os.getenv(
                 "AVORA_FEEDBACK_EMAIL_TO",
-                "alidogukan+avora@gmail.com",
+                "alidogukan@gmail.com",
             ).strip(),
             app_password="".join(
                 os.getenv(

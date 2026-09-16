@@ -353,6 +353,29 @@ def run_filtering_scenario(
     )
 
 
+def run_incomparable_duration_scenario(
+    engine: AdaptiveIrrigationEngine,
+) -> None:
+    """Old, radically different durations must not drive a new setting."""
+
+    records = [
+        create_record(
+            duration=300,
+            moisture_before=30,
+            moisture_after=45,
+        )
+        for _ in range(15)
+    ]
+    recommendation = engine.analyze(
+        records=records,
+        current_pump_duration_seconds=10,
+        current_cooldown_seconds=600,
+    )
+    assert recommendation.recommendation_type == "INSUFFICIENT_DATA"
+    assert recommendation.watering_count_analyzed == 0
+    print("[PASS] Incomparable historical durations ignored.")
+
+
 def run_short_pulse_scenario(
     engine: AdaptiveIrrigationEngine,
 ) -> None:
@@ -436,6 +459,10 @@ def main() -> None:
     )
 
     run_filtering_scenario(
+        engine
+    )
+
+    run_incomparable_duration_scenario(
         engine
     )
 

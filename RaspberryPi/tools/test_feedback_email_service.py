@@ -264,12 +264,12 @@ def main() -> None:
     assert normalize_app_password("abcd efgh ijkl mnop") == "abcdefghijklmnop"
     environment = render_environment(
         "alidogukan@gmail.com",
-        "alidogukan+avora@gmail.com",
+        "alidogukan@gmail.com",
         "abcdefghijklmnop",
     )
     assert "AVORA_FEEDBACK_EMAIL_ENABLED=true" in environment
     assert (
-        "AVORA_FEEDBACK_EMAIL_TO=alidogukan+avora@gmail.com"
+        "AVORA_FEEDBACK_EMAIL_TO=alidogukan@gmail.com"
         in environment
     )
     assert "AVORA_FEEDBACK_EMAIL_DELIVERY_MODE=auto" in environment

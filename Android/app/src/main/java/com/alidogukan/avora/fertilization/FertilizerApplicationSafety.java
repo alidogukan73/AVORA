@@ -80,7 +80,7 @@ public final class FertilizerApplicationSafety {
             double labelDoseMax,
             String dosageUnit
     ) {
-        if (profile == null || labelDoseMin <= 0.0) {
+        if (profile == null || !Double.isFinite(labelDoseMin) || labelDoseMin <= 0.0 || !Double.isFinite(labelDoseMax)) {
             return Dose.unsupported();
         }
         double safeMax = labelDoseMax > 0.0
@@ -90,6 +90,9 @@ public final class FertilizerApplicationSafety {
         String unit = normalizeUnit(dosageUnit);
         double area = profile.getArea_m2();
         double tank = profile.getTank_liters();
+        if (!Double.isFinite(area) || !Double.isFinite(tank)) {
+            return Dose.unsupported();
+        }
 
         if (unit.contains("kg/dekar") && area > 0.0) {
             return new Dose(labelDoseMin * area, safeMax * area, "g", false);
@@ -167,7 +170,9 @@ public final class FertilizerApplicationSafety {
             double requiredAmount
     ) {
         return product != null
+                && Double.isFinite(requiredAmount)
                 && requiredAmount > 0.0
+                && Double.isFinite(product.getStock_amount())
                 && product.getStock_amount() + 0.000001 >= requiredAmount;
     }
 
@@ -222,7 +227,7 @@ public final class FertilizerApplicationSafety {
         }
 
         public boolean isSupported() {
-            return minAmount > 0.0 && maxAmount >= minAmount && !unit.isEmpty();
+            return Double.isFinite(minAmount) && Double.isFinite(maxAmount) && minAmount > 0.0 && maxAmount >= minAmount && !unit.isEmpty();
         }
     }
 }

@@ -1,21 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout
+<LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:orientation="vertical"
     tools:ignore="MergeRootFrame">
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
         android:fillViewport="true">
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="16dp"
-            android:paddingBottom="150dp">
+            android:padding="16dp">
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="48dp"
@@ -195,23 +196,20 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical" />
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnRecordDelete"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="24dp"
+                android:text="@string/record_delete_action"
+                android:textColor="@color/error"
+                android:visibility="gone"
+                app:backgroundTint="@color/card"
+                app:cornerRadius="10dp"
+                app:strokeColor="@color/error"
+                app:strokeWidth="1dp" />
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btnRecordDelete"
-        android:layout_width="match_parent"
-        android:layout_height="48dp"
-        android:layout_gravity="bottom"
-        android:layout_marginStart="16dp"
-        android:layout_marginEnd="16dp"
-        android:layout_marginBottom="70dp"
-        android:text="@string/record_delete_action"
-        android:textColor="@color/error"
-        android:visibility="gone"
-        app:backgroundTint="@color/card"
-        app:cornerRadius="10dp"
-        app:strokeColor="@color/error"
-        app:strokeWidth="1dp" />
     <include
         layout="@layout/include_primary_navigation" />
-</FrameLayout>
+</LinearLayout>

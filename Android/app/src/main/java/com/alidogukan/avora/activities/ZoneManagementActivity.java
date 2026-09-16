@@ -174,9 +174,9 @@ public final class ZoneManagementActivity extends EdgeToEdgeActivity {
             edit.setOnClickListener(view -> showZoneEditor(zone));
             deactivate.setOnClickListener(view -> confirmDeactivate(zone));
             LinearLayout.LayoutParams editParams = new LinearLayout.LayoutParams(
-                    0, dp(48), 1f);
+                    0, dp(56), 1f);
             LinearLayout.LayoutParams deactivateParams = new LinearLayout.LayoutParams(
-                    0, dp(48), 1f);
+                    0, dp(56), 1f);
             deactivateParams.setMarginStart(dp(8));
             actions.addView(edit, editParams);
             actions.addView(deactivate, deactivateParams);
@@ -469,6 +469,9 @@ public final class ZoneManagementActivity extends EdgeToEdgeActivity {
                 com.google.android.material.R.attr.materialButtonOutlinedStyle);
         button.setText(R.string.zone_management_deactivate);
         button.setAllCaps(false);
+        button.setMaxLines(2);
+        button.setGravity(Gravity.CENTER);
+        button.setMinWidth(0);
         return button;
     }
 

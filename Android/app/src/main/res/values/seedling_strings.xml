@@ -211,6 +211,10 @@
     <string name="seedling_daily_warning_wet_message">Yeni sulama yapmadan önce drenajı ve toprağı kontrol edin.</string>
     <string name="seedling_daily_advice_waiting_title">Öneri hazırlanıyor</string>
     <string name="seedling_daily_advice_waiting_message">Güncel sensör verisi geldiğinde önerilen işlem burada görünecek.</string>
+    <string name="seedling_daily_snapshot_loading_title">Kayıt anı verileri yükleniyor</string>
+    <string name="seedling_daily_snapshot_loading_message">Bu günlüğe ait sabit sensör kaydı hazırlanıyor.</string>
+    <string name="seedling_daily_snapshot_missing_title">Kayıt anı sensör verisi yok</string>
+    <string name="seedling_daily_snapshot_missing_message">Bu eski günlük oluşturulurken sensör değerleri kayda eklenmemiş. Canlı değerler geçmiş kaydın yerine gösterilmez.</string>
     <string name="seedling_daily_recommended_action">Önerilen işlem: %1$s</string>
     <string name="seedling_save_log">Kaydı Kaydet</string>
     <string name="seedling_log_saved">Günlük kayıt kaydedildi.</string>

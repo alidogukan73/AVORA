@@ -27,6 +27,7 @@ public final class IrrigationAssistantCodes {
     public static final String READY = "READY";
     public static final String RISING = "RISING";
     public static final String SENSOR_UNSTABLE = "SENSOR_UNSTABLE";
+    public static final String SENSOR_INVALID = "SENSOR_INVALID";
     public static final String SLOW_DRYING = "SLOW_DRYING";
     public static final String STABLE = "STABLE";
     public static final String SYSTEM_DISABLED = "SYSTEM_DISABLED";

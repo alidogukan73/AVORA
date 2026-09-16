@@ -311,6 +311,34 @@ public class FertilizerDecisionEngineSafetyTest {
         assertEquals(FertilizerAdvice.STATUS_TOO_EARLY, advice.getStatus());
         assertTrue(advice.getReason().contains("bekleme aralığı"));
     }
+    @Test
+    public void futureSameDayApplicationIsNotReadyAtEvaluationTime() {
+        long evaluation = java.time.LocalDateTime.of(2024, 1, 11, 10, 0)
+                .atZone(java.time.ZoneId.systemDefault()).toEpochSecond();
+        GardenZone zone = zone("FRUITING", 60);
+        zone.setUpdated_at_epoch(evaluation);
+        zone.getFertilization().setPlanting_date("01-01-2024");
+        FertilizerApplicationSchedule schedule = new FertilizerApplicationSchedule();
+        schedule.setNext_application_at_epoch(evaluation + 3600L);
+        Map<String, FertilizerApplicationSchedule> schedules = new HashMap<>();
+        schedules.put("NUTRITION", schedule);
+        zone.getFertilization().setApplication_schedules(schedules);
+
+        FertilizerAdvice advice = FertilizerDecisionEngine.advise(
+                zone, Collections.singletonList(readyProduct()), null, evaluation);
+
+        assertEquals(FertilizerAdvice.STATUS_TOO_EARLY, advice.getStatus());
+        assertTrue(advice.getContext().contains("11 günlük"));
+        assertTrue(advice.getRecommendation().getWaitDays() > 0L);
+    }
+
+    @Test
+    public void missingZoneAndCatalogDoNotCrashAdvisor() {
+        assertEquals(FertilizerAdvice.STATUS_PLAN_NOT_READY,
+                FertilizerDecisionEngine.advise(null, null, null, now()).getStatus());
+        assertFalse(FertilizerDecisionEngine.advise(zone("FRUITING", 60), null, null, now())
+                .getStatus().isEmpty());
+    }
     private static GardenZone zone(String stage, int moisture) {
         FertilizationProfile profile = new FertilizationProfile();
         profile.setEnabled(true);

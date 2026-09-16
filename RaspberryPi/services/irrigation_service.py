@@ -243,6 +243,7 @@ class IrrigationService:
         self._restore_pending_watering_measurements()
 
         self._restore_prediction_history()
+        self._restore_zone_prediction_histories()
         self._restore_zone_learning_histories()
 
         # Preserve a continuing incident across service restarts. A healthy
@@ -347,6 +348,10 @@ class IrrigationService:
                     sensor_id=str(sensor_id),
                     zone_id=zone_id,
                 )
+                cutoff_epoch = self._latest_zone_trend_cutoff_epoch(
+                    zone_id=zone_id,
+                    sensor_id=str(sensor_id),
+                )
                 samples: list[MoistureSample] = []
                 for moisture, recorded_at in stored:
                     try:
@@ -355,6 +360,8 @@ class IrrigationService:
                             normalized
                         ).timestamp()
                     except (TypeError, ValueError, OverflowError):
+                        continue
+                    if recorded_wall <= cutoff_epoch:
                         continue
                     age_seconds = max(0.0, now_wall - recorded_wall)
                     samples.append(
@@ -385,6 +392,86 @@ class IrrigationService:
             "Zone learning histories restored. scopes=%d samples=%d",
             restored_scopes,
             restored_samples,
+        )
+
+    def _latest_zone_trend_cutoff_epoch(
+        self,
+        *,
+        zone_id: str,
+        sensor_id: str,
+    ) -> float:
+        """Return the end of the latest watering-settling period for a zone."""
+
+        cutoff = 0.0
+        try:
+            records = self._firebase.get_recent_watering_records(
+                limit=10,
+                zone_id=zone_id,
+                sensor_id=sensor_id,
+            )
+        except Exception:
+            records = []
+
+        candidates = list(records or [])
+        candidates.extend(
+            pending.record
+            for pending in getattr(self, "_pending_watering_measurements", [])
+            if (
+                pending.record.zone_id == zone_id
+                and pending.record.sensor_id == sensor_id
+            )
+        )
+        for record in candidates:
+            if not getattr(record, "completed", False):
+                continue
+            try:
+                finished = datetime.fromisoformat(
+                    str(record.finished_at).replace("Z", "+00:00")
+                ).timestamp()
+                cooldown = max(0, int(record.cooldown_seconds))
+            except (TypeError, ValueError, OverflowError):
+                continue
+            cutoff = max(cutoff, finished + cooldown)
+        return cutoff
+
+    def _restore_zone_prediction_histories(self) -> None:
+        """Restore validated forecast accuracy for each exact learning scope."""
+
+        restored_scopes = 0
+        restored_predictions = 0
+        configs = self._firebase.get_all_zone_configs_by_sensor()
+        for sensor_id, zone in configs.items():
+            if not isinstance(zone, dict) or not self._zone_has_operational_season(zone):
+                continue
+            zone_id = str(zone.get("zone_id", "")).strip()
+            if not zone_id or not sensor_id:
+                continue
+            try:
+                history = self._firebase.load_prediction_history(
+                    zone_id=zone_id,
+                    sensor_id=str(sensor_id),
+                    season_scope=self._active_zone_season_scope_key(zone),
+                )
+                if not isinstance(history, list):
+                    continue
+                bounded = history[-self._prediction_history_limit:]
+                self._zone_prediction_histories[zone_id] = bounded
+                if bounded:
+                    restored_scopes += 1
+                    restored_predictions += len(bounded)
+            except Exception as exc:
+                self._logger.warning(
+                    "Zone prediction history could not be restored. "
+                    "zone_id=%s sensor_id=%s error=%s",
+                    zone_id,
+                    sensor_id,
+                    exc,
+                )
+
+        self._logger.info(
+            "Zone prediction histories restored. scopes=%d predictions=%d",
+            restored_scopes,
+            restored_predictions,
         )
 
     def _update_status_if_needed(self) -> None:
@@ -788,6 +875,21 @@ class IrrigationService:
         self._watering_duration_plans_by_zone.pop(zone_id, None)
         self._adaptive_recommendation_cache.pop(zone_id, None)
         self._multi_zone_engine.reset(sensor_id)
+        clear_prediction_history = getattr(
+            getattr(self, "_firebase", None),
+            "clear_zone_prediction_history",
+            None,
+        )
+        if callable(clear_prediction_history):
+            try:
+                clear_prediction_history(zone_id)
+            except Exception as exc:
+                self._logger.warning(
+                    "Old zone prediction history could not be cleared. "
+                    "zone_id=%s error=%s",
+                    zone_id,
+                    exc,
+                )
         self._persist_zone_irrigation_safety_state(
             zone_id=zone_id,
             sensor_id=sensor_id,
@@ -857,10 +959,33 @@ class IrrigationService:
             validated = queue.validate_due(
                 actual_moisture=reading.moisture,
             )
+            if queue.last_expired_count:
+                self._logger.warning(
+                    "Expired zone predictions discarded. "
+                    "zone_id=%s sensor_id=%s count=%d",
+                    zone_id,
+                    sensor_id,
+                    queue.last_expired_count,
+                )
             if validated:
                 history.extend(validated)
                 if len(history) > self._prediction_history_limit:
                     del history[:-self._prediction_history_limit]
+                try:
+                    self._firebase.save_prediction_history(
+                        history,
+                        zone_id=zone_id,
+                        sensor_id=sensor_id,
+                        season_scope=self._active_zone_season_scope_key(zone),
+                    )
+                except Exception as exc:
+                    self._logger.warning(
+                        "Zone prediction history could not be saved. "
+                        "zone_id=%s sensor_id=%s error=%s",
+                        zone_id,
+                        sensor_id,
+                        exc,
+                    )
 
             watering_records = (
                 self._firebase.get_recent_watering_records(
@@ -985,10 +1110,11 @@ class IrrigationService:
     ) -> None:
         """Cancel only predictions affected by an irrigation event."""
 
+        zone_queues = getattr(self, "_zone_prediction_validation_queues", {})
         queues = (
-            {zone_id: self._zone_prediction_validation_queues.get(zone_id)}
+            {zone_id: zone_queues.get(zone_id)}
             if zone_id
-            else self._zone_prediction_validation_queues
+            else zone_queues
         )
         cancelled = 0
         for queue in queues.values():
@@ -1002,6 +1128,22 @@ class IrrigationService:
                 zone_id or "all",
                 reason,
             )
+
+    def _reset_zone_learning_history(
+        self,
+        *,
+        zone_id: str,
+        sensor_id: str,
+    ) -> None:
+        """Reset natural dry-down samples when watering changes the soil."""
+
+        engine = getattr(self, "_multi_zone_engine", None)
+        if engine is None:
+            return
+        engine.reset_learning_history(
+            zone_id=zone_id,
+            sensor_id=sensor_id,
+        )
 
     def _store_prediction_result(
         self,
@@ -1076,6 +1218,12 @@ class IrrigationService:
             )
         )
 
+        if self._prediction_validation_queue.last_expired_count:
+            self._logger.warning(
+                "Expired prediction validations discarded. count=%d",
+                self._prediction_validation_queue.last_expired_count,
+            )
+
         if not validated_results:
             return
 
@@ -1107,8 +1255,12 @@ class IrrigationService:
         the natural soil-moisture behaviour.
         """
 
+        queue = getattr(self, "_prediction_validation_queue", None)
+        if queue is None:
+            return
+
         cancelled_count = (
-            self._prediction_validation_queue.cancel_all()
+            queue.cancel_all()
         )
 
         if cancelled_count == 0:
@@ -1229,6 +1381,10 @@ class IrrigationService:
                 )
                 self._firebase.delete_pending_watering(
                     pending.pending_key
+                )
+                self._reset_zone_learning_history(
+                    zone_id=record.zone_id,
+                    sensor_id=record.sensor_id,
                 )
                 self._logger.info(
                     "Watering record finalized after cooldown. "
@@ -1852,6 +2008,10 @@ class IrrigationService:
                         self._zone_scheduler.mark_served(zone_id)
                         self._multi_zone_engine.mark_watering_completed(
                             selected_candidate.sensor_id,
+                        )
+                        self._reset_zone_learning_history(
+                            zone_id=zone_id,
+                            sensor_id=selected_candidate.sensor_id,
                         )
                         if (
                             selected_candidate.sensor_id
@@ -2517,6 +2677,13 @@ class IrrigationService:
                     ),
                     zone_settings=zone.get("irrigation_timing"),
                     existing_plan=persisted_timing_plan,
+                    scope_key=self._active_zone_season_scope_key(zone),
+                    sensor_id=sensor_id,
+                )
+                timing_plan = replace(
+                    timing_plan,
+                    scope_key=self._active_zone_season_scope_key(zone),
+                    sensor_id=sensor_id,
                 )
 
             if result.candidate.should_water and adjustment.postpone:
@@ -3121,6 +3288,15 @@ class IrrigationService:
                 replace(commands, zone_test_cancel_requested=True),
             )
 
+        self._cancel_zone_prediction_validations(
+            reason="MANUAL_WATERING",
+            zone_id=zone_id,
+        )
+        if sensor_id == SensorConfig.MQTT_SENSOR_ID:
+            self._cancel_pending_prediction_validations(
+                reason="MANUAL_WATERING",
+            )
+
         self._relay.off()
         self._firebase.set_relay_command(False)
         self._firebase.acknowledge_manual_watering(
@@ -3204,6 +3380,10 @@ class IrrigationService:
             return True
 
         if result.completed:
+            self._reset_zone_learning_history(
+                zone_id=zone_id,
+                sensor_id=sensor_id,
+            )
             self._firebase.update_zone_cooldown(
                 zone_id=zone_id,
                 cooldown_until_epoch=(

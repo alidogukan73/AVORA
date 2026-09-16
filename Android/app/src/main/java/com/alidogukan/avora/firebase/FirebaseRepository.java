@@ -1401,10 +1401,13 @@ public class FirebaseRepository {
             FertilizerApplicationBatch batch = batches.get(batchIndex);
             double totalDose = 0.0;
             for (BulkFertilizerApplication application : batch.applications) {
-               if (application.appliedDose <= 0.0) {
+               if (application == null || !Double.isFinite(application.appliedDose) || application.appliedDose <= 0.0) {
                   throw new IllegalStateException("Uygulama miktarı sıfırdan büyük olmalıdır.");
                }
                totalDose += application.appliedDose;
+               if (!Double.isFinite(totalDose)) {
+                  throw new IllegalStateException("Toplam uygulama miktarı geçersiz.");
+               }
             }
             if (batch.deductStock) {
                changeStock(root, batch.product.getProduct_id(), batch.appliedUnit, totalDose, recordedAt);
@@ -1418,6 +1421,9 @@ public class FirebaseRepository {
    public Task<Void> updateFertilizerApplicationSafely(FertilizerApplication value) {
       if (value == null || value.getApplication_id() == null || value.getApplication_id().isBlank()) {
          return Tasks.forException(new IllegalArgumentException("Gübre uygulama kaydı bulunamadı."));
+      }
+      if (!Double.isFinite(value.getApplied_dose()) || value.getApplied_dose() <= 0.0) {
+         return Tasks.forException(new IllegalArgumentException("Uygulama miktarı geçersiz."));
       }
       return runAtomicDeviceUpdate("Gübre uygulama kaydı güncellenemedi.", root -> {
          MutableData history = root.child("fertilizer_history").child(value.getApplication_id());
@@ -1697,7 +1703,13 @@ public class FirebaseRepository {
          throw new IllegalStateException("Gübre stok birimi uygulama birimiyle uyuşmuyor.");
       }
       double currentStock = numberValue(product.child("stock_amount"));
+      if (!Double.isFinite(currentStock) || currentStock < 0.0 || !Double.isFinite(amountToDeduct)) {
+         throw new IllegalStateException("Gübre stok miktarı geçersiz.");
+      }
       double updatedStock = currentStock - amountToDeduct;
+      if (!Double.isFinite(updatedStock)) {
+         throw new IllegalStateException("Gübre stok miktarı geçersiz.");
+      }
       if (updatedStock < -0.000001) {
          throw new IllegalStateException("Gübre stoğu bu uygulama için yetersiz.");
       }
