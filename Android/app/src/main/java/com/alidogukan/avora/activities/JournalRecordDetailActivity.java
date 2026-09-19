@@ -35,14 +35,19 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Locale;
 
 /** Detail view for one live plant-journal timeline record. */
 public class JournalRecordDetailActivity extends EdgeToEdgeActivity {
+    public static final String EXTRA_PHOTO_ID = "photo_id";
     private PlantJournalViewModel viewModel;
     private String manualEventId = "", manualEventType = "", zoneId = "", seasonId = "", currentDetail = "";
-    private String selectedPhotoPath = "", selectedAdvice = "", photoGroupId = "";
+    private String selectedPhotoPath = "", selectedPhotoId = "", selectedAdvice = "", photoGroupId = "";
     private boolean seasonReadOnly;
+    private boolean photoSaving;
+    private boolean missingAnalysisFallbackOpened;
     private GardenPhoto selectedPhotoRecord;
     private long recordEpoch;
     private LinearLayout photosLayout, linksLayout;
@@ -50,12 +55,13 @@ public class JournalRecordDetailActivity extends EdgeToEdgeActivity {
     private List<FertilizerApplication> fertilizers = new ArrayList<>();
     private List<WateringHistory> wateringRecords = new ArrayList<>();
     private List<GardenPhoto> relatedPhotos = new ArrayList<>();
+    private List<GardenPhoto> cloudPhotos = new ArrayList<>();
     private GardenPhotoCapture.Target pendingCameraPhoto;
 
     private final ActivityResultLauncher<PickVisualMediaRequest> extraPhotoPicker =
             registerForActivityResult(new ActivityResultContracts.PickMultipleVisualMedia(5), uris -> {
                 if (uris == null || uris.isEmpty()) return;
-                saveExtraPhotos(uris);
+                saveExtraPhotos(uris, null);
             });
     private final ActivityResultLauncher<Uri> extraPhotoCamera =
             registerForActivityResult(new ActivityResultContracts.TakePicture(), saved -> {
@@ -65,11 +71,7 @@ public class JournalRecordDetailActivity extends EdgeToEdgeActivity {
                     if (target != null) target.delete();
                     return;
                 }
-                try {
-                    saveExtraPhotos(java.util.Collections.singletonList(target.getUri()));
-                } finally {
-                    target.delete();
-                }
+                saveExtraPhotos(java.util.Collections.singletonList(target.getUri()), target);
             });
     @Override protected void onCreate(@Nullable Bundle state) {
         super.onCreate(state);
@@ -78,8 +80,46 @@ public class JournalRecordDetailActivity extends EdgeToEdgeActivity {
         PrimaryBottomNavigation.bind(this, PrimaryBottomNavigation.PLANTS);
         bindIntent();
         bindViews();
+        if (state != null) {
+            try { pendingCameraPhoto = GardenPhotoCapture.restore(this, state.getString("pending_capture")); }
+            catch (Exception ignored) { pendingCameraPhoto = null; }
+        }
+        viewModel.getRecordSaving().observe(this, saving -> {
+            photoSaving = Boolean.TRUE.equals(saving);
+            findViewById(R.id.btnRecordDelete).setEnabled(!photoSaving);
+            findViewById(R.id.btnRecordEdit).setEnabled(!photoSaving);
+        });
+        viewModel.getRecordSaveResult().observe(this, result -> {
+            if (result == null) return;
+            viewModel.consumeRecordSaveResult();
+            if (result.isSuccessful()) finish();
+            else Toast.makeText(this, R.string.runtime_cloud_save_failed, Toast.LENGTH_LONG).show();
+        });
+        viewModel.getAppendedPhotoResult().observe(this, result -> {
+            if (result == null) return;
+            viewModel.consumeAppendedPhotoResult();
+            if (result.isSuccessful()) {
+                photoGroupId = result.getResult();
+                getIntent().putExtra("photo_group_id", photoGroupId);
+                renderPhotosAndAnalysis();
+                Toast.makeText(this, R.string.runtime_photo_added, Toast.LENGTH_SHORT).show();
+            } else Toast.makeText(this, R.string.runtime_photo_add_failed, Toast.LENGTH_LONG).show();
+        });
         renderStaticDetail();
         renderPhotosAndAnalysis();
+        if (!seasonId.isBlank()) viewModel.getSeasons(zoneId).observe(this, seasons -> {
+            if (seasons == null) return;
+            boolean writable = false;
+            for (com.alidogukan.avora.models.GardenSeason season : seasons) {
+                if (seasonId.equals(season.getSeason_id())) {
+                    writable = com.alidogukan.avora.models.SeasonStatus.isActive(season.getStatus());
+                    break;
+                }
+            }
+            seasonReadOnly = !writable;
+            renderStaticDetail();
+            renderPhotosAndAnalysis();
+        });
         viewModel.getFertilizerHistory().observe(this, values -> {
             fertilizers = values == null ? new ArrayList<>() : values;
             renderLinks();
@@ -87,6 +127,11 @@ public class JournalRecordDetailActivity extends EdgeToEdgeActivity {
         viewModel.getWateringHistory().observe(this, values -> {
             wateringRecords = values == null ? new ArrayList<>() : values;
             renderLinks();
+        });
+        viewModel.getPhotoMetadata().observe(this, values -> {
+            cloudPhotos = values == null ? new ArrayList<>() : values;
+            if (openAssistantWhenRequestedAnalysisIsMissing()) return;
+            renderPhotosAndAnalysis();
         });
     }
 
@@ -97,7 +142,9 @@ public class JournalRecordDetailActivity extends EdgeToEdgeActivity {
         seasonId = safe(getIntent().getStringExtra("season_id"));
         currentDetail = safe(getIntent().getStringExtra("detail"));
         selectedPhotoPath = safe(getIntent().getStringExtra("photo_path"));
+        selectedPhotoId = safe(getIntent().getStringExtra(EXTRA_PHOTO_ID));
         photoGroupId = safe(getIntent().getStringExtra("photo_group_id"));
+        if (photoGroupId.isBlank() && !manualEventId.isBlank()) photoGroupId = "journal_record_" + manualEventId;
         selectedAdvice = safe(getIntent().getStringExtra("advice"));
         seasonReadOnly = getIntent().getBooleanExtra("season_read_only", false);
         recordEpoch = getIntent().getLongExtra("time", System.currentTimeMillis() / 1000L);
@@ -127,15 +174,15 @@ public class JournalRecordDetailActivity extends EdgeToEdgeActivity {
     }
 
     private void renderPhotosAndAnalysis() {
-        List<GardenPhoto> related = JournalPhotoRecordFilter.select(
-                viewModel.loadPhotos(),
-                zoneId,
-                photoGroupId,
-                selectedPhotoPath
-        );
+        List<GardenPhoto> available = combinedPhotos();
+        List<GardenPhoto> related = selectedPhotoId.isBlank()
+                ? JournalPhotoRecordFilter.select(
+                        available, zoneId, seasonId, photoGroupId, selectedPhotoPath)
+                : JournalPhotoRecordFilter.selectById(
+                        available, zoneId, selectedPhotoId);
         relatedPhotos = related;
         photosLayout.removeAllViews();
-        if (related.isEmpty()) {
+        if (related.isEmpty() && manualEventId.isBlank()) {
             photosTitle.setVisibility(View.GONE);
             photosLayout.setVisibility(View.GONE);
         } else {
@@ -143,13 +190,32 @@ public class JournalRecordDetailActivity extends EdgeToEdgeActivity {
             photosLayout.setVisibility(View.VISIBLE);
             photosTitle.setText(getResources().getQuantityString(
                     R.plurals.runtime_record_photos_title, related.size(), related.size()));
-            for (int index = 0; index < related.size(); index++) {
-                addPhoto(related.get(index), index, related.size());
+            int visiblePhotoCount = 0;
+            for (GardenPhoto photo : related) {
+                if (hasLocalImage(photo)) visiblePhotoCount++;
             }
-            if (!seasonReadOnly && related.size() < 5) addPhotoAddTile();
+            int visibleIndex = 0;
+            for (GardenPhoto photo : related) {
+                if (!hasLocalImage(photo)) continue;
+                addPhoto(photo, visibleIndex++, visiblePhotoCount);
+            }
+            boolean canAddPhoto = selectedPhotoId.isBlank()
+                    && !seasonReadOnly && related.size() < 5;
+            if (canAddPhoto) addPhotoAddTile();
+            photosTitle.setVisibility(visiblePhotoCount > 0 || canAddPhoto
+                    ? View.VISIBLE : View.GONE);
+            photosLayout.setVisibility(visiblePhotoCount > 0 || canAddPhoto
+                    ? View.VISIBLE : View.GONE);
         }
         GardenPhoto analyzed = related.isEmpty() ? null : related.get(0);
         selectedPhotoRecord = analyzed;
+        if (!selectedPhotoId.isBlank() && analyzed != null) {
+            recordEpoch = analyzed.getCaptured_at_epoch();
+            currentDetail = safe(analyzed.getNote());
+            ((TextView) findViewById(R.id.txtRecordDate)).setText(dateTime(recordEpoch));
+            ((TextView) findViewById(R.id.txtRecordDetail)).setText(currentDetail.isBlank()
+                    ? getString(R.string.runtime_no_description) : currentDetail);
+        }
         updateDeleteAction();
         String advice = !selectedAdvice.isBlank() ? selectedAdvice : analyzed == null ? "" : safe(analyzed.getAnalysis_advice());
         String title = analyzed == null ? "" : safe(analyzed.getAnalysis_title());
@@ -161,6 +227,39 @@ public class JournalRecordDetailActivity extends EdgeToEdgeActivity {
                 : getString(R.string.runtime_two_sections, title, advice));
         findViewById(R.id.txtFollowupHeading).setVisibility(View.GONE);
         findViewById(R.id.cardRecordFollowup).setVisibility(View.GONE);
+    }
+
+    private boolean openAssistantWhenRequestedAnalysisIsMissing() {
+        if (selectedPhotoId.isBlank() || missingAnalysisFallbackOpened) return false;
+        if (!JournalPhotoRecordFilter.selectById(
+                combinedPhotos(), zoneId, selectedPhotoId).isEmpty()) return false;
+        missingAnalysisFallbackOpened = true;
+        Intent fallback = new Intent(this, PlantAssistantActivity.class);
+        fallback.putExtra("zone_id", zoneId);
+        fallback.putExtra("season_id", seasonId);
+        startActivity(fallback);
+        finish();
+        return true;
+    }
+
+    private List<GardenPhoto> combinedPhotos() {
+        Map<String, GardenPhoto> combined = new LinkedHashMap<>();
+        for (GardenPhoto photo : cloudPhotos) {
+            if (photo != null && !safe(photo.getId()).isBlank()) {
+                combined.put(photo.getId(), photo);
+            }
+        }
+        for (GardenPhoto photo : viewModel.loadPhotos()) {
+            if (photo != null && !safe(photo.getId()).isBlank()) {
+                combined.put(photo.getId(), photo);
+            }
+        }
+        return new ArrayList<>(combined.values());
+    }
+
+    private boolean hasLocalImage(GardenPhoto photo) {
+        return photo != null && !safe(photo.getLocal_path()).isBlank()
+                && new File(photo.getLocal_path()).exists();
     }
 
     private void addPhoto(GardenPhoto photo, int position, int total) {
@@ -188,7 +287,7 @@ public class JournalRecordDetailActivity extends EdgeToEdgeActivity {
     }
 
     private void showExtraPhotoSourceDialog() {
-        if (seasonReadOnly) return;
+        if (seasonReadOnly || photoSaving) return;
         int remaining = 5 - relatedPhotos.size();
         if (remaining <= 0) { Toast.makeText(this, R.string.runtime_record_photo_limit, Toast.LENGTH_SHORT).show(); return; }
         new MaterialAlertDialogBuilder(this).setTitle(R.string.runtime_add_photo)
@@ -212,24 +311,24 @@ public class JournalRecordDetailActivity extends EdgeToEdgeActivity {
         }
     }
 
-    private void saveExtraPhotos(List<Uri> uris) {
-        if (selectedPhotoRecord == null) return;
-        int remaining = 5 - relatedPhotos.size();
-        if (remaining <= 0) return;
-        try {
-            photoGroupId = viewModel.ensureJournalPhotoGroup(
-                    selectedPhotoRecord, photoGroupId);
-            if (uris != null) {
-                for (int i = 0; i < Math.min(remaining, uris.size()); i++) {
-                    viewModel.addPhoto(uris.get(i), zoneId, currentDetail,
-                            photoGroupId, seasonId);
-                }
-            }
-            renderPhotosAndAnalysis();
-            Toast.makeText(this, R.string.runtime_photo_added, Toast.LENGTH_SHORT).show();
-        } catch (Exception error) {
-            Toast.makeText(this, R.string.runtime_photo_add_failed, Toast.LENGTH_SHORT).show();
+    private void saveExtraPhotos(List<Uri> uris, GardenPhotoCapture.Target capture) {
+        if (seasonReadOnly || photoSaving || uris == null || uris.isEmpty()) {
+            if (capture != null) capture.delete();
+            return;
         }
+        int remaining = 5 - relatedPhotos.size();
+        if (remaining <= 0) {
+            if (capture != null) capture.delete();
+            Toast.makeText(this, R.string.runtime_record_photo_limit, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        photoSaving = true;
+        findViewById(R.id.btnRecordDelete).setEnabled(false);
+        viewModel.appendRecordPhotos(selectedPhotoRecord, photoGroupId, zoneId, seasonId,
+                currentDetail, recordEpoch, uris.subList(0, Math.min(remaining, uris.size())))
+                .addOnCompleteListener(result -> {
+                    if (capture != null) capture.delete();
+                });
     }
 
     private void showPhoto(GardenPhoto photo) {
@@ -246,13 +345,15 @@ public class JournalRecordDetailActivity extends EdgeToEdgeActivity {
         linksLayout.removeAllViews();
         int count = 0;
         for (FertilizerApplication item : fertilizers) {
-            if (!zoneId.equals(item.getZone_id()) || isSameRecord(item.getApplied_at_epoch())) continue;
+            if (!JournalLinkedRecordPolicy.matchesFertilizer(
+                    photoGroupId, zoneId, seasonId, item)) continue;
             addLinkedCard("🌿", getString(R.string.notification_category_fertilization), safe(item.getProduct_name()) + " · " + trimNumber(item.getApplied_dose()) + " " + safe(item.getDose_unit()), item.getApplied_at_epoch());
             if (++count == 2) return;
         }
         for (WateringHistory item : wateringRecords) {
+            if (!JournalLinkedRecordPolicy.matchesWatering(
+                    photoGroupId, zoneId, seasonId, item)) continue;
             long when = parseWateringTime(item.getFinishedAt());
-            if (!zoneId.equals(item.getZoneId()) || !item.isCompleted() || isSameRecord(when)) continue;
             addLinkedCard(getString(R.string.symbol_water_drop), getString(R.string.notification_category_irrigation), getString(R.string.runtime_duration_seconds, item.getDuration()), when);
             if (++count == 2) return;
         }
@@ -266,7 +367,6 @@ public class JournalRecordDetailActivity extends EdgeToEdgeActivity {
         }
     }
 
-    private boolean isSameRecord(long time) { return time > 0L && Math.abs(time - recordEpoch) < 90L; }
 
     private void addLinkedCard(String icon, String title, String detail, long epoch) {
         MaterialCardView card = new MaterialCardView(this);
@@ -318,13 +418,30 @@ public class JournalRecordDetailActivity extends EdgeToEdgeActivity {
     }
 
     private void editManualRecord() {
-        if (seasonReadOnly) return;
-        EditText input = new EditText(this); input.setText(currentDetail); input.setMinLines(3);
-        new MaterialAlertDialogBuilder(this).setTitle(R.string.fertilizer_history_edit).setView(input).setNegativeButton(R.string.settings_quick_cancel, null).setPositiveButton(R.string.settings_quick_save, (d, w) -> {
-            String newNote = String.valueOf(input.getText());
-            if (viewModel.updateEvent(manualEventId, zoneId, seasonId,
-                    manualEventType, newNote, recordEpoch)) finish();
-        }).show();
+        if (seasonReadOnly || photoSaving) return;
+        EditText input = new EditText(this);
+        input.setText(currentDetail);
+        input.setMinLines(3);
+        androidx.appcompat.app.AlertDialog dialog = new MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.fertilizer_history_edit).setView(input)
+                .setNegativeButton(R.string.settings_quick_cancel, null)
+                .setPositiveButton(R.string.settings_quick_save, null).create();
+        dialog.setOnShowListener(ignored -> dialog.getButton(-1).setOnClickListener(v -> {
+            String note = String.valueOf(input.getText()).trim();
+            if (note.isBlank()) { input.setError(getString(R.string.journal_note_required)); return; }
+            dialog.getButton(-1).setEnabled(false);
+            viewModel.updateEvent(manualEventId, zoneId, seasonId, manualEventType, note, recordEpoch)
+                    .addOnSuccessListener(unused -> dialog.dismiss())
+                    .addOnFailureListener(error -> {
+                        dialog.getButton(-1).setEnabled(true);
+                    });
+        }));
+        dialog.show();
+    }
+
+    @Override protected void onSaveInstanceState(Bundle state) {
+        state.putString("pending_capture", pendingCameraPhoto == null ? "" : pendingCameraPhoto.getAbsolutePath());
+        super.onSaveInstanceState(state);
     }
 
     private void updateDeleteAction() {
@@ -334,19 +451,15 @@ public class JournalRecordDetailActivity extends EdgeToEdgeActivity {
     }
 
     private void confirmDelete() {
-        if (seasonReadOnly) return;
+        if (seasonReadOnly || photoSaving) return;
         if (manualEventId.isBlank() && selectedPhotoRecord == null) return;
         String message = !manualEventId.isBlank()
                 ? getString(R.string.runtime_delete_user_record_message)
                 : getString(R.string.runtime_delete_photo_record_message);
         new MaterialAlertDialogBuilder(this).setTitle(R.string.runtime_delete_record_title).setMessage(message)
                 .setNegativeButton(R.string.manual_relay_test_cancel, null).setPositiveButton(R.string.notification_center_action_delete, (d, w) -> {
-                    if (!manualEventId.isBlank()) {
-                        viewModel.deleteEvent(manualEventId);
-                    } else if (selectedPhotoRecord != null) {
-                        viewModel.deletePhotoRecord(selectedPhotoRecord, photoGroupId);
-                    }
-                    finish();
+                    viewModel.deleteRecord(manualEventId, zoneId, seasonId, selectedPhotoRecord,
+                            selectedPhotoId.isBlank() ? photoGroupId : "");
                 }).show();
     }
 

@@ -52,8 +52,18 @@ public final class DataSyncRepository {
 
     public void setAutomaticSyncEnabled(boolean enabled) {
         preferences.edit().putBoolean(AUTO_SYNC, enabled).apply();
+        applyAutomaticSync(enabled);
+    }
+
+    public void applySavedAutomaticSync() {
+        applyAutomaticSync(automaticSyncEnabled());
+    }
+
+    private void applyAutomaticSync(boolean enabled) {
         deviceRef.child("status").keepSynced(enabled);
         deviceRef.child("health").keepSynced(enabled);
+        deviceRef.child("seedling").child("nodes").child("seedling-001")
+                .child("latest").keepSynced(enabled);
         // Large, frequently changing branches are read by their screens when
         // needed. Keeping them hot in the background wastes mobile/database
         // traffic without improving irrigation safety on the Raspberry Pi.

@@ -691,7 +691,7 @@ public class FirebaseRepository {
       FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
       if (user == null) return Tasks.forResult(false);
       return user.getIdToken(true).continueWith(task -> task.isSuccessful()
-            && task.getResult() != null
+            && task.getResult() != null && user.getUid().equals(getCurrentUserId())
             && DeviceOwnershipPolicy.ownsDevice(
                   task.getResult().getClaims(), AppInfo.DEVICE_ID));
    }
@@ -2188,8 +2188,36 @@ public class FirebaseRepository {
       this.commandsRef.child("auto_mode").setValue(value);
    }
 
-   public void restartDevice() {
-      this.commandsRef.child("restart_device").setValue(true);
+   public Task<Void> restartDevice() {
+      String requestingUid = getCurrentUserId();
+      return isCurrentUserDeviceOwner().continueWithTask(owner -> {
+         if (!owner.isSuccessful() || !Boolean.TRUE.equals(owner.getResult())) {
+            return Tasks.forException(new SecurityException(
+                  com.alidogukan.avora.device.DeviceRestartPolicy.ADMIN_REQUIRED));
+         }
+         return Tasks.whenAllSuccess(statusRef.get(), commandsRef.get(),
+               deviceRef.child("irrigation_hardware").get()).continueWithTask(read -> {
+            if (!read.isSuccessful()) return Tasks.forException(read.getException());
+            if (!requestingUid.equals(getCurrentUserId())) return Tasks.forException(
+                  new SecurityException(com.alidogukan.avora.device.DeviceRestartPolicy.ADMIN_REQUIRED));
+            DataSnapshot statusData = (DataSnapshot) read.getResult().get(0);
+            DataSnapshot commands = (DataSnapshot) read.getResult().get(1);
+            DataSnapshot hardware = (DataSnapshot) read.getResult().get(2);
+            Status status = statusData.child("relay").getValue() instanceof Boolean
+                  ? statusData.getValue(Status.class) : null;
+            boolean wateringRequested = snapshotBoolean(commands.child("relay"))
+                  || snapshotBoolean(commands.child("manual_watering/requested"))
+                  || snapshotBoolean(commands.child("zone_test/requested"));
+            String failure = com.alidogukan.avora.device.DeviceRestartPolicy.failure(
+                  status, snapshotBoolean(hardware.child("valve_open")), wateringRequested,
+                  snapshotBoolean(commands.child("restart_device")), System.currentTimeMillis() / 1000L);
+            if (failure != null) return Tasks.forException(new IllegalStateException(failure));
+            Map<String, Object> updates = new HashMap<>();
+            updates.put("restart_device", true);
+            updates.put("restart_requested_at", ServerValue.TIMESTAMP);
+            return commandsRef.updateChildren(updates);
+         });
+      });
    }
 
    public void startManualWatering() {
@@ -2329,6 +2357,15 @@ public class FirebaseRepository {
             if (photo.getSeason_id() == null || photo.getSeason_id().isBlank()) {
                photo.setSeason_id(task.getResult());
             }
+            Map<String, Object> values = gardenPhotoValues(photo);
+            return this.journalPhotoMetadataRef.child(photo.getId()).setValue(values);
+         });
+      } else {
+         return Tasks.forException(new IllegalArgumentException("Photo id is required"));
+      }
+   }
+
+   private static Map<String, Object> gardenPhotoValues(GardenPhoto photo) {
             Map<String, Object> values = new HashMap<>();
             values.put("id", photo.getId());
             values.put("zone_id", photo.getZone_id());
@@ -2350,11 +2387,25 @@ public class FirebaseRepository {
              values.put("captured_at_epoch", photo.getCaptured_at_epoch());
             values.put("photo_kept_on_owner_phone", true);
             values.put("metadata_updated_at_epoch", System.currentTimeMillis() / 1000L);
-            return this.journalPhotoMetadataRef.child(photo.getId()).setValue(values);
-         });
-      } else {
-         return Tasks.forException(new IllegalArgumentException("Photo id is required"));
+      return values;
+   }
+
+   /** Commits a journal note and all attachment metadata in one Firebase operation. */
+   public Task<Void> saveJournalRecord(GardenEvent event, List<GardenPhoto> photos) {
+      Map<String, Object> updates = new HashMap<>();
+      if (event != null) updates.put("garden_journal/events/" + event.getId(), event);
+      for (GardenPhoto photo : photos) {
+         updates.put("garden_journal/photo_metadata/" + photo.getId(), gardenPhotoValues(photo));
       }
+      return updates.isEmpty() ? Tasks.forException(new IllegalArgumentException("Empty record"))
+              : deviceRef.updateChildren(updates);
+   }
+
+   public Task<Void> deleteJournalRecord(String eventId, List<GardenPhoto> photos) {
+      Map<String, Object> updates = new HashMap<>();
+      if (eventId != null && !eventId.isBlank()) updates.put("garden_journal/events/" + eventId, null);
+      for (GardenPhoto photo : photos) updates.put("garden_journal/photo_metadata/" + photo.getId(), null);
+      return updates.isEmpty() ? Tasks.forResult(null) : deviceRef.updateChildren(updates);
    }
 
    public Task<Void> deleteGardenPhotoMetadata(String photoId) {

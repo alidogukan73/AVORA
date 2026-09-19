@@ -126,7 +126,7 @@
     "devices": {
       "$deviceId": {
         ".read": "auth != null && (auth.token.avora_device_id == $deviceId || root.child('device_access').child($deviceId).child(auth.uid).child('approved').val() == true)",
-        ".write": "auth != null && (auth.token.avora_device_id == $deviceId || (root.child('device_access').child($deviceId).child(auth.uid).child('approved').val() == true && newData.child('superadmin').val() == data.child('superadmin').val())) && newData.child('user_feedback_email_state/activation_epoch').val() == data.child('user_feedback_email_state/activation_epoch').val() && (auth.token.avora_device_id == $deviceId || newData.child('weather/irrigation_settings/manual_watering_max_duration_seconds').val() == data.child('weather/irrigation_settings/manual_watering_max_duration_seconds').val()) && newData.child('user_feedback').val() == data.child('user_feedback').val()",
+        ".write": "auth != null && (auth.token.avora_device_id == $deviceId || (root.child('device_access').child($deviceId).child(auth.uid).child('approved').val() == true && newData.child('superadmin').val() == data.child('superadmin').val())) && newData.child('user_feedback_email_state/activation_epoch').val() == data.child('user_feedback_email_state/activation_epoch').val() && (auth.token.avora_device_id == $deviceId || newData.child('weather/irrigation_settings/manual_watering_max_duration_seconds').val() == data.child('weather/irrigation_settings/manual_watering_max_duration_seconds').val()) && newData.child('user_feedback').val() == data.child('user_feedback').val() && (auth.token.avora_device_id == $deviceId || ((newData.child('commands/restart_device').val() == data.child('commands/restart_device').val() || (newData.child('commands/restart_device').val() == false && data.child('commands/restart_device').val() != true)) && newData.child('commands/restart_requested_at').val() == data.child('commands/restart_requested_at').val()))",
         "user_feedback_email_state": {
           "activation_epoch": {
             ".validate": "newData.val() == data.val()"
@@ -177,6 +177,12 @@
             "$other": {
               ".validate": false
             }
+          },
+          "restart_device": {
+            ".validate": "newData.isBoolean() && (newData.val() == false || (auth.token.avora_device_id == $deviceId && root.child('devices').child($deviceId).child('status').child('online').val() == true && root.child('devices').child($deviceId).child('status').child('relay').val() == false && root.child('devices').child($deviceId).child('status').child('valve_open').val() != true && root.child('devices').child($deviceId).child('status').child('watering_state').val() != 'WATERING' && root.child('devices').child($deviceId).child('status').child('last_seen_epoch').isNumber() && root.child('devices').child($deviceId).child('status').child('last_seen_epoch').val() >= now / 1000 - 90 && root.child('devices').child($deviceId).child('status').child('last_seen_epoch').val() <= now / 1000 + 10 && root.child('devices').child($deviceId).child('irrigation_hardware/valve_open').val() != true && newData.parent().child('relay').val() != true && newData.parent().child('manual_watering/requested').val() != true && newData.parent().child('zone_test/requested').val() != true && newData.parent().child('restart_requested_at').isNumber() && newData.parent().child('restart_requested_at').val() >= now - 10000 && newData.parent().child('restart_requested_at').val() <= now + 5000))"
+          },
+          "restart_requested_at": {
+            ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now + 5000"
           }
         },
         "superadmin": {

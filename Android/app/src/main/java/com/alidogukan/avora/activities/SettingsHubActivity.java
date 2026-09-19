@@ -438,15 +438,6 @@ public class SettingsHubActivity extends AppCompatActivity {
                         R.string.settings_rain_menu_subtitle,
                         () -> open(RainSettingsActivity.class)));
 
-        addSection(R.string.settings_category_notifications,
-                item(R.drawable.ic_header_notification,
-                        R.string.settings_notification_preferences_title,
-                        R.string.settings_notification_preferences_subtitle,
-                        () -> open(NotificationSettingsActivity.class)),
-                item(R.drawable.ic_history_24, R.string.settings_reminders_title,
-                        R.string.settings_reminders_subtitle,
-                        () -> open(ReminderSettingsActivity.class)));
-
         addSection(R.string.settings_category_device_application,
                 item(R.drawable.ic_device_health_24, R.string.settings_device_info_title,
                         R.string.settings_device_info_subtitle,
@@ -476,6 +467,15 @@ public class SettingsHubActivity extends AppCompatActivity {
                             R.string.settings_superadmin_subtitle,
                             () -> open(SuperadminDataActivity.class)));
         }
+
+        addSection(R.string.settings_category_notifications,
+                item(R.drawable.ic_header_notification,
+                        R.string.settings_notification_preferences_title,
+                        R.string.settings_notification_preferences_subtitle,
+                        () -> open(NotificationSettingsActivity.class)),
+                item(R.drawable.ic_history_24, R.string.settings_reminders_title,
+                        R.string.settings_reminders_subtitle,
+                        () -> open(ReminderSettingsActivity.class)));
 
         addSection(R.string.settings_category_support_about,
                 item(R.drawable.ic_help_24, R.string.settings_help_title,

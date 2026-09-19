@@ -18,6 +18,7 @@ public final class RemoteNotificationEvent {
     public static final String IRRIGATION_STARTED = "IRRIGATION_STARTED";
     public static final String IRRIGATION_COMPLETED = "IRRIGATION_COMPLETED";
     public static final String IRRIGATION_INTERRUPTED = "IRRIGATION_INTERRUPTED";
+    public static final String FEEDBACK_RECEIVED = "FEEDBACK_RECEIVED";
     public static final String GARDEN_ACCESS_REQUEST = "GARDEN_ACCESS_REQUEST";
 
     private final String code;
@@ -66,6 +67,8 @@ public final class RemoteNotificationEvent {
                 return "DEVICE";
             case GARDEN_ACCESS_REQUEST:
                 return "ACCESS";
+            case FEEDBACK_RECEIVED:
+                return "FEEDBACK";
             default:
                 return "SYSTEM";
         }
@@ -77,6 +80,7 @@ public final class RemoteNotificationEvent {
             case DEVICE_WARNING:
             case IRRIGATION_INTERRUPTED:
             case GARDEN_ACCESS_REQUEST:
+            case FEEDBACK_RECEIVED:
                 return "HIGH";
             default:
                 return "NORMAL";
@@ -117,6 +121,8 @@ public final class RemoteNotificationEvent {
                 return context.getString(R.string.notification_watering_interrupted_title);
             case GARDEN_ACCESS_REQUEST:
                 return context.getString(R.string.notification_access_request_title);
+            case FEEDBACK_RECEIVED:
+                return context.getString(R.string.notification_feedback_title);
             default:
                 return context.getString(R.string.notification_remote_fallback_title);
         }
@@ -142,6 +148,8 @@ public final class RemoteNotificationEvent {
                         durationSeconds);
             case GARDEN_ACCESS_REQUEST:
                 return context.getString(R.string.notification_access_request_description);
+            case FEEDBACK_RECEIVED:
+                return context.getString(R.string.notification_feedback_description);
             default:
                 return context.getString(R.string.notification_remote_fallback_description);
         }

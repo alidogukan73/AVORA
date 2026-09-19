@@ -1660,6 +1660,27 @@ public final class SeasonRepository {
      * Returns an active season id. Existing installations are bootstrapped once;
      * a deliberately closed season is never reopened implicitly.
      */
+    /** Checks the requested crop, including secondary active seasons in the same zone. */
+    public Task<GardenSeason> requireWritableJournalSeason(String zoneId, String seasonId) {
+        if (safe(zoneId).isBlank() || safe(seasonId).isBlank()) {
+            return Tasks.forException(new IllegalStateException("JOURNAL_SEASON_INACTIVE"));
+        }
+        return deviceRef.child("zones").child(zoneId).get().continueWithTask(zoneTask -> {
+            if (!zoneTask.isSuccessful()) return Tasks.forException(zoneTask.getException());
+            GardenZone zone = zoneTask.getResult().getValue(GardenZone.class);
+            if (zone != null && zone.getZone_id().isBlank()) zone.setZone_id(zoneId);
+            return seasonsRef.child(seasonId).get().continueWith(manifestTask -> {
+                if (!manifestTask.isSuccessful()) throw manifestTask.getException();
+                GardenSeason season = manifestTask.getResult().getValue(GardenSeason.class);
+                if (season != null && season.getSeason_id().isBlank()) season.setSeason_id(seasonId);
+                if (!com.alidogukan.avora.journal.JournalEntryPolicy.writableSeason(zone, season)) {
+                    throw new IllegalStateException("JOURNAL_SEASON_INACTIVE");
+                }
+                return season;
+            });
+        });
+    }
+
     public Task<String> requireActiveSeasonId(String zoneId) {
         if (safe(zoneId).isBlank()) {
             return Tasks.forException(new IllegalArgumentException("Bölge bilgisi gerekli."));

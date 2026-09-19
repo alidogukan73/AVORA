@@ -219,6 +219,37 @@ def main() -> None:
     assert_raises(lambda: firebase.update_seedling_online(
         "seedling-001", "offline",
     ))
+    # Exercise MQTT decoding through the real Firebase writer into Android's
+    # latest-only path, including disconnect, reconnect and recovery.
+    pipeline = SeedlingMqttBridge(firebase, "127.0.0.1", 1883)
+    with patch.object(firebase_module.time, "time", return_value=1_789_300_010):
+        pipeline.handle_payload(
+            "avora/seedling/seedling-001/telemetry",
+            json.dumps(sample()).encode("utf-8"),
+        )
+    node = firebase_values["seedling"]["nodes"]["seedling-001"]
+    latest = node["latest"]
+    assert latest["received_at_epoch"] == 1_789_300_010
+    assert latest["online"] is True
+    assert latest["firmware"] == "1.0.0"
+    assert latest["soil_moisture_available"] is True
+    assert "recommendation" not in latest
+    assert node["recommendation"]["updated_at_epoch"] == 1_789_300_010
+
+    pipeline.handle_status_payload("avora/seedling/seedling-001/status", b"offline")
+    assert node["latest"]["online"] is False
+    assert node["latest"]["received_at_epoch"] == 1_789_300_010
+    pipeline.handle_status_payload("avora/seedling/seedling-001/status", b"online")
+    assert node["latest"]["received_at_epoch"] == 1_789_300_010
+
+    with patch.object(firebase_module.time, "time", return_value=1_789_300_110):
+        pipeline.handle_payload(
+            "avora/seedling/seedling-001/telemetry",
+            json.dumps(sample(soil_moisture_available=False)).encode("utf-8"),
+        )
+    assert node["latest"]["received_at_epoch"] == 1_789_300_110
+    assert node["latest"]["online"] is True
+    assert node["latest"]["soil_moisture_available"] is False
     print("[PASS] Seedling assistant telemetry and safety scenarios.")
 
 

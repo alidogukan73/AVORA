@@ -2,6 +2,12 @@ package com.alidogukan.avora.activities;
 
 import android.content.res.ColorStateList;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import com.alidogukan.avora.health.DeviceHealthFreshness;
+import com.alidogukan.avora.notifications.NotificationPolicy;
+import android.view.View;
+import androidx.appcompat.widget.PopupMenu;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.LinearLayout;
@@ -22,7 +28,6 @@ import com.alidogukan.avora.models.GardenZone;
 import com.alidogukan.avora.models.SeedlingTelemetry;
 import com.alidogukan.avora.viewmodels.DeviceHealthViewModel;
 import com.alidogukan.avora.viewmodels.MainViewModel;
-import com.alidogukan.avora.viewmodels.SeedlingViewModel;
 import com.alidogukan.avora.ui.PrimaryBottomNavigation;
 
 import com.google.android.material.button.MaterialButton;
@@ -38,10 +43,19 @@ import java.util.Collections;
 public class DeviceHealthActivity extends AppCompatActivity {
 
     private DeviceHealthViewModel viewModel;
+    private final Handler freshnessHandler = new Handler(Looper.getMainLooper());
+    private final Runnable freshnessRefresh = new Runnable() {
+        @Override public void run() {
+            renderDiagnostics();
+            freshnessHandler.postDelayed(this, 5_000L);
+        }
+    };
     private com.alidogukan.avora.viewmodels.DisplayUnitsViewModel displayUnits;
 
     private MaterialButton btnBack;
-    private MaterialButton btnRestartDevice;
+    private MaterialButton btnDeviceActions;
+    private PopupMenu deviceActionsMenu;
+    private androidx.appcompat.app.AlertDialog restartDialog;
 
     private MaterialCardView cardHealthSummary;
     private MaterialCardView cardOverallHealth;
@@ -162,10 +176,7 @@ public class DeviceHealthActivity extends AppCompatActivity {
 
         btnBack = findViewById(R.id.btnBack);
 
-        btnRestartDevice =
-                findViewById(
-                        R.id.btnRestartDevice
-                );
+        btnDeviceActions = findViewById(R.id.btnDeviceActions);
 
         cardHealthSummary =
                 findViewById(R.id.cardHealthSummary);
@@ -279,7 +290,28 @@ public class DeviceHealthActivity extends AppCompatActivity {
                 .get(DeviceHealthViewModel.class);
     }
 
+    @Override protected void onDestroy() {
+        if (deviceActionsMenu != null) deviceActionsMenu.dismiss();
+        if (restartDialog != null) restartDialog.dismiss();
+        super.onDestroy();
+    }
+
     private void observeViewModel() {
+        viewModel.getAdministrator().observe(this, administrator -> {
+            boolean allowed = Boolean.TRUE.equals(administrator);
+            btnDeviceActions.setVisibility(allowed ? View.VISIBLE : View.GONE);
+            if (!allowed) {
+                if (deviceActionsMenu != null) deviceActionsMenu.dismiss();
+                if (restartDialog != null) restartDialog.dismiss();
+            }
+        });
+        viewModel.getRestarting().observe(this, busy ->
+                btnDeviceActions.setEnabled(!Boolean.TRUE.equals(busy)));
+        viewModel.getRestartMessage().observe(this, message -> {
+            if (message == null) return;
+            viewModel.consumeRestartMessage();
+            Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+        });
 
         viewModel.getHealth().observe(
                 this,
@@ -327,16 +359,11 @@ public class DeviceHealthActivity extends AppCompatActivity {
                 }
         );
 
-        SeedlingViewModel seedlingViewModel =
-                new ViewModelProvider(this)
-                        .get(SeedlingViewModel.class);
-        seedlingViewModel.getNode("seedling-001").observe(
+        viewModel.getNodeTelemetry().observe(
                 this,
-                nodeState -> {
-                    latestSeedlingTelemetry = nodeState == null
-                            ? null
-                            : nodeState.getLatest();
-                    renderNodeMcuHealth();
+                telemetry -> {
+                    latestSeedlingTelemetry = telemetry;
+                    renderDiagnostics();
                 }
         );
     }
@@ -347,44 +374,41 @@ public class DeviceHealthActivity extends AppCompatActivity {
                 view -> finish()
         );
 
-        btnRestartDevice.setOnClickListener(
-                view -> showRestartConfirmationDialog()
-        );
-
+        btnDeviceActions.setOnClickListener(view -> showDeviceActions());
     }
+
+    private void showDeviceActions() {
+        if (!Boolean.TRUE.equals(viewModel.getAdministrator().getValue())
+                || Boolean.TRUE.equals(viewModel.getRestarting().getValue())) return;
+        if (deviceActionsMenu != null) deviceActionsMenu.dismiss();
+        deviceActionsMenu = new PopupMenu(this, btnDeviceActions);
+        deviceActionsMenu.getMenu().add(R.string.health_restart_device_button)
+                .setOnMenuItemClickListener(item -> {
+                    showRestartConfirmationDialog();
+                    return true;
+                });
+        deviceActionsMenu.show();
+    }
+
     private void showRestartConfirmationDialog() {
-
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(
-                this
-        )
+        if (!Boolean.TRUE.equals(viewModel.getAdministrator().getValue())
+                || Boolean.TRUE.equals(viewModel.getRestarting().getValue())) return;
+        if (restartDialog != null && restartDialog.isShowing()) return;
+        restartDialog = new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle(R.string.runtime_restart_title)
-                .setMessage(R.string.runtime_restart_message)
-                .setNegativeButton(
-                        R.string.settings_quick_cancel,
-                        (dialog, which) -> dialog.dismiss()
-                )
-                .setPositiveButton(
-                        R.string.runtime_restart_action,
-                        (dialog, which) -> {
-
-                            viewModel.restartDevice();
-
-                            Toast.makeText(
-                                    this,
-                                    getString(R.string.runtime_restart_sent),
-                                    Toast.LENGTH_SHORT
-                            ).show();
-                        }
-                )
+                .setMessage(R.string.health_restart_confirmation)
+                .setNegativeButton(R.string.settings_quick_cancel, null)
+                .setPositiveButton(R.string.runtime_restart_action,
+                        (dialog, which) -> viewModel.restartDevice())
                 .show();
     }
     private void renderHealth(Health health) {
 
+        latestHealth = health;
         if (health == null) {
+            renderDiagnostics();
             return;
         }
-
-        latestHealth = health;
 
         renderCpu(health);
         renderMemory(health);
@@ -413,9 +437,9 @@ public class DeviceHealthActivity extends AppCompatActivity {
         boolean piOnline =
                 latestStatus != null
                         && latestStatus.isOnline()
-                        && latestStatus.getLastSeenEpoch() > 0L
-                        && nowEpoch
-                        - latestStatus.getLastSeenEpoch() <= 30L;
+                        && DeviceHealthFreshness.isFresh(
+                                latestStatus.getLastSeenEpoch(), nowEpoch,
+                                NotificationPolicy.DEVICE_HEARTBEAT_MAX_AGE_SECONDS);
         addDiagnosticRow(
                 piOnline,
                 piOnline
@@ -427,9 +451,11 @@ public class DeviceHealthActivity extends AppCompatActivity {
         boolean sensorFresh = false;
         for (GardenZone zone : latestZones) {
             if (
-                    zone.getUpdated_at_epoch() > 0L
-                            && nowEpoch
-                            - zone.getUpdated_at_epoch() <= 90L
+                    zone.isSensor_enabled()
+                            && zone.getSensor_id() != null
+                            && !zone.getSensor_id().trim().isEmpty()
+                            && DeviceHealthFreshness.isFresh(
+                                    zone.getUpdated_at_epoch(), nowEpoch, 90L)
             ) {
                 sensorFresh = true;
                 break;
@@ -490,9 +516,8 @@ public class DeviceHealthActivity extends AppCompatActivity {
         if (errorClear) normalCount++;
 
         boolean adsStatusFresh = latestHealth != null
-                && latestHealth.getAds1115StatusUpdatedAtEpoch() > 0L
-                && (latestHealth.getAds1115StatusUpdatedAtEpoch() > nowEpoch
-                || nowEpoch - latestHealth.getAds1115StatusUpdatedAtEpoch() <= 90L);
+                && DeviceHealthFreshness.isFresh(
+                        latestHealth.getAds1115StatusUpdatedAtEpoch(), nowEpoch, 90L);
         boolean esp32Online = adsStatusFresh
                 && latestHealth.isEsp32NodeOnline();
         boolean primaryAds = esp32Online
@@ -568,6 +593,7 @@ public class DeviceHealthActivity extends AppCompatActivity {
         );
 
         renderEsp32SensorHealth(nowEpoch);
+        renderNodeMcuHealth();
     }
 
     /**
@@ -597,7 +623,7 @@ public class DeviceHealthActivity extends AppCompatActivity {
                 newestEpoch = updatedAt;
                 newest = zone;
             }
-            if (updatedAt > 0L && nowEpoch - updatedAt <= 90L) {
+            if (DeviceHealthFreshness.isFresh(updatedAt, nowEpoch, 90L)) {
                 connected++;
             }
         }
@@ -660,7 +686,7 @@ public class DeviceHealthActivity extends AppCompatActivity {
             return false;
         }
         long updatedAt = latestHealth.getAds1115StatusUpdatedAtEpoch();
-        if (updatedAt <= 0L || nowEpoch - updatedAt > 90L) {
+        if (!DeviceHealthFreshness.isFresh(updatedAt, nowEpoch, 90L)) {
             return false;
         }
 
@@ -764,7 +790,9 @@ public class DeviceHealthActivity extends AppCompatActivity {
             setNodeMcuCard(
                     getString(R.string.runtime_no_connection_badge),
                     getString(R.string.health_nodemcu_stale),
-                    getString(R.string.health_nodemcu_stale_detail),
+                    getString(telemetry.isOnline()
+                            ? R.string.health_nodemcu_stale_detail
+                            : R.string.health_nodemcu_offline_detail),
                     lastSeen,
                     R.color.offline,
                     R.color.offlineBackground
@@ -1099,7 +1127,16 @@ public class DeviceHealthActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        if (viewModel != null) viewModel.refreshAdministrator();
         if (latestHealth != null) renderCpu(latestHealth);
+        freshnessHandler.removeCallbacks(freshnessRefresh);
+        freshnessRefresh.run();
+    }
+
+    @Override
+    protected void onPause() {
+        freshnessHandler.removeCallbacks(freshnessRefresh);
+        super.onPause();
     }
 
     private void renderMemory(Health health) {

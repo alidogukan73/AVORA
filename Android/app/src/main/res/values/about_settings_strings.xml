@@ -1,28 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="about_settings_brand_subtitle">Akıllı Bitki Asistanı</string>
+    <string name="about_settings_brand_subtitle">Akıllı bitki ve bahçe takibi</string>
     <string name="about_settings_app_icon_description">AVORA uygulama logosu</string>
-
-    <string name="about_settings_overview_category">AVORA hakkında</string>
-    <string name="about_settings_overview_title">Bahçenizin dijital yardımcısı</string>
-    <string name="about_settings_overview_message">AVORA; kablosuz sensörleri, Raspberry Pi kontrol sistemini, Firebase altyapısını ve Android uygulamasını bir araya getirir. Toprak nemini izler, güvenli sulama kararları üretir, gübreleme planlarını takip eder, bitki gelişimini günlüğe kaydeder ve fotoğrafları bahçe verileriyle birlikte değerlendirir.</string>
-    <string name="about_settings_feature_irrigation">AI destekli ve güvenlik kontrollü bölgesel sulama</string>
-    <string name="about_settings_feature_plant">Fotoğraf, sensör ve hava verileriyle AI Bitki Asistanı</string>
-    <string name="about_settings_feature_fertilizer">Gübre önerisi, stok, takvim ve uygulama takibi</string>
-    <string name="about_settings_feature_journal">Sezon, sulama, gübreleme ve gelişim geçmişini birleştiren Bitki Günlüğü</string>
-
-    <string name="about_settings_system_category">Uygulama ve sistem</string>
-    <string name="about_settings_app_version_label">Uygulama sürümü</string>
+    <string name="about_settings_overview_title">Fideden hasada, bahçenizle birlikte.</string>
+    <string name="about_settings_overview_message">AVORA; bitki gelişimini, sulamayı ve gübrelemeyi tek yerde takip etmenizi sağlar. Sensör verilerini, fotoğrafları ve bakım geçmişini bir araya getirerek günlük bakım kararlarınıza destek olur.</string>
+    <string name="about_settings_features_category">Öne çıkan özellikler</string>
+    <string name="about_settings_feature_journal_title">Bitki Günlüğü</string>
+    <string name="about_settings_feature_journal">Fotoğraf, gözlem ve önemli gelişmeleri sezon bazında kaydedin. + menüsünden manuel sulama ve gübreleme ekranlarına ulaşın.</string>
+    <string name="about_settings_feature_plant_title">Bitki ve fide asistanları</string>
+    <string name="about_settings_feature_plant">Bitki fotoğraflarını bahçe verileriyle birlikte değerlendirin. Fide partilerini ekimden sezona aktarıma kadar takip edin.</string>
+    <string name="about_settings_feature_irrigation_title">Bölgesel sulama</string>
+    <string name="about_settings_feature_irrigation">Toprak nemini izleyin; manuel ve otomatik sulamayı yönetin. Tamamlanan işlemleri ve sonuçlarını geçmişte inceleyin.</string>
+    <string name="about_settings_feature_fertilizer_title">Gübreleme ve stok takibi</string>
+    <string name="about_settings_feature_fertilizer">Gübre önerilerini, ürün stoklarını ve uygulama takvimini takip edin. Yaptığınız uygulamaları ve sonuçlarını kaydedin.</string>
+    <string name="about_settings_feature_backup_title">Senkronizasyon ve yedekleme</string>
+    <string name="about_settings_feature_backup">Verileri NAS ile eşitleyin; veri ve fotoğraf yedeklerini yönetin. Hesap ve cihaz erişimlerini ayarlardan kontrol edin.</string>
+    <string name="about_settings_system_category">Sürüm ve cihaz bilgileri</string>
+    <string name="about_settings_system_description">Sistem sürümleri, cihazların son bildirdiği bilgilerden alınır.</string>
+    <string name="about_settings_app_version_label">Android uygulaması</string>
     <string name="about_settings_version_format">v%1$s</string>
-    <string name="about_settings_backend_version_label">Raspberry Pi backend sürümü</string>
-    <string name="about_settings_esp32_version_label">ESP32 sürümü</string>
-    <string name="about_settings_nodemcu_version_label">NodeMCU sürümü</string>
-    <string name="about_settings_device_label">Bağlı cihaz</string>
-    <string name="about_settings_backend_waiting">Bağlantı bekleniyor</string>
+    <string name="about_settings_backend_version_label">Raspberry Pi yazılımı</string>
+    <string name="about_settings_esp32_version_label">ESP32 yazılımı</string>
+    <string name="about_settings_nodemcu_version_label">NodeMCU yazılımı</string>
+    <string name="about_settings_device_label">Cihaz kimliği</string>
+    <string name="about_settings_backend_waiting">Bilgi bekleniyor</string>
     <string name="about_settings_backend_unavailable">Bilgi alınamadı</string>
-
-    <string name="about_settings_developer_category">Geliştirici</string>
-    <string name="about_settings_github_message">Kaynak kodlarını ve proje gelişimini GitHub üzerinden görüntüleyin.</string>
-    <string name="about_settings_github_content_description">AVORA GitHub sayfasını aç</string>
-    <string name="about_settings_footer">AVORA · Akıllı tarım için geliştirildi</string>
+    <string name="about_settings_developer_category">Geliştirici ve proje</string>
+    <string name="about_settings_github_message">Kaynak kodlarını ve projenin gelişimini GitHub üzerinden inceleyin.</string>
+    <string name="about_settings_github_button">Projeyi GitHub’da görüntüle</string>
+    <string name="about_settings_github_content_description">AVORA projesini GitHub’da aç</string>
+    <string name="about_settings_footer">AVORA · Bahçenizle birlikte gelişir</string>
 </resources>

@@ -301,6 +301,8 @@ public class FertilizerHistoryActivity extends EdgeToEdgeActivity {
                     Intent intent = new Intent(this, NewJournalRecordActivity.class);
                     intent.putExtra(NewJournalRecordActivity.EXTRA_ZONE_ID,
                             value.getZone_id());
+                    intent.putExtra(NewJournalRecordActivity.EXTRA_SEASON_ID,
+                            value.getSeason_id());
                     intent.putExtra(NewJournalRecordActivity.EXTRA_INITIAL_TYPE,
                             NewJournalRecordActivity.RECORD_TYPE_PHOTO);
                     intent.putExtra(NewJournalRecordActivity.EXTRA_RELATED_APPLICATION_ID,

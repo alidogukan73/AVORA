@@ -57,6 +57,7 @@ public final class NotificationPolicy {
             case "DEVICE":
             case "SYSTEM":
             case "ACCESS":
+            case "FEEDBACK":
                 return "device";
             case "PLANT":
             case "PLANT_ASSISTANT":

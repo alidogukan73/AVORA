@@ -1,3 +1,5 @@
+@file:Suppress("UnstableApiUsage")
+
 import java.io.FileInputStream
 import java.util.Properties
 import org.gradle.api.tasks.compile.JavaCompile
@@ -28,8 +30,8 @@ android {
         applicationId = "com.alidogukan.avora"
         minSdk = 26
         targetSdk = 36
-        versionCode = 74
-        versionName = "3.6.11"
+        versionCode = 79
+        versionName = "3.6.15"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

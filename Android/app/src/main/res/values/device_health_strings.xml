@@ -4,7 +4,7 @@
     <string name="health_wireless_soil_sensor_connection">Kablosuz toprak nemi sensörlerinin bağlantısı</string>
     <string name="health_device_management_title">🔄 Cihaz Yönetimi</string>
     <string name="health_remote_restart_description">Raspberry Pi cihazını uzaktan yeniden başlatabilirsiniz.</string>
-    <string name="health_restart_device_button">Cihazı Yeniden Başlat</string>
+    <string name="health_restart_device_button">Raspberry Pi’yi yeniden başlat</string>
     <string name="health_ads_fault_badge">ADS UYARISI</string>
     <string name="health_ads_count">%1$d / 2 ADS1115 çalışıyor</string>
     <string name="health_ads_primary_fault">ADS1115 0x48 bağlantı hatası. 0x49 çalışıyor; bağlı sensörler veri göndermeye devam ediyor.</string>
@@ -35,4 +35,12 @@
     <string name="diagnostics_nodemcu_ads_missing">NodeMCU çalışıyor; fide ADS1115 bağlı değil</string>
     <string name="diagnostics_nodemcu_stale">NodeMCU fide sensör verisi güncel değil</string>
     <string name="diagnostics_nodemcu_no_data">NodeMCU fide sensör verisi alınamadı</string>
+    <string name="health_device_actions">Cihaz işlemleri</string>
+    <string name="health_restart_confirmation">Raspberry Pi yeniden başlatılacak. Sensör verileri ve uzaktan erişim kısa süreliğine kesilecek. Aktif sulama veya vana testi varsa işlem yapılmaz. Devam etmek istiyor musunuz?</string>
+    <string name="health_restart_admin_required">Bu işlem için yönetici yetkisi gerekir.</string>
+    <string name="health_restart_watering_active">Sulama veya vana testi devam ederken yeniden başlatılamaz. İşlem tamamlandıktan sonra tekrar deneyin.</string>
+    <string name="health_restart_status_unavailable">Cihazın güncel durumu doğrulanamadı. Bağlantıyı kontrol edip tekrar deneyin.</string>
+    <string name="health_restart_pending">Bir yeniden başlatma isteği zaten bekliyor.</string>
+    <string name="health_restart_failed">Yeniden başlatma isteği gönderilemedi. Bağlantıyı ve yönetici yetkinizi kontrol edin.</string>
+    <string name="health_nodemcu_offline_detail">NodeMCU çevrimdışı bildirildi. Güç ve Wi-Fi bağlantısını kontrol edin.</string>
 </resources>

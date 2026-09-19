@@ -33,4 +33,5 @@
     <string name="notification_action_open_seedling_batch">Open seedling batch</string>
     <string name="notification_action_open_access_requests">Open access requests</string>
     <string name="notification_action_review_inactive_access">Review family access</string>
+    <string name="notification_action_open_plant_analysis">Open analysis record</string>
 </resources>

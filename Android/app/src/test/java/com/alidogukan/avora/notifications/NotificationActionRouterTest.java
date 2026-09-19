@@ -16,6 +16,23 @@ public final class NotificationActionRouterTest {
                 NotificationActionRouter.destinationFor(value));
     }
 
+
+    @Test public void savedPlantAnalysisTargetsItsExactRecord() {
+        GardenNotification value = notification(
+                "PLANT_ASSISTANT", "NORMAL", "plant_analysis:photo-42", "zone-003");
+        assertEquals(NotificationActionRouter.Destination.PLANT_ANALYSIS_RECORD,
+                NotificationActionRouter.destinationFor(value));
+        assertEquals("photo-42", NotificationActionRouter.analysisPhotoIdFromSource(
+                value.getSource_key()));
+    }
+
+    @Test public void plantNoticeWithoutRecordIdFallsBackToAssistant() {
+        GardenNotification value = notification(
+                "PLANT_ASSISTANT", "NORMAL", "plant-daily:zone-003", "zone-003");
+        assertEquals(NotificationActionRouter.Destination.PLANT_ASSISTANT,
+                NotificationActionRouter.destinationFor(value));
+    }
+
     @Test public void irrigationAdviceTargetsAssistantButCompletedCycleTargetsHistory() {
         GardenNotification advice = notification(
                 "IRRIGATION", "HIGH", "low-moisture:zone-002", "zone-002");

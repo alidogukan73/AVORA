@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="notification_feedback_title">New feedback</string>
+    <string name="notification_feedback_description">New feedback has arrived. Review it in the feedback inbox.</string>
+    <string name="notification_action_open_feedback">Open feedback</string>
+</resources>

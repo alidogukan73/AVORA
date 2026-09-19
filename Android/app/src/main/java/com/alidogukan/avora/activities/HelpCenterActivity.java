@@ -31,25 +31,63 @@ import java.util.Locale;
 public class HelpCenterActivity extends AppCompatActivity {
     private static final int CATEGORY_ALL = 0;
     private static final int CATEGORY_START = 1;
-    private static final int CATEGORY_IRRIGATION = 2;
-    private static final int CATEGORY_AI = 3;
-    private static final int CATEGORY_RECORDS = 4;
-    private static final int CATEGORY_DEVICE = 5;
+    private static final int CATEGORY_GARDEN = 2;
+    private static final int CATEGORY_IRRIGATION = 3;
+    private static final int CATEGORY_AI = 4;
+    private static final int CATEGORY_RECORDS = 5;
+    private static final int CATEGORY_DEVICE = 6;
+    private static final int CATEGORY_ACCOUNT_DATA = 7;
 
     private final List<HelpEntry> entries = Arrays.asList(
             entry(CATEGORY_START, R.string.help_q_first_setup, R.string.help_a_first_setup),
+            entry(CATEGORY_START, R.string.help_q_navigation, R.string.help_a_navigation),
             entry(CATEGORY_START, R.string.help_q_status_meaning, R.string.help_a_status_meaning),
+            entry(CATEGORY_START, R.string.help_q_units, R.string.help_a_units),
+            entry(CATEGORY_START, R.string.help_q_quick_settings, R.string.help_a_quick_settings),
+
+            entry(CATEGORY_GARDEN, R.string.help_q_zone_management, R.string.help_a_zone_management),
+            entry(CATEGORY_GARDEN, R.string.help_q_sensor_mapping, R.string.help_a_sensor_mapping),
+            entry(CATEGORY_GARDEN, R.string.help_q_sensor_calibration, R.string.help_a_sensor_calibration),
+            entry(CATEGORY_GARDEN, R.string.help_q_season_start_close, R.string.help_a_season_start_close),
+            entry(CATEGORY_GARDEN, R.string.help_q_season_history, R.string.help_a_season_history),
+            entry(CATEGORY_GARDEN, R.string.help_q_journal_edit, R.string.help_a_journal_edit),
+
             entry(CATEGORY_IRRIGATION, R.string.help_q_auto_irrigation, R.string.help_a_auto_irrigation),
             entry(CATEGORY_IRRIGATION, R.string.help_q_low_moisture_wait, R.string.help_a_low_moisture_wait),
             entry(CATEGORY_IRRIGATION, R.string.help_q_manual_valve, R.string.help_a_manual_valve),
+            entry(CATEGORY_IRRIGATION, R.string.help_q_manual_duration, R.string.help_a_manual_duration),
+            entry(CATEGORY_IRRIGATION, R.string.help_q_valve_setup, R.string.help_a_valve_setup),
+            entry(CATEGORY_IRRIGATION, R.string.help_q_restart_process, R.string.help_a_restart_process),
+            entry(CATEGORY_IRRIGATION, R.string.help_q_weather_irrigation, R.string.help_a_weather_irrigation),
+            entry(CATEGORY_IRRIGATION, R.string.help_q_watering_history, R.string.help_a_watering_history),
+
             entry(CATEGORY_AI, R.string.help_q_ai_tools, R.string.help_a_ai_tools),
+            entry(CATEGORY_AI, R.string.help_q_plant_analysis_record, R.string.help_a_plant_analysis_record),
             entry(CATEGORY_AI, R.string.help_q_ai_remote, R.string.help_a_ai_remote),
             entry(CATEGORY_AI, R.string.help_q_ai_diagnosis, R.string.help_a_ai_diagnosis),
+            entry(CATEGORY_AI, R.string.help_q_seedling_batches, R.string.help_a_seedling_batches),
+            entry(CATEGORY_AI, R.string.help_q_seedling_archive, R.string.help_a_seedling_archive),
+            entry(CATEGORY_AI, R.string.help_q_irrigation_learning, R.string.help_a_irrigation_learning),
+
             entry(CATEGORY_RECORDS, R.string.help_q_journal_auto, R.string.help_a_journal_auto),
-            entry(CATEGORY_RECORDS, R.string.help_q_season_history, R.string.help_a_season_history),
             entry(CATEGORY_RECORDS, R.string.help_q_fertilizer_record, R.string.help_a_fertilizer_record),
+            entry(CATEGORY_RECORDS, R.string.help_q_fertilizer_stock, R.string.help_a_fertilizer_stock),
+            entry(CATEGORY_RECORDS, R.string.help_q_fertilizer_learning, R.string.help_a_fertilizer_learning),
+            entry(CATEGORY_RECORDS, R.string.help_q_notifications, R.string.help_a_notifications),
+            entry(CATEGORY_RECORDS, R.string.help_q_statistics, R.string.help_a_statistics),
+
             entry(CATEGORY_DEVICE, R.string.help_q_device_offline, R.string.help_a_device_offline),
-            entry(CATEGORY_DEVICE, R.string.help_q_backup, R.string.help_a_backup));
+            entry(CATEGORY_DEVICE, R.string.help_q_device_health, R.string.help_a_device_health),
+            entry(CATEGORY_DEVICE, R.string.help_q_remote_connection, R.string.help_a_remote_connection),
+            entry(CATEGORY_DEVICE, R.string.help_q_hardware_safety, R.string.help_a_hardware_safety),
+
+            entry(CATEGORY_ACCOUNT_DATA, R.string.help_q_device_authorization, R.string.help_a_device_authorization),
+            entry(CATEGORY_ACCOUNT_DATA, R.string.help_q_family_member, R.string.help_a_family_member),
+            entry(CATEGORY_ACCOUNT_DATA, R.string.help_q_sessions, R.string.help_a_sessions),
+            entry(CATEGORY_ACCOUNT_DATA, R.string.help_q_sync_backup_difference, R.string.help_a_sync_backup_difference),
+            entry(CATEGORY_ACCOUNT_DATA, R.string.help_q_backup, R.string.help_a_backup),
+            entry(CATEGORY_ACCOUNT_DATA, R.string.help_q_restore_safety, R.string.help_a_restore_safety),
+            entry(CATEGORY_ACCOUNT_DATA, R.string.help_q_feedback, R.string.help_a_feedback));
 
     private LinearLayout faqContainer;
     private TextView emptyView;
@@ -82,10 +120,12 @@ public class HelpCenterActivity extends AppCompatActivity {
     private void bindCategories() {
         findViewById(R.id.chipHelpAll).setOnClickListener(view -> selectCategory(CATEGORY_ALL));
         findViewById(R.id.chipHelpStart).setOnClickListener(view -> selectCategory(CATEGORY_START));
+        findViewById(R.id.chipHelpGarden).setOnClickListener(view -> selectCategory(CATEGORY_GARDEN));
         findViewById(R.id.chipHelpIrrigation).setOnClickListener(view -> selectCategory(CATEGORY_IRRIGATION));
         findViewById(R.id.chipHelpAi).setOnClickListener(view -> selectCategory(CATEGORY_AI));
         findViewById(R.id.chipHelpRecords).setOnClickListener(view -> selectCategory(CATEGORY_RECORDS));
         findViewById(R.id.chipHelpDevice).setOnClickListener(view -> selectCategory(CATEGORY_DEVICE));
+        findViewById(R.id.chipHelpAccountData).setOnClickListener(view -> selectCategory(CATEGORY_ACCOUNT_DATA));
     }
 
     private void selectCategory(int category) {

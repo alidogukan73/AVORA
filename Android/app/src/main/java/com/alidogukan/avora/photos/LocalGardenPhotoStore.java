@@ -214,6 +214,22 @@ public class LocalGardenPhotoStore {
         return false;
     }
 
+    public boolean updateCapturedAt(String photoId, long timestamp) {
+        if (photoId == null || photoId.isBlank() || timestamp <= 0) return false;
+        JSONArray index = readIndex();
+        for (int i = 0; i < index.length(); i++) {
+            try {
+                JSONObject item = index.getJSONObject(i);
+                if (!photoId.equals(item.optString("id"))) continue;
+                item.put("captured_at_epoch", timestamp);
+                context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                        .putString(KEY_INDEX, index.toString()).apply();
+                return true;
+            } catch (Exception ignored) { }
+        }
+        return false;
+    }
+
     /** Persists the cloud-resolved season id in the phone-only photo index. */
     public boolean updateSeasonId(String photoId, String seasonId) {
         if (photoId == null || photoId.isBlank()) return false;

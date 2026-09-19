@@ -9,6 +9,7 @@ import threading
 import time
 import uuid
 from datetime import datetime
+from dataclasses import replace
 from pathlib import Path
 
 import firebase_admin
@@ -176,10 +177,6 @@ class FirebaseService:
             with self._command_lock:
                 self._command_state = initial_command_state
 
-            self.check_restart_command(
-                initial_command_state,
-            )
-
             self.increment_restart_count()
 
             self.start_command_sync()
@@ -330,6 +327,48 @@ class FirebaseService:
             },
         )
         self._process_access_request_notifications()
+        self._process_feedback_notifications()
+
+    def _process_feedback_notifications(self) -> None:
+        """Notify owner phones independently of feedback email delivery."""
+        now = int(time.time())
+        if now - getattr(self, "_last_feedback_push_scan", 0) < 60:
+            return
+        self._last_feedback_push_scan = now
+        try:
+            state = db.reference(
+                f"feedback_devices/{AppConfig.DEVICE_ID}/push_state/activation_epoch")
+            # Recover recent missed feedback without alerting for the whole inbox.
+            activation = state.transaction(
+                lambda current: current if isinstance(current, (int, float))
+                and current > 0 else now - 86400
+            )
+            reference = db.reference(
+                f"feedback_devices/{AppConfig.DEVICE_ID}/user_feedback")
+            items = reference.order_by_child("created_at").start_at(activation * 1000).get() or {}
+            if not isinstance(items, dict):
+                return
+            for feedback_id, value in items.items():
+                if not isinstance(value, dict):
+                    continue
+                if str(value.get("status", "new")).lower() != "new":
+                    continue
+                delivery = value.get("push_delivery") or {}
+                if isinstance(delivery, dict) and delivery.get("status") == "sent":
+                    continue
+                delivered = self._send_push_notification(
+                    event_code="FEEDBACK_RECEIVED",
+                    event_id=f"feedback:{feedback_id}",
+                    zone_id="",
+                    owner_only=True,
+                )
+                reference.child(str(feedback_id)).child("push_delivery").update({
+                    "status": "sent" if delivered else "not_delivered",
+                    "last_attempt_at_epoch": now,
+                })
+        except Exception as exc:
+            self._logger.warning("Feedback push processing will be retried: %s", exc)
+
 
     def has_active_error(self) -> bool:
         """Return whether Firebase still contains an unresolved service error."""
@@ -2984,39 +3023,32 @@ class FirebaseService:
         payload["updated_at_epoch"] = int(time.time())
         self._device_ref().child("weather/forecast").set(payload)
 
-    def check_restart_command(
-            self,
-            command: CommandState,
-    ) -> None:
-        """
-        Handle a one-time device restart request.
+    def consume_restart_command(self) -> bool:
+        """Atomically consume a fresh request; execution belongs to the hardware loop."""
+        accepted = False
+        cached_state = self.command_state
 
-        The Firebase command is acknowledged before rebooting
-        to prevent an endless restart loop.
-        """
+        def consume(current):
+            nonlocal accepted
+            accepted = False
+            if not isinstance(current, dict) or current.get("restart_device") is not True:
+                return current
+            timestamp = current.get("restart_requested_at")
+            now_ms = int(time.time() * 1000)
+            accepted = (
+                isinstance(timestamp, (int, float)) and not isinstance(timestamp, bool)
+                and now_ms - 60_000 <= timestamp <= now_ms + 10_000
+            )
+            updated = dict(current)
+            updated["restart_device"] = False
+            return updated
 
-        if not command.restart_device:
-            return
-
-        self._logger.warning(
-            "Device restart request detected.",
-        )
-
-        # Önce komutu tüketiyoruz.
-        # Raspberry yeniden açıldığında tekrar restart etmesin.
-        self._device_ref().child(
-            "commands",
-        ).update(
-            {
-                "restart_device": False,
-            },
-        )
-
-        self._logger.warning(
-            "Restart command acknowledged in Firebase.",
-        )
-
-        self.device_control.restart_device()
+        self._device_ref().child("commands").transaction(consume)
+        with self._command_lock:
+            # A newer listener event must not be overwritten by this acknowledgement.
+            if self._command_state is cached_state:
+                self._command_state = replace(cached_state, restart_device=False)
+        return accepted
 
     def _handle_command_event(self, event) -> None:
         """Apply one realtime command event without periodic REST reads."""
@@ -3041,7 +3073,6 @@ class FirebaseService:
             with self._command_lock:
                 self._command_state = new_state
 
-            self.check_restart_command(new_state)
         except Exception as exc:
             self._logger.warning(
                 "Realtime Firebase command event could not be applied: %s",
@@ -3068,10 +3099,6 @@ class FirebaseService:
 
                 with self._command_lock:
                     self._command_state = new_state
-
-                self.check_restart_command(
-                    new_state
-                )
 
                 # Connection recovered
                 self._retry_delay = 0.5

@@ -9,11 +9,13 @@ import androidx.annotation.StringRes;
 import com.alidogukan.avora.R;
 import com.alidogukan.avora.activities.AIAssistantActivity;
 import com.alidogukan.avora.activities.DeviceHealthActivity;
+import com.alidogukan.avora.activities.FeedbackInboxActivity;
 import com.alidogukan.avora.activities.FertilizationCalendarActivity;
 import com.alidogukan.avora.activities.FertilizationZoneDetailActivity;
 import com.alidogukan.avora.activities.FertilizerHistoryActivity;
 import com.alidogukan.avora.activities.FertilizerProductsActivity;
 import com.alidogukan.avora.activities.PlantAssistantActivity;
+import com.alidogukan.avora.activities.JournalRecordDetailActivity;
 import com.alidogukan.avora.activities.SeedlingAssistantActivity;
 import com.alidogukan.avora.activities.SeedlingBatchDetailActivity;
 import com.alidogukan.avora.activities.NasSecurityActivity;
@@ -29,6 +31,7 @@ public final class NotificationActionRouter {
     public enum Destination {
         NONE,
         PLANT_ASSISTANT,
+        PLANT_ANALYSIS_RECORD,
         IRRIGATION_ASSISTANT,
         WATERING_HISTORY,
         FERTILIZATION_ZONE,
@@ -39,6 +42,7 @@ public final class NotificationActionRouter {
         DEVICE_HEALTH,
         SEEDLING_ASSISTANT,
         NAS_SECURITY,
+        FEEDBACK_INBOX,
         SEEDLING_BATCH
     }
 
@@ -53,9 +57,12 @@ public final class NotificationActionRouter {
         }
         switch (normalizedType) {
             case "PHOTO_FOLLOW_UP":
+                return Destination.PLANT_ASSISTANT;
             case "PLANT":
             case "PLANT_ASSISTANT":
-                return Destination.PLANT_ASSISTANT;
+                return analysisPhotoIdFromSource(sourceKey).isBlank()
+                        ? Destination.PLANT_ASSISTANT
+                        : Destination.PLANT_ANALYSIS_RECORD;
             case "IRRIGATION":
                 if (normalizedSource.startsWith("WATERING:")
                         || normalizedSource.startsWith("WATERING-INTERRUPTED:")) {
@@ -77,6 +84,8 @@ public final class NotificationActionRouter {
                 return Destination.WEATHER_FORECAST;
             case "DEVICE":
                 return Destination.DEVICE_HEALTH;
+            case "FEEDBACK":
+                return Destination.FEEDBACK_INBOX;
             case "ACCESS":
                 return Destination.NAS_SECURITY;
             default:
@@ -97,6 +106,15 @@ public final class NotificationActionRouter {
         switch (destination) {
             case PLANT_ASSISTANT:
                 intent = new Intent(context, PlantAssistantActivity.class);
+                break;
+            case PLANT_ANALYSIS_RECORD:
+                intent = new Intent(context, JournalRecordDetailActivity.class)
+                        .putExtra(JournalRecordDetailActivity.EXTRA_PHOTO_ID,
+                                analysisPhotoIdFromSource(value.getSource_key()))
+                        .putExtra("title", value.getTitle())
+                        .putExtra("detail", value.getDescription())
+                        .putExtra("icon", "✦")
+                        .putExtra("time", value.getCreated_at_epoch());
                 break;
             case IRRIGATION_ASSISTANT:
                 intent = new Intent(context, AIAssistantActivity.class);
@@ -127,6 +145,9 @@ public final class NotificationActionRouter {
                 break;
             case SEEDLING_ASSISTANT:
                 intent = new Intent(context, SeedlingAssistantActivity.class);
+                break;
+            case FEEDBACK_INBOX:
+                intent = new Intent(context, FeedbackInboxActivity.class);
                 break;
             case NAS_SECURITY:
                 intent = new Intent(context, NasSecurityActivity.class);
@@ -159,10 +180,14 @@ public final class NotificationActionRouter {
     @StringRes
     public static int actionLabel(GardenNotification value) {
         switch (destinationFor(value)) {
+            case FEEDBACK_INBOX:
+                return R.string.notification_action_open_feedback;
             case PLANT_ASSISTANT:
                 return "PHOTO_FOLLOW_UP".equals(normalize(value == null ? "" : value.getType()))
                         ? R.string.notification_action_add_photo
                         : R.string.notification_action_open_plant_assistant;
+            case PLANT_ANALYSIS_RECORD:
+                return R.string.notification_action_open_plant_analysis;
             case IRRIGATION_ASSISTANT:
                 return R.string.notification_action_open_irrigation;
             case WATERING_HISTORY:
@@ -194,6 +219,17 @@ public final class NotificationActionRouter {
 
     private static String normalize(String value) {
         return safe(value).toUpperCase(Locale.ROOT);
+    }
+
+    static String analysisPhotoIdFromSource(String sourceKey) {
+        String value = safe(sourceKey);
+        String[] prefixes = {"plant_analysis:", "follow_up_complete:"};
+        for (String prefix : prefixes) {
+            if (value.regionMatches(true, 0, prefix, 0, prefix.length())) {
+                return safe(value.substring(prefix.length()));
+            }
+        }
+        return "";
     }
 
     static boolean isInactiveAccessReview(String sourceKey) {

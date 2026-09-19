@@ -60,6 +60,13 @@ public class AboutActivity extends AppCompatActivity {
         nodeMcuVersion = findViewById(R.id.txtNodeMcuVersion);
         developerName = findViewById(R.id.txtDeveloperName);
         developerRole = findViewById(R.id.txtDeveloperRole);
+        int[] headingIds = {
+                R.id.txtAboutBrand, R.id.txtAboutFeaturesHeading,
+                R.id.txtAboutSystemHeading, R.id.txtAboutDeveloperHeading
+        };
+        for (int headingId : headingIds) {
+            ViewCompat.setAccessibilityHeading(findViewById(headingId), true);
+        }
     }
 
     private void configureToolbar() {
@@ -76,7 +83,7 @@ public class AboutActivity extends AppCompatActivity {
         systemAppVersion.setText(version);
         deviceId.setText(AppInfo.DEVICE_ID);
         developerName.setText(AppInfo.DEVELOPER_NAME);
-        developerRole.setText(AppInfo.DEVELOPER_ROLE);
+        developerRole.setText(R.string.about_developer_role);
     }
 
     private void observeBackendVersion() {

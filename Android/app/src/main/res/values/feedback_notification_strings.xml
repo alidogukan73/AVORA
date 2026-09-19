@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="notification_feedback_title">Yeni geri bildirim</string>
+    <string name="notification_feedback_description">Yeni bir geri bildirim geldi. Geri bildirim kutusundan inceleyebilirsiniz.</string>
+    <string name="notification_action_open_feedback">Geri bildirimleri aç</string>
+</resources>

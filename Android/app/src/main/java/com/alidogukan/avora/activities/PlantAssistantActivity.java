@@ -75,6 +75,7 @@ public class PlantAssistantActivity extends EdgeToEdgeActivity {
     private ImageView photoPreview;
     private View photoHintLayout, otherNoteLayout;
     private TextInputEditText generalNote, otherNote;
+    public static final String EXTRA_JOURNAL_GROWTH = "journal_growth";
     private CheckBox growthStatus, yellowing, drying, spot, wilt, pest, flowerDrop, other;
     private String requestedZoneId = "";
     private String requestedSeasonId = "";
@@ -136,6 +137,7 @@ public class PlantAssistantActivity extends EdgeToEdgeActivity {
         requestedZoneId = safe(getIntent().getStringExtra("zone_id"));
         requestedSeasonId = safe(getIntent().getStringExtra("season_id"));
         bindViews();
+        growthStatus.setChecked(getIntent().getBooleanExtra(EXTRA_JOURNAL_GROWTH, false));
         bindActions();
         if (state != null) restoreInstanceState(state);
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
@@ -158,6 +160,17 @@ public class PlantAssistantActivity extends EdgeToEdgeActivity {
             renderLiveData(selectedZone());
         });
         viewModel.getPhotoMetadata().observe(this, ignored -> { });
+        viewModel.getCompletedAnalysisPhoto().observe(this, photo -> {
+            if (photo == null || !getIntent().getBooleanExtra(EXTRA_JOURNAL_GROWTH, false)) return;
+            viewModel.consumeCompletedAnalysisPhoto();
+            Intent detail = new Intent(this, JournalRecordDetailActivity.class);
+            detail.putExtra(JournalRecordDetailActivity.EXTRA_PHOTO_ID, photo.getId());
+            detail.putExtra("zone_id", photo.getZone_id());
+            detail.putExtra("season_id", photo.getSeason_id());
+            detail.putExtra("title", getString(R.string.runtime_event_growth_photo));
+            startActivity(detail);
+            finish();
+        });
         viewModel.getAnalysisInProgress().observe(this, running ->
                 setAnalysisControlsEnabled(!Boolean.TRUE.equals(running)));
     }

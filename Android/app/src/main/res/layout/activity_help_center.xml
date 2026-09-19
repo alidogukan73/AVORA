@@ -134,6 +134,14 @@
                         android:layout_height="wrap_content"
                         android:text="@string/help_category_start" />
 
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chipHelpGarden"
+                        style="@style/Widget.Material3.Chip.Filter"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/help_category_garden" />
+
                     <com.google.android.material.chip.Chip
                         android:id="@+id/chipHelpIrrigation"
                         style="@style/Widget.Material3.Chip.Filter"
@@ -161,6 +169,14 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/help_category_device" />
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chipHelpAccountData"
+                        style="@style/Widget.Material3.Chip.Filter"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/help_category_account_data" />
+
                 </com.google.android.material.chip.ChipGroup>
             </HorizontalScrollView>
 

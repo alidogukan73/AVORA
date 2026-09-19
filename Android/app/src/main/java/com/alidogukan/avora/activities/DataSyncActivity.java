@@ -24,6 +24,7 @@ import androidx.lifecycle.ViewModelProvider;
 
 import com.alidogukan.avora.R;
 import com.alidogukan.avora.config.AppInfo;
+import com.alidogukan.avora.backup.NasTwoWaySyncPlanner;
 import com.alidogukan.avora.nas.NasApiClient;
 import com.alidogukan.avora.nas.NasAuthClient;
 import com.alidogukan.avora.nas.NasBackupArchive;
@@ -38,6 +39,8 @@ import com.google.android.material.progressindicator.LinearProgressIndicator;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
+import com.google.android.gms.tasks.Task;
+import com.google.android.gms.tasks.Tasks;
 
 import org.json.JSONObject;
 
@@ -73,10 +76,7 @@ public class DataSyncActivity extends AppCompatActivity {
     private MaterialSwitch automaticNasBackupSwitch;
     private MaterialSwitch automaticNasPhotoBackupSwitch;
     private MaterialButton syncButton;
-    private MaterialButton nasBackupButton;
-    private MaterialButton nasRestoreButton;
-    private MaterialButton nasPhotoBackupButton;
-    private MaterialButton nasPhotoRestoreButton;
+    private MaterialButton nasSyncButton;
     private LinearProgressIndicator progress;
     private DataSyncViewModel viewModel;
     private BackupViewModel backupViewModel;
@@ -100,6 +100,7 @@ public class DataSyncActivity extends AppCompatActivity {
     private boolean nasBackupStatusLoading;
     private boolean nasBackupStatusFailed;
     private boolean nasPhotoBusy;
+    private boolean nasTwoWaySyncBusy;
     private boolean nasPhotoStatusLoading;
     private boolean nasPhotoStatusFailed;
     private boolean suppressSwitchCallback;
@@ -143,10 +144,7 @@ public class DataSyncActivity extends AppCompatActivity {
         automaticNasBackupSwitch = findViewById(R.id.switchDataSyncNasAutomatic);
         automaticNasPhotoBackupSwitch = findViewById(R.id.switchDataSyncNasPhotosAutomatic);
         syncButton = findViewById(R.id.btnDataSyncNow);
-        nasBackupButton = findViewById(R.id.btnDataSyncNasBackup);
-        nasRestoreButton = findViewById(R.id.btnDataSyncNasRestore);
-        nasPhotoBackupButton = findViewById(R.id.btnDataSyncNasPhotoBackup);
-        nasPhotoRestoreButton = findViewById(R.id.btnDataSyncNasPhotoRestore);
+        nasSyncButton = findViewById(R.id.btnDataSyncNasSync);
         progress = findViewById(R.id.progressDataSync);
         operationStatus = findViewById(R.id.txtDataSyncOperationStatus);
 
@@ -253,10 +251,7 @@ public class DataSyncActivity extends AppCompatActivity {
 
     private void configureActions() {
         syncButton.setOnClickListener(view -> startManualSync());
-        nasBackupButton.setOnClickListener(view -> beginNasBackup());
-        nasRestoreButton.setOnClickListener(view -> showNasRestoreSelection());
-        nasPhotoBackupButton.setOnClickListener(view -> beginNasPhotoBackup());
-        nasPhotoRestoreButton.setOnClickListener(view -> confirmNasPhotoRestore());
+        nasSyncButton.setOnClickListener(view -> prepareNasTwoWaySync());
         findViewById(R.id.cardDataSyncPortableBackup).setOnClickListener(
                 view -> startActivity(new Intent(this, BackupActivity.class)));
     }
@@ -430,7 +425,8 @@ public class DataSyncActivity extends AppCompatActivity {
                     activeNasSession.user.displayName));
             nasAccountValue.setTextColor(ContextCompat.getColor(this, R.color.online));
         }
-        boolean anyNasBusy = nasAccountBusy || nasBackupBusy || nasRestoreBusy || nasPhotoBusy;
+        boolean anyNasBusy = nasAccountBusy || nasBackupBusy || nasRestoreBusy
+                || nasPhotoBusy || nasTwoWaySyncBusy;
         automaticNasBackupSwitch.setEnabled(
                 !anyNasBusy);
         automaticNasPhotoBackupSwitch.setEnabled(!anyNasBusy);
@@ -493,17 +489,8 @@ public class DataSyncActivity extends AppCompatActivity {
             nasPhotoValue.setText(R.string.data_sync_nas_photo_never);
             nasPhotoValue.setTextColor(ContextCompat.getColor(this, R.color.textSecondary));
         }
-        nasBackupButton.setEnabled(activeNasSession != null
-                && !anyNasBusy
-                && !nasBackupStatusLoading);
-        nasRestoreButton.setEnabled(activeNasSession != null && nasBackupValidated
-                && nasBackupData != null && !anyNasBusy && !nasBackupStatusLoading);
-        nasPhotoBackupButton.setEnabled(activeNasSession != null
-                && !anyNasBusy && !nasPhotoStatusLoading);
-        nasPhotoRestoreButton.setEnabled(activeNasSession != null
-                && nasPhotoInspection != null
-                && nasPhotoInspection.missingOnPhoneCount > 0
-                && !anyNasBusy && !nasPhotoStatusLoading);
+        nasSyncButton.setEnabled(activeNasSession != null
+                && !anyNasBusy && !nasBackupStatusLoading && !nasPhotoStatusLoading);
     }
 
     private void showNasLoginDialog() {
@@ -1355,6 +1342,155 @@ public class DataSyncActivity extends AppCompatActivity {
                 handler.post(() -> finishNasPhotoFailure(session, error));
             }
         });
+    }
+
+    private void prepareNasTwoWaySync() {
+        NasSession session = activeNasSession;
+        if (session == null || nasTwoWaySyncBusy || nasBackupStatusLoading
+                || nasPhotoStatusLoading) return;
+        if (nasBackupInvalid) {
+            showOperation(R.string.data_sync_nas_two_way_invalid_backup, R.color.warning);
+            return;
+        }
+        nasTwoWaySyncBusy = true;
+        renderNasAccount();
+        showOperation(R.string.data_sync_nas_two_way_preparing, R.color.textSecondary);
+        viewModel.createNasBackup()
+                .addOnSuccessListener(current -> {
+                    if (isFinishing() || isDestroyed() || activeNasSession != session) return;
+                    try {
+                        NasTwoWaySyncPlanner.Plan plan = NasTwoWaySyncPlanner.plan(
+                                current, nasBackupValidated ? nasBackupData : null);
+                        nasTwoWaySyncBusy = false;
+                        renderNasAccount();
+                        showNasTwoWayPreview(session, plan);
+                    } catch (Exception error) {
+                        finishNasTwoWayFailure(session, error);
+                    }
+                })
+                .addOnFailureListener(error -> finishNasTwoWayFailure(session, error));
+    }
+
+    private void showNasTwoWayPreview(NasSession session,
+                                       NasTwoWaySyncPlanner.Plan plan) {
+        DataSyncViewModel.PhotoInspection photos = nasPhotoInspection;
+        int photosToPhone = photos == null ? 0 : photos.missingOnPhoneCount;
+        int sharedPhotos = photos == null ? 0
+                : Math.max(0, photos.remoteCount - photos.missingOnPhoneCount);
+        int photosToNas = photos == null ? 0
+                : Math.max(0, photos.localCount - sharedPhotos);
+        String message = getString(R.string.data_sync_nas_two_way_preview,
+                plan.dataMissingOnNas, plan.dataMissingOnCurrent,
+                photosToNas, photosToPhone);
+        MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.data_sync_nas_two_way_title)
+                .setMessage(message)
+                .setNegativeButton(R.string.data_sync_nas_cancel, null)
+                .setPositiveButton(R.string.data_sync_nas_two_way_confirm,
+                        (dialog, which) -> executeNasTwoWaySync(session, plan));
+        if (!nasBackups.isEmpty()) {
+            builder.setNeutralButton(R.string.data_sync_nas_two_way_history,
+                    (dialog, which) -> showNasRestoreSelection());
+        }
+        builder.show();
+    }
+
+    private void executeNasTwoWaySync(NasSession session,
+                                       NasTwoWaySyncPlanner.Plan plan) {
+        if (activeNasSession != session || nasTwoWaySyncBusy) return;
+        nasTwoWaySyncBusy = true;
+        renderNasAccount();
+        showOperation(R.string.data_sync_nas_two_way_working, R.color.textSecondary);
+        Task<Void> restoreTask = plan.dataMissingOnCurrent > 0
+                ? backupViewModel.restore(plan.mergedBackup, "NAS two-way sync")
+                : Tasks.forResult(null);
+        restoreTask.addOnSuccessListener(unused -> {
+                    if (isFinishing() || isDestroyed() || activeNasSession != session) return;
+                    runNasTwoWayTransfer(session, plan);
+                })
+                .addOnFailureListener(error -> finishNasTwoWayFailure(session, error));
+    }
+
+    private void runNasTwoWayTransfer(NasSession session,
+                                      NasTwoWaySyncPlanner.Plan initialPlan) {
+        nasExecutor.execute(() -> {
+            try {
+                NasDocumentClient.Document latest = NasDocumentClient.getDocument(
+                        session.accessToken, NAS_BACKUP_KEY);
+                JSONObject latestData = latest == null ? null : latest.data;
+                NasTwoWaySyncPlanner.Plan refreshed = NasTwoWaySyncPlanner.plan(
+                        initialPlan.mergedBackup, latestData);
+                NasDocumentClient.Document document = NasBackupArchive.save(
+                        session.accessToken, AppInfo.DEVICE_ID, refreshed.mergedBackup);
+                DataSyncViewModel.BackupValidation validation =
+                        viewModel.validateNasBackup(document.data);
+                if (!validation.valid) throw new IllegalStateException("NAS_BACKUP_INVALID");
+
+                DataSyncViewModel.PhotoRestoreResult restoreResult =
+                        viewModel.restoreMissingNasPhotos(session.accessToken);
+                DataSyncViewModel.PhotoBackupResult backupResult =
+                        viewModel.backupNasPhotos(session.accessToken);
+                DataSyncViewModel.PhotoInspection inspection =
+                        viewModel.inspectNasPhotos(session.accessToken);
+                viewModel.recordNasPhotoBackupSuccess(
+                        backupResult.completedAtEpochMs, backupResult.remoteCount);
+
+                handler.post(() -> finishNasTwoWaySuccess(session, document, validation,
+                        initialPlan, restoreResult, backupResult, inspection));
+            } catch (Exception error) {
+                handler.post(() -> finishNasTwoWayFailure(session, error));
+            }
+        });
+    }
+
+    private void finishNasTwoWaySuccess(
+            NasSession session,
+            NasDocumentClient.Document document,
+            DataSyncViewModel.BackupValidation validation,
+            NasTwoWaySyncPlanner.Plan plan,
+            DataSyncViewModel.PhotoRestoreResult restoreResult,
+            DataSyncViewModel.PhotoBackupResult backupResult,
+            DataSyncViewModel.PhotoInspection inspection
+    ) {
+        if (isFinishing() || isDestroyed() || activeNasSession != session) return;
+        nasTwoWaySyncBusy = false;
+        nasBackupStatusFailed = false;
+        nasPhotoStatusFailed = false;
+        nasBackupUpdatedAt = document.updatedAt;
+        nasBackupData = document.data;
+        nasPhotoInspection = inspection;
+        applyNasBackupValidation(validation);
+        List<NasBackupEntry> updated = new ArrayList<>();
+        updated.add(new NasBackupEntry(document, validation));
+        for (NasBackupEntry existing : nasBackups) {
+            if (existing.validation.createdAtEpochMs != validation.createdAtEpochMs
+                    && updated.size() < NasBackupArchive.HISTORY_LIMIT) {
+                updated.add(existing);
+            }
+        }
+        nasBackups = updated;
+        renderNasAccount();
+        String message = getString(R.string.data_sync_nas_two_way_success,
+                plan.dataMissingOnNas, plan.dataMissingOnCurrent,
+                backupResult.uploadedCount, restoreResult.restoredCount);
+        showOperation(message, R.color.online);
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+    }
+
+    private void finishNasTwoWayFailure(NasSession session, Throwable error) {
+        if (isFinishing() || isDestroyed() || activeNasSession != session) return;
+        nasTwoWaySyncBusy = false;
+        String code = error == null ? "" : error.getMessage();
+        if ("NAS_SESSION_EXPIRED".equals(code)) {
+            expireNasSession();
+            return;
+        }
+        renderNasAccount();
+        int message = "NAS_TIMEOUT".equals(code) || "NAS_UNAVAILABLE".equals(code)
+                ? R.string.data_sync_nas_two_way_connection_error
+                : R.string.data_sync_nas_two_way_error;
+        showOperation(message, R.color.warning);
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show();
     }
 
     private void beginNasPhotoBackup() {

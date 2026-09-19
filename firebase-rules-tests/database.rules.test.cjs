@@ -788,6 +788,18 @@ test("sensor and AI seedling snapshots are read-only to Android", async () => {
     });
   });
   const snapshot = await assertSucceeds(get(ref(owner, nodePath)));
+  const latestPath = `${nodePath}/latest`;
+  const latest = await assertSucceeds(get(ref(owner, latestPath)));
+  if (latest.val().node_id !== "seedling-001" || !latest.val().online) {
+    throw new Error("Latest-only telemetry must preserve the device snapshot.");
+  }
+  await testEnvironment.withSecurityRulesDisabled(async (context) => {
+    await set(ref(context.database(), `device_access/${DEVICE_ID}/${FAMILY_UID}`),
+      { approved: true });
+  });
+  await assertSucceeds(get(ref(unclaimedDatabase(FAMILY_UID), latestPath)));
+  await assertFails(get(ref(unclaimedDatabase(OTHER_UID), latestPath)));
+  await assertFails(update(ref(owner, latestPath), { online: false }));
   await assertFails(update(ref(owner, `${nodePath}/recommendation`), { score: 0 }));
   if (snapshot.val().recommendation.score !== 100) {
     throw new Error("Backend recommendation was not readable.");
@@ -807,4 +819,92 @@ test("approved family may submit feedback but cannot read the private inbox", as
   await assertFails(get(ref(family, path)));
   await assertFails(get(ref(family, `feedback_devices/${DEVICE_ID}`)));
   await assertSucceeds(get(ref(owner, path)));
+});
+
+async function seedRestartDevice(status = {}, commands = {}, hardware = {}) {
+  await testEnvironment.withSecurityRulesDisabled(async (context) => {
+    await set(ref(context.database(), `devices/${DEVICE_ID}`), {
+      status: { online: true, relay: false, valve_open: false,
+        last_seen_epoch: Math.floor(Date.now() / 1000), ...status },
+      commands: { restart_device: false, ...commands },
+      irrigation_hardware: hardware,
+    });
+    await set(ref(context.database(), `device_access/${DEVICE_ID}/${FAMILY_UID}`), {
+      approved: true,
+    });
+  });
+}
+
+function restartRequest() {
+  return { restart_device: true, restart_requested_at: Date.now() };
+}
+
+test("only administrators can request restart, including parent writes", async () => {
+  await seedRestartDevice();
+  const owner = authenticatedDatabase(OWNER_UID);
+  const family = unclaimedDatabase(FAMILY_UID);
+  const commands = `devices/${DEVICE_ID}/commands`;
+  await assertFails(set(ref(family, `${commands}/restart_device`), true));
+  await assertFails(update(ref(family, commands), restartRequest()));
+  await assertFails(set(ref(family, commands), restartRequest()));
+  await assertFails(update(ref(family, `devices/${DEVICE_ID}`), { commands: restartRequest() }));
+  await assertFails(set(ref(family, `${commands}/restart_requested_at`), Date.now()));
+  await assertSucceeds(update(ref(family, commands), { auto_mode: false }));
+  await assertSucceeds(update(ref(owner, commands), restartRequest()));
+  await assertFails(set(ref(family, `${commands}/restart_device`), false));
+  await assertSucceeds(set(ref(owner, `${commands}/restart_device`), false));
+});
+
+test("restart requires fresh online device status", async () => {
+  const owner = authenticatedDatabase(OWNER_UID);
+  const commands = `devices/${DEVICE_ID}/commands`;
+  for (const status of [
+    { online: false }, { last_seen_epoch: 0 },
+    { last_seen_epoch: Math.floor(Date.now() / 1000) - 100 },
+    { last_seen_epoch: Math.floor(Date.now() / 1000) + 30 },
+    { relay: null },
+  ]) {
+    await seedRestartDevice(status);
+    await assertFails(update(ref(owner, commands), restartRequest()));
+  }
+});
+
+test("restart is blocked by active or pending watering and valve tests", async () => {
+  const owner = authenticatedDatabase(OWNER_UID);
+  const scenarios = [
+    [{ relay: true }, {}, {}], [{ valve_open: true }, {}, {}],
+    [{ watering_state: "WATERING" }, {}, {}],
+    [{}, { relay: true }, {}], [{}, { manual_watering: { requested: true } }, {}],
+    [{}, { zone_test: { requested: true } }, {}], [{}, {}, { valve_open: true }],
+  ];
+  for (const [status, commands, hardware] of scenarios) {
+    await seedRestartDevice(status, commands, hardware);
+    await assertFails(update(ref(owner, `devices/${DEVICE_ID}/commands`), restartRequest()));
+  }
+});
+
+test("restart rejects old clients, expired requests and forged types", async () => {
+  const owner = authenticatedDatabase(OWNER_UID);
+  const commands = `devices/${DEVICE_ID}/commands`;
+  for (const request of [
+    { restart_device: true },
+    { restart_device: true, restart_requested_at: Date.now() - 60_000 },
+    { restart_device: true, restart_requested_at: Date.now() + 60_000 },
+    { restart_device: "true", restart_requested_at: Date.now() },
+    { restart_device: true, restart_requested_at: true },
+  ]) {
+    await seedRestartDevice();
+    await assertFails(update(ref(owner, commands), request));
+  }
+  await seedRestartDevice();
+  await assertFails(update(ref(unclaimedDatabase(OTHER_UID), commands), restartRequest()));
+  await assertFails(update(ref(authenticatedDatabase(OWNER_UID, "avora-002"), commands), restartRequest()));
+});
+
+test("family restore can safely initialize an absent restart flag to false", async () => {
+  await seedRestartDevice({}, { restart_device: null });
+  const family = unclaimedDatabase(FAMILY_UID);
+  await assertSucceeds(update(ref(family, `devices/${DEVICE_ID}/commands`), {
+    auto_mode: false, relay: false, restart_device: false,
+  }));
 });

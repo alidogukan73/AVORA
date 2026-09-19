@@ -4,7 +4,7 @@
     <string name="health_wireless_soil_sensor_connection">Wireless soil moisture sensor connection</string>
     <string name="health_device_management_title">🔄 Device Management</string>
     <string name="health_remote_restart_description">You can remotely restart the Raspberry Pi device.</string>
-    <string name="health_restart_device_button">Restart Device</string>
+    <string name="health_restart_device_button">Restart Raspberry Pi</string>
     <string name="health_ads_fault_badge">ADS WARNING</string>
     <string name="health_ads_count">%1$d / 2 ADS1115 working</string>
     <string name="health_ads_primary_fault">ADS1115 0x48 connection failed. 0x49 is working and its sensors continue sending data.</string>
@@ -35,4 +35,12 @@
     <string name="diagnostics_nodemcu_ads_missing">NodeMCU is working; the seedling ADS1115 is not connected</string>
     <string name="diagnostics_nodemcu_stale">NodeMCU seedling sensor data is not current</string>
     <string name="diagnostics_nodemcu_no_data">No NodeMCU seedling sensor data received</string>
+    <string name="health_device_actions">Device actions</string>
+    <string name="health_restart_confirmation">The Raspberry Pi will restart. Sensor updates and remote access will be briefly interrupted. Restart is blocked during irrigation or a valve test. Do you want to continue?</string>
+    <string name="health_restart_admin_required">Administrator access is required for this action.</string>
+    <string name="health_restart_watering_active">Restart is unavailable during irrigation or a valve test. Try again after it finishes.</string>
+    <string name="health_restart_status_unavailable">The current device status could not be verified. Check the connection and try again.</string>
+    <string name="health_restart_pending">A restart request is already pending.</string>
+    <string name="health_restart_failed">The restart request could not be sent. Check your connection and administrator access.</string>
+    <string name="health_nodemcu_offline_detail">NodeMCU reported offline. Check its power and Wi-Fi connection.</string>
 </resources>

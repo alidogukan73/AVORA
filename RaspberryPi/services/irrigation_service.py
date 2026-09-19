@@ -201,6 +201,7 @@ class IrrigationService:
         self._last_manual_watering_request_id = ""
         self._last_irrigation_assistant_reset_request_id = ""
         self._last_network_configuration_request_id = ""
+        self._device_restart_pending = False
         self._last_zone_config_signatures = {}
         self._pending_watering_measurements: list[
             PendingWateringMeasurement
@@ -1574,6 +1575,29 @@ class IrrigationService:
                 exc,
             )
 
+    def _process_device_restart_command(self, commands) -> bool:
+        """Restart only on the same thread that owns the pump and valves."""
+        if getattr(self, "_device_restart_pending", False):
+            return True
+        if not commands.restart_device:
+            return False
+        if not self._firebase.consume_restart_command():
+            return False
+        if (
+            self._relay.is_on
+            or self._zone_executor.active_zone_id is not None
+            or self._valves.active_valve_id is not None
+            or bool(self._active_zone_test_request_id)
+            or commands.relay
+            or commands.manual_watering_requested
+            or commands.zone_test_requested
+        ):
+            self._logger.warning("Device restart rejected: watering or valve activity.")
+            return False
+        self._firebase.device_control.restart_device()
+        self._device_restart_pending = True
+        return True
+
     def _process_network_configuration_command(self, commands) -> bool:
         """Consume and execute one network request while every actuator is idle."""
         if not commands.network_configuration_requested:
@@ -1729,6 +1753,9 @@ class IrrigationService:
             self._update_status_if_needed()
             self._update_health_if_needed()
             self._update_ads1115_health_if_needed()
+
+            if self._process_device_restart_command(commands):
+                return
 
             if self._process_network_configuration_command(commands):
                 return

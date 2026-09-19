@@ -7,6 +7,7 @@ import com.alidogukan.avora.firebase.FirebaseLiveData;
 import com.alidogukan.avora.models.SeedlingBatch;
 import com.alidogukan.avora.models.SeedlingDailyLog;
 import com.alidogukan.avora.models.SeedlingNodeState;
+import com.alidogukan.avora.models.SeedlingTelemetry;
 import com.google.android.gms.tasks.Task;
 import com.google.android.gms.tasks.Tasks;
 import com.google.firebase.database.DataSnapshot;
@@ -71,6 +72,24 @@ public final class SeedlingRepository {
                 result.setValue(value);
             }
             @Override public void onCancelled(@NonNull DatabaseError error) {
+                errorHandler.run();
+            }
+        });
+        return result;
+    }
+
+    /** Read only the small live snapshot, without assistant recommendations. */
+    public LiveData<SeedlingTelemetry> observeLatestTelemetry(
+            String nodeId, @NonNull Runnable errorHandler) {
+        DatabaseReference reference = root.child("nodes").child(safeId(nodeId))
+                .child("latest");
+        FirebaseLiveData<SeedlingTelemetry> result = new FirebaseLiveData<>(reference);
+        result.setEventListener(new ValueEventListener() {
+            @Override public void onDataChange(@NonNull DataSnapshot snapshot) {
+                result.setValue(snapshot.getValue(SeedlingTelemetry.class));
+            }
+            @Override public void onCancelled(@NonNull DatabaseError error) {
+                result.setValue(null);
                 errorHandler.run();
             }
         });

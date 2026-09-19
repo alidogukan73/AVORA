@@ -8,6 +8,17 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class RemoteNotificationEventTest {
+    @Test public void feedbackTargetsInboxWithStableDeduplicationKey() {
+        RemoteNotificationEvent event = RemoteNotificationEvent.from(Map.of(
+                "event_code", "FEEDBACK_RECEIVED", "event_id", "feedback:report-1"), "fcm-id");
+        assertEquals("FEEDBACK", event.type());
+        assertEquals("HIGH", event.priority());
+        assertEquals("feedback:report-1", event.sourceKey());
+        assertEquals("device", NotificationPolicy.categoryFor(event.type()));
+        assertEquals(NotificationActionRouter.Destination.FEEDBACK_INBOX,
+                NotificationActionRouter.destinationFor(event.type(), event.sourceKey(), ""));
+    }
+
 
     @Test
     public void sensorFailure_isMappedByAndroidAndKeepsStableEventId() {

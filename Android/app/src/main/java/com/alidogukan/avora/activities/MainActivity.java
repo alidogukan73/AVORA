@@ -241,6 +241,8 @@ public class MainActivity extends EdgeToEdgeActivity {
     private void initializeAuthenticatedApp() {
         if (authenticatedAppInitialized) return;
         authenticatedAppInitialized = true;
+        new com.alidogukan.avora.sync.DataSyncRepository(this)
+                .applySavedAutomaticSync();
 
         connectionStartedElapsedMillis = SystemClock.elapsedRealtime();
         PrimaryBottomNavigation.bind(this, PrimaryBottomNavigation.HOME);

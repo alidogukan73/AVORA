@@ -79,6 +79,9 @@ public final class PlantAssistantViewModel extends AndroidViewModel {
     public LiveData<List<GardenSeason>> getSeasons() { return seasons; }
     public LiveData<WeatherForecast> getWeather() { return weather; }
     public LiveData<List<GardenPhoto>> getPhotoMetadata() { return photoMetadata; }
+    private final MutableLiveData<GardenPhoto> completedAnalysisPhoto = new MutableLiveData<>();
+    public LiveData<GardenPhoto> getCompletedAnalysisPhoto() { return completedAnalysisPhoto; }
+    public void consumeCompletedAnalysisPhoto() { completedAnalysisPhoto.setValue(null); }
     public LiveData<Boolean> getAnalysisInProgress() { return analysisInProgress; }
 
     public boolean tryBeginAnalysis(int operationCount) {
@@ -265,6 +268,7 @@ public final class PlantAssistantViewModel extends AndroidViewModel {
                                       Consumer<Throwable> syncFailure) {
         executeSafely(storageExecutor, () -> {
             boolean saved = false;
+            GardenPhoto completedPhoto = null;
             try {
                 if (!hasLocalPhoto(photoId)) {
                     throw new IllegalStateException("PHOTO_METADATA_NOT_FOUND");
@@ -323,6 +327,7 @@ public final class PlantAssistantViewModel extends AndroidViewModel {
                             "follow_up_complete:" + photoId);
                 }
                 saved = true;
+                completedPhoto = updated;
             } catch (Throwable error) {
                 if (syncFailure != null) syncFailure.accept(error);
             } finally {
@@ -330,6 +335,7 @@ public final class PlantAssistantViewModel extends AndroidViewModel {
                     if (completion != null) completion.accept(saved);
                 } finally {
                     finishAnalysisOperation();
+                    if (completedPhoto != null) completedAnalysisPhoto.postValue(completedPhoto);
                 }
             }
         }, error -> {

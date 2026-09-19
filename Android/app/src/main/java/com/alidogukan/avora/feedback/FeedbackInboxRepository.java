@@ -28,7 +28,7 @@ public final class FeedbackInboxRepository {
 
     public Task<Page> loadPage(PageCursor before) {
         Query query = FirebaseDatabase.getInstance().getReference("feedback_devices")
-                .child(AppInfo.DEVICE_ID).orderByChild("created_at");
+                .child(AppInfo.DEVICE_ID).child("user_feedback").orderByChild("created_at");
         if (before != null) {
             query = endBefore(query, before.orderValue, before.id);
         }

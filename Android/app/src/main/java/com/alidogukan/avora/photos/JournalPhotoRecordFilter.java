@@ -7,7 +7,10 @@ import java.util.List;
 
 /** Selects only the photos that belong to the journal record being viewed. */
 public final class JournalPhotoRecordFilter {
-    private static final String JOURNAL_GROUP_PREFIX = "journal_record_";
+    public static boolean isRecordGroup(String value) {
+        String group = safe(value);
+        return !group.isEmpty() && !"plant_assistant".equals(group);
+    }
 
     private JournalPhotoRecordFilter() { }
 
@@ -15,15 +18,21 @@ public final class JournalPhotoRecordFilter {
                                            String zoneId,
                                            String groupId,
                                            String selectedPath) {
+        return select(photos, zoneId, "", groupId, selectedPath);
+    }
+
+    public static List<GardenPhoto> select(List<GardenPhoto> photos, String zoneId,
+                                           String seasonId, String groupId, String selectedPath) {
         List<GardenPhoto> result = new ArrayList<>();
         if (photos == null) return result;
         String targetZone = safe(zoneId);
         String targetGroup = safe(groupId);
         String targetPath = safe(selectedPath);
-        boolean groupedJournalRecord = targetGroup.startsWith(JOURNAL_GROUP_PREFIX);
+        boolean groupedJournalRecord = isRecordGroup(targetGroup);
 
         for (GardenPhoto photo : photos) {
             if (photo == null || !targetZone.equals(safe(photo.getZone_id()))) continue;
+            if (!safe(seasonId).isEmpty() && !safe(seasonId).equals(safe(photo.getSeason_id()))) continue;
             if (groupedJournalRecord) {
                 if (targetGroup.equals(safe(photo.getRelated_application_id()))) {
                     result.add(photo);
@@ -33,6 +42,22 @@ public final class JournalPhotoRecordFilter {
                 result.add(photo);
                 break;
             }
+        }
+        return result;
+    }
+
+    public static List<GardenPhoto> selectById(List<GardenPhoto> photos,
+                                               String zoneId,
+                                               String selectedPhotoId) {
+        List<GardenPhoto> result = new ArrayList<>();
+        String targetZone = safe(zoneId);
+        String targetId = safe(selectedPhotoId);
+        if (photos == null || targetId.isBlank()) return result;
+        for (GardenPhoto photo : photos) {
+            if (photo == null || !targetId.equals(safe(photo.getId()))) continue;
+            if (!targetZone.isBlank() && !targetZone.equals(safe(photo.getZone_id()))) continue;
+            result.add(photo);
+            break;
         }
         return result;
     }

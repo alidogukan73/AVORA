@@ -68,6 +68,18 @@
                     android:textColor="@color/online"
                     android:textSize="22sp" />
             </com.google.android.material.card.MaterialCardView>
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnDeviceActions"
+                style="@style/Widget.AVORA.Button.Icon"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginStart="4dp"
+                android:contentDescription="@string/health_device_actions"
+                android:visibility="gone"
+                app:icon="@drawable/ic_more_vert_24"
+                app:iconPadding="0dp"
+                app:iconSize="24dp"
+                app:iconTint="@color/textPrimary" />
         </LinearLayout>
         <!-- GENEL DURUM -->
         <com.google.android.material.card.MaterialCardView
@@ -756,50 +768,6 @@
                         android:textSize="13sp"
                         android:textStyle="bold" />
                 </LinearLayout>
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-        <!-- CİHAZ YÖNETİMİ -->
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/cardDeviceRestart"
-            style="@style/Widget.AVORA.Card.Main"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            app:cardBackgroundColor="@color/card"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="0dp"
-            app:strokeColor="@color/border"
-            app:strokeWidth="1dp">
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/health_device_management_title"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/textPrimary" />
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:text="@string/health_remote_restart_description"
-                    android:textSize="14sp"
-                    android:textColor="@color/textSecondary" />
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnRestartDevice"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:text="@string/health_restart_device_button"
-                    android:textAllCaps="false"
-                    android:textColor="@color/textOnPrimary"
-                    app:backgroundTint="@color/primary"
-                    app:cornerRadius="12dp"
-                    app:iconTint="@color/textOnPrimary" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
         <!-- SİSTEM BİLGİLERİ -->

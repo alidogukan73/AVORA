@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="TextAppearance.AVORA.About.Title" parent="TextAppearance.AVORA.Settings.RowTitle">
+        <item name="android:textSize">15sp</item>
+    </style>
+    <style name="TextAppearance.AVORA.About.Body" parent="TextAppearance.AVORA.Body">
+        <item name="android:textSize">13sp</item>
+        <item name="android:lineSpacingExtra">2dp</item>
+    </style>
+    <style name="TextAppearance.AVORA.About.Label" parent="TextAppearance.AVORA.Settings.RowSubtitle">
+        <item name="android:textSize">12sp</item>
+    </style>
+</resources>

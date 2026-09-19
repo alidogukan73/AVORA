@@ -81,6 +81,11 @@ public class PlantTimelineActivity extends EdgeToEdgeActivity {
         if (TAB_COMPARE.equals(getIntent().getStringExtra(EXTRA_INITIAL_TAB))) {
             activeTab = TAB_COMPARE;
         }
+        if (state != null) {
+            requestedSeasonId = state.getString("journal_season", requestedSeasonId);
+            activeTab = state.getString("journal_tab", activeTab);
+            activeFilter = state.getString("journal_filter", activeFilter);
+        }
         title = findViewById(R.id.txtTimelineTitle); season = findViewById(R.id.txtTimelineSeason); planting = findViewById(R.id.txtTimelinePlanting); status = findViewById(R.id.txtTimelineStatus); emoji = findViewById(R.id.txtTimelineEmoji); month = findViewById(R.id.txtTimelineMonth); empty = findViewById(R.id.txtTimelineEmpty); entries = findViewById(R.id.layoutTimelineEvents);
         tabTimeline = findViewById(R.id.tabTimeline); tabPhotos = findViewById(R.id.tabPhotos); tabNotes = findViewById(R.id.tabNotes); tabCompare = findViewById(R.id.tabCompare);
         findViewById(R.id.btnTimelineBack).setOnClickListener(v -> finish());
@@ -115,16 +120,35 @@ public class PlantTimelineActivity extends EdgeToEdgeActivity {
         });
     }
 
+    @Override protected void onSaveInstanceState(Bundle state) {
+        state.putString("journal_season", selectedSeasonId);
+        state.putString("journal_tab", activeTab);
+        state.putString("journal_filter", activeFilter);
+        super.onSaveInstanceState(state);
+    }
+
     @Override protected void onResume() { super.onResume(); loadItems(); render(); }
+
+    private final java.util.Map<String, GardenEvent> photoOwners = new java.util.HashMap<>();
+
+    private GardenEvent photoOwner(GardenPhoto photo) {
+        return viewModel.photoOwner(photo, photoOwners.get(photo.getRelated_application_id()));
+    }
 
     private void loadItems() {
         items.clear();
-        for (GardenEvent event : viewModel.loadEvents()) if (zoneId.equals(event.getZone_id())) items.add(TimelineItem.event(event));
+        photoOwners.clear();
         Set<String> journalPhotoGroups = new HashSet<>();
+        for (GardenEvent event : viewModel.loadEvents()) {
+            if (!zoneId.equals(event.getZone_id())) continue;
+            items.add(TimelineItem.event(event));
+            photoOwners.put("journal_record_" + event.getId(), event);
+        }
         for (GardenPhoto photo : viewModel.loadPhotos()) {
             if (!zoneId.equals(photo.getZone_id())) continue;
             String groupId = photo.getRelated_application_id();
-            if (groupId != null && groupId.startsWith("journal_record_") && !journalPhotoGroups.add(groupId)) continue;
+            if (com.alidogukan.avora.photos.JournalPhotoRecordFilter.isRecordGroup(groupId)
+                    && !journalPhotoGroups.add(groupId + "\n" + photo.getSeason_id())) continue;
             items.add(TimelineItem.photo(photo));
         }
         for (FertilizerApplication application : fertilizerApplications) if (zoneId.equals(application.getZone_id())) items.add(TimelineItem.fertilizer(application));
@@ -135,6 +159,9 @@ public class PlantTimelineActivity extends EdgeToEdgeActivity {
     private void render() {
         addAutomaticSignals();
         GardenSeason selected = selectedSeason();
+        boolean canAdd = selected != null && SeasonStatus.isActive(selected.getStatus());
+        findViewById(R.id.btnTimelineAdd).setEnabled(canAdd);
+        findViewById(R.id.btnTimelineAdd).setAlpha(canAdd ? 1f : 0.4f);
         String cropName = SeasonDisplayIdentity.name(selected, zone);
         if (cropName.isBlank()) cropName = getString(R.string.runtime_plant_default);
         String areaName = SeasonDisplayIdentity.areaName(selected, zone);
@@ -318,6 +345,8 @@ public class PlantTimelineActivity extends EdgeToEdgeActivity {
     private boolean visibleInTab(TimelineItem item) {
         if ("photos".equals(activeTab)) return item.photo != null;
         if ("notes".equals(activeTab)) return item.event != null && "MANUAL".equals(item.event.getSource());
+        if (item.photo != null && photoOwner(item.photo) != null
+                && !"analysis".equals(activeFilter)) return false;
         return item.matches(activeFilter);
     }
 
@@ -455,6 +484,10 @@ public class PlantTimelineActivity extends EdgeToEdgeActivity {
     private TextView text(String s, int size, int color) { TextView view = new TextView(this); view.setText(s); view.setTextSize(size); view.setTextColor(getColor(color)); return view; }
     private int dp(int value) { return Math.round(value * getResources().getDisplayMetrics().density); }
     private void openRecord(TimelineItem item) {
+        if (item.photo != null) {
+            GardenEvent owner = photoOwner(item.photo);
+            if (owner != null) { openRecord(TimelineItem.event(owner)); return; }
+        }
         Intent intent = new Intent(this, JournalRecordDetailActivity.class);
         GardenSeason selected = selectedSeason();
         intent.putExtra("title", item.title(this));
@@ -468,6 +501,7 @@ public class PlantTimelineActivity extends EdgeToEdgeActivity {
         if (item.event != null && "MANUAL".equals(item.event.getSource())) {
             intent.putExtra("manual_event_id", item.event.getId());
             intent.putExtra("manual_event_type", item.event.getType());
+            intent.putExtra("photo_group_id", "journal_record_" + item.event.getId());
         }
         if (item.photo != null) {
             intent.putExtra("photo_path", item.photo.getLocal_path());
@@ -806,29 +840,37 @@ public class PlantTimelineActivity extends EdgeToEdgeActivity {
         }
         return viewModel.belongsToSeason(item.seasonId(), item.time(), selected);
     }
+    private com.google.android.material.bottomsheet.BottomSheetDialog journalEntrySheet;
+
+    @Override protected void onDestroy() {
+        if (journalEntrySheet != null) journalEntrySheet.dismiss();
+        super.onDestroy();
+    }
+
     private void showNewRecordTypes() {
-        GardenSeason active = activeSeason();
-        if (active == null) {
+        if (journalEntrySheet != null && journalEntrySheet.isShowing()) return;
+        GardenSeason active = selectedSeason();
+        if (active == null || !SeasonStatus.isActive(active.getStatus())) {
             Toast.makeText(this, R.string.runtime_start_season_first, Toast.LENGTH_LONG).show();
             return;
         }
-        PopupMenu menu = new PopupMenu(this, findViewById(R.id.btnTimelineAdd));
-        String[] types = {"planting", "observation", "flowering", "first_product", "harvest", "special", "photo_growth"};
-        for (int index = 0; index < types.length; index++) {
-            menu.getMenu().add(0, index, index, eventTypeLabel(types[index]));
+        journalEntrySheet = com.alidogukan.avora.ui.JournalEntryBottomSheet.show(this,
+                action -> openJournalAction(action, active));
+    }
+
+    private void openJournalAction(String type, GardenSeason active) {
+        Class<?> screen = "photo_growth".equals(type) ? PlantAssistantActivity.class
+                : "watering".equals(type) ? AIAssistantActivity.class
+                : "fertilization".equals(type) ? FertilizationZoneDetailActivity.class
+                : NewJournalRecordActivity.class;
+        Intent intent = new Intent(this, screen);
+        intent.putExtra("zone_id", zoneId);
+        intent.putExtra("season_id", active.getSeason_id());
+        intent.putExtra(NewJournalRecordActivity.EXTRA_INITIAL_TYPE, type);
+        if ("photo_growth".equals(type)) {
+            intent.putExtra(PlantAssistantActivity.EXTRA_JOURNAL_GROWTH, true);
         }
-        menu.setOnMenuItemClickListener(choice -> {
-            String type = types[choice.getItemId()];
-            if ("photo_growth".equals(type)) {
-                Intent i = new Intent(this, NewJournalRecordActivity.class);
-                i.putExtra(NewJournalRecordActivity.EXTRA_ZONE_ID, zoneId);
-                i.putExtra(NewJournalRecordActivity.EXTRA_SEASON_ID, active.getSeason_id());
-                i.putExtra(NewJournalRecordActivity.EXTRA_INITIAL_TYPE, NewJournalRecordActivity.RECORD_TYPE_PHOTO);
-                startActivity(i);
-            } else showNewEventDialog(type);
-            return true;
-        });
-        menu.show();
+        startActivity(intent);
     }
 
     private String eventTypeLabel(String type) {
@@ -842,34 +884,6 @@ public class PlantTimelineActivity extends EdgeToEdgeActivity {
         return type;
     }
 
-    private void showNewEventDialog(String type) {
-        GardenSeason active = activeSeason();
-        if (active == null) {
-            Toast.makeText(this, R.string.runtime_start_season_first, Toast.LENGTH_LONG).show();
-            return;
-        }
-        EditText input = new EditText(this);
-        input.setHint(type.equals("planting")
-                ? R.string.runtime_planting_hint : R.string.runtime_short_note_hint);
-        input.setMinLines(3);
-        int pad = dp(20);
-        input.setPadding(pad, dp(8), pad, dp(8));
-        new MaterialAlertDialogBuilder(this)
-                .setTitle(eventTypeLabel(type))
-                .setMessage(R.string.runtime_active_season_record_note)
-                .setView(input)
-                .setNegativeButton(R.string.settings_quick_cancel, null)
-                .setPositiveButton(R.string.settings_quick_save, (dialog, which) -> {
-                    viewModel.addEventForSeason(zoneId, active.getSeason_id(),
-                                    type, input.getText().toString())
-                            .addOnSuccessListener(unused -> {
-                                loadItems();
-                                render();
-                            })
-                            .addOnFailureListener(error -> Toast.makeText(
-                                    this, error.getMessage(), Toast.LENGTH_LONG).show());
-                }).show();
-    }
     private static final class TimelineItem {
         final GardenEvent event; final GardenPhoto photo; final FertilizerApplication fertilizer; final WateringHistory watering;
         private TimelineItem(GardenEvent e, GardenPhoto p, FertilizerApplication f, WateringHistory w) { event = e; photo = p; fertilizer = f; watering = w; }
