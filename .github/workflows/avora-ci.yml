@@ -1,0 +1,188 @@
+name: AVORA CI
+
+on:
+  push:
+    branches:
+      - main
+      - "stabilization/**"
+  pull_request:
+    branches:
+      - main
+      - "stabilization/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avora-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android:
+    name: Android tests and debug build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: Android
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Java 21
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+
+      - name: Create CI-only Firebase configuration
+        shell: bash
+        run: |
+          cat > app/google-services.json <<'JSON'
+          {
+            "project_info": {
+              "project_number": "123456789012",
+              "project_id": "demo-avora-ci",
+              "storage_bucket": "demo-avora-ci.appspot.com"
+            },
+            "client": [
+              {
+                "client_info": {
+                  "mobilesdk_app_id": "1:123456789012:android:1111111111111111111111",
+                  "android_client_info": {
+                    "package_name": "com.alidogukan.avora.debug"
+                  }
+                },
+                "oauth_client": [],
+                "api_key": [
+                  {
+                    "current_key": "ci-placeholder"
+                  }
+                ],
+                "services": {
+                  "appinvite_service": {
+                    "other_platform_oauth_client": []
+                  }
+                }
+              },
+              {
+                "client_info": {
+                  "mobilesdk_app_id": "1:123456789012:android:2222222222222222222222",
+                  "android_client_info": {
+                    "package_name": "com.alidogukan.avora"
+                  }
+                },
+                "oauth_client": [],
+                "api_key": [
+                  {
+                    "current_key": "ci-placeholder"
+                  }
+                ],
+                "services": {
+                  "appinvite_service": {
+                    "other_platform_oauth_client": []
+                  }
+                }
+              }
+            ],
+            "configuration_version": "1"
+          }
+          JSON
+
+      - name: Run Android unit tests and build debug APK
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon --stacktrace testDebugUnitTest assembleDebug
+
+  raspberry-pi:
+    name: Raspberry Pi safety tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install CI-safe Python dependencies
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          sed -E '/^(Adafruit-Blinka-Raspberry-Pi5-Neopixel|RPi\.GPIO|rpi_ws281x|sysv_ipc)==/d' requirements.txt > /tmp/avora-ci-requirements.txt
+          python -m pip install -r /tmp/avora-ci-requirements.txt
+
+      - name: Compile Raspberry Pi sources
+        run: python -m compileall -q RaspberryPi
+
+      - name: Run Raspberry Pi test scripts
+        shell: bash
+        working-directory: RaspberryPi
+        run: |
+          set -euo pipefail
+          for test_file in tools/test_*.py; do
+            echo "::group::${test_file}"
+            python "${test_file}"
+            echo "::endgroup::"
+          done
+
+  nas-server:
+    name: NAS Server tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+
+      - name: Compile NAS sources
+        run: python -m compileall -q NasServer
+
+      - name: Run NAS unit tests
+        env:
+          PYTHONPATH: NasServer
+        run: python -m unittest discover -s NasServer/tests -p "test_*.py" -v
+
+  firebase-rules:
+    name: Firebase Rules tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Java 21
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: firebase-rules-tests/package-lock.json
+
+      - name: Install Firebase Rules test dependencies
+        working-directory: firebase-rules-tests
+        run: npm ci
+
+      - name: Run Firebase Realtime Database Rules tests
+        working-directory: firebase-rules-tests
+        run: npm test
