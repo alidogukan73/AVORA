@@ -132,6 +132,12 @@ jobs:
         run: |
           set -euo pipefail
           for test_file in tools/test_*.py; do
+            case "${test_file}" in
+              tools/test_capacitive_sensor.py|tools/test_mqtt_sensor.py|tools/test_soil_sensor.py)
+                echo "::notice::Skipping hardware-only test ${test_file}"
+                continue
+                ;;
+            esac
             echo "::group::${test_file}"
             PYTHONPATH=. python "${test_file}"
             echo "::endgroup::"
