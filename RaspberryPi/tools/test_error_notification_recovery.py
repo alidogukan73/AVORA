@@ -7,6 +7,7 @@ import sys
 import time
 import types
 from pathlib import Path
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -87,13 +88,21 @@ def service_with_active_error() -> IrrigationService:
 def main() -> None:
     service = service_with_active_error()
 
-    service._mark_update_cycle_recovered()
+    with patch(
+        "services.irrigation_service.time.monotonic",
+        return_value=1_000.0,
+    ):
+        service._mark_update_cycle_recovered()
     assert service._update_error_active is True
     assert service._firebase.clear_count == 0
 
-    service._update_recovery_started_at = time.monotonic() - 121.0
+    service._update_recovery_started_at = 879.0
     service._update_recovery_success_count = 2
-    service._mark_update_cycle_recovered()
+    with patch(
+        "services.irrigation_service.time.monotonic",
+        return_value=1_000.0,
+    ):
+        service._mark_update_cycle_recovered()
 
     assert service._update_error_active is False
     assert service._firebase.clear_count == 1
