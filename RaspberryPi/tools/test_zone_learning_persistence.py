@@ -7,6 +7,7 @@ import sys
 import types
 from datetime import datetime, timedelta
 from pathlib import Path
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -181,12 +182,16 @@ def main() -> None:
     firebase.saved.clear()
     firebase.configs["soil-002"] = zone("zone-002", active=False)
 
-    sampler._save_zone_sensor_histories_if_needed(
-        readings={
-            "soil-001": reading("soil-001", 48),
-            "soil-002": reading("soil-002", 39),
-        }
-    )
+    with patch(
+        "services.irrigation_service.time.monotonic",
+        return_value=600.0,
+    ):
+        sampler._save_zone_sensor_histories_if_needed(
+            readings={
+                "soil-001": reading("soil-001", 48),
+                "soil-002": reading("soil-002", 39),
+            }
+        )
     assert len(firebase.saved) == 1
     assert firebase.saved[0].zone_id == "zone-001"
     assert firebase.saved[0].sensor_id == "soil-001"
