@@ -133,7 +133,7 @@ jobs:
           set -euo pipefail
           for test_file in tools/test_*.py; do
             echo "::group::${test_file}"
-            python "${test_file}"
+            PYTHONPATH=. python "${test_file}"
             echo "::endgroup::"
           done
 
