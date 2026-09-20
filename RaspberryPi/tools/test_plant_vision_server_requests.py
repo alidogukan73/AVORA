@@ -20,6 +20,9 @@ from services import plant_vision_server
 
 
 class _FakeService:
+    def configured(self) -> bool:
+        return True
+
     def analyze(self, _image: str, _mime_type: str, _context: dict) -> dict:
         return {"is_plant_photo": True}
 
