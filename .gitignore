@@ -7,6 +7,20 @@ ui-debug.log
 
 avora.log*
 
+# Local secrets and private credentials
+.env
+.env.*
+!.env.example
+!**/.env.example
+**/google-services.json
+**/*service-account*.json
+**/*service_account*.json
+*.pem
+*.p12
+*.pfx
+*.jks
+*.keystore
+
 firebase_key.json
 RaspberryPi/weather_api_key.txt
 RaspberryPi/vision_api_key.txt
