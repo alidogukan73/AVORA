@@ -58,12 +58,15 @@ aktif hesap bulunduğu için kalıcı yeni bir kurulum anahtarı oluşturulmaz.
    `stack.yml` dosyasını oluşturur.
 2. Portainer'da **Stacks → Add stack** açın ve adı `avora` yapın.
 3. `stack.yml` içeriğini Web editor alanına yapıştırın ve yığını dağıtın.
-4. Konteyner sağlıklı olduktan sonra yerel ağdan
-   `http://192.168.1.111:18787/health` adresini kontrol edin.
-5. Yönetici hesabını yalnızca yerel ağda oluşturun. Kurulum anahtarını veya parolayı
-   ekran görüntüsüyle paylaşmayın.
+4. Konteyner sağlıklı olduktan sonra NAS terminalinde
+   `curl http://127.0.0.1:18787/health` komutuyla kontrol edin. Düz HTTP portu
+   yalnız NAS loopback arayüzüne bağlıdır ve LAN cihazlarına açılmaz.
+5. Tailscale Funnel HTTPS adresini doğruladıktan sonra yönetici hesabını bu güvenli
+   adres üzerinden oluşturun. Kurulum anahtarını veya parolayı ekran görüntüsüyle
+   paylaşmayın.
 
-`18787` yönlendirici üzerinden internete açılmamalıdır. CGNAT altındaki dış erişim,
+`18787` yalnızca `127.0.0.1` üzerinde dinler ve yönlendirici üzerinden internete
+açılmamalıdır. CGNAT altındaki dış erişim,
 `avora-tunnel` konteyneri ve Tailscale Funnel üzerinden sağlanır. Tailscale durumu
 `tailscale/` dizininde kalıcı tutulur; yeniden başlatmada cihaz kimliği kaybolmaz.
 `tailscale/config/serve.json` dosyası Funnel yönlendirmesini her konteyner açılışında

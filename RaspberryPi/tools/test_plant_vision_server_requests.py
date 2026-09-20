@@ -20,6 +20,9 @@ from services import plant_vision_server
 
 
 class _FakeService:
+    def configured(self) -> bool:
+        return True
+
     def analyze(self, _image: str, _mime_type: str, _context: dict) -> dict:
         return {"is_plant_photo": True}
 
@@ -34,10 +37,9 @@ class PlantVisionServerRequestsTest(unittest.TestCase):
         cls.original_service = plant_vision_server.SERVICE
         plant_vision_server._authorization_method = lambda _headers: "APP_CHECK"
         plant_vision_server.SERVICE = _FakeService()
-        cls.server = plant_vision_server.ThreadingHTTPServer(
+        cls.server = plant_vision_server.PlantVisionHttpServer(
             ("127.0.0.1", 0), plant_vision_server.Handler
         )
-        cls.server.daemon_threads = True
         cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
         cls.thread.start()
 
@@ -93,6 +95,21 @@ class PlantVisionServerRequestsTest(unittest.TestCase):
         )
         self.assertIn(b" 400 ", response.split(b"\r\n", 1)[0])
         self.assertIn(b'"error": "INVALID_CONTENT_LENGTH"', response)
+
+    def test_health_is_loopback_default_and_has_security_headers(self):
+        self.assertEqual("127.0.0.1", plant_vision_server.HOST)
+        connection = http.client.HTTPConnection(
+            "127.0.0.1", self.server.server_address[1], timeout=3
+        )
+        connection.request("GET", "/health")
+        response = connection.getresponse()
+        response.read()
+        self.assertEqual(HTTPStatus.OK, response.status)
+        self.assertEqual("no-store", response.getheader("Cache-Control"))
+        self.assertEqual("nosniff", response.getheader("X-Content-Type-Options"))
+        self.assertEqual("DENY", response.getheader("X-Frame-Options"))
+        self.assertEqual("no-referrer", response.getheader("Referrer-Policy"))
+        connection.close()
 
     def test_missing_content_length_has_stable_error(self):
         response = self.raw_request(

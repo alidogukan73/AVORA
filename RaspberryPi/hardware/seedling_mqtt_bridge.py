@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Any, Iterable, Protocol
 import paho.mqtt.client as mqtt
 from controllers.seedling_assistant_engine import SeedlingAssistantEngine, SeedlingTelemetry
+from hardware.mqtt_security import configure_mqtt_credentials
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,9 @@ class SeedlingMqttBridge:
     def __init__(self, sink: SeedlingSnapshotSink, broker: str, port: int,
                  topic: str = "avora/seedling/+/telemetry",
                  client_id: str = "avora-pi-seedling-assistant",
-                 allowed_node_ids: Iterable[str] | None = None) -> None:
+                 allowed_node_ids: Iterable[str] | None = None,
+                 username: str | None = None,
+                 password: str | None = None) -> None:
         if not broker:
             raise ValueError("MQTT broker cannot be empty.")
         if not 1 <= port <= 65535:
@@ -65,6 +68,9 @@ class SeedlingMqttBridge:
             client_id=client_id,
             protocol=mqtt.MQTTv311,
         )
+        self._authenticated = configure_mqtt_credentials(
+            self._client, username, password
+        )
         self._client.on_connect = self._on_connect
         self._client.on_disconnect = self._on_disconnect
         self._client.on_message = self._on_message
@@ -93,7 +99,11 @@ class SeedlingMqttBridge:
             with self._lock:
                 self._started = False
             raise
-        logger.info("Seedling MQTT bridge started: %s", self._topic)
+        logger.info(
+            "Seedling MQTT bridge started: %s authenticated=%s",
+            self._topic,
+            self._authenticated,
+        )
 
     def stop(self) -> None:
         with self._lock:

@@ -20,6 +20,7 @@ KillSignal=SIGTERM
 
 Environment=PYTHONUNBUFFERED=1
 Environment=PYTHONDONTWRITEBYTECODE=1
+EnvironmentFile=-/etc/avora/mqtt.env
 EnvironmentFile=-/etc/avora/feedback-email.env
 
 StandardOutput=journal

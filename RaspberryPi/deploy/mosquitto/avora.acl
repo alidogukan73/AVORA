@@ -1,0 +1,18 @@
+# Raspberry Pi may consume telemetry and publish retained sensor settings.
+user avora-pi
+topic read avora/sensors/+
+topic read avora/status/#
+topic read avora/seedling/+/telemetry
+topic read avora/seedling/+/status
+topic write avora/config/esp32/sensors/#
+topic write avora/config/esp32/calibration/#
+
+# ESP32/ESP8266 nodes may publish telemetry and read only their settings.
+user avora-sensors
+topic write avora/sensors/+
+topic write avora/status/esp32/ads1115
+topic write avora/seedling/+/telemetry
+topic write avora/seedling/+/status
+topic read avora/config/esp32/sensors/#
+topic read avora/config/esp32/calibration/#
+

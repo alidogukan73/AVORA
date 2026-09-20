@@ -96,6 +96,16 @@ jobs:
           }
           JSON
 
+      - name: Verify Android transport security
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F 'android:usesCleartextTraffic="false"' app/src/main/AndroidManifest.xml
+          if grep -RInE '"http://|"ws://' app/src/main/java; then
+            echo "::error::Insecure Android endpoint found"
+            exit 1
+          fi
+
       - name: Run Android unit tests and build debug APK
         run: |
           chmod +x gradlew
@@ -125,6 +135,21 @@ jobs:
 
       - name: Compile Raspberry Pi sources
         run: python -m compileall -q RaspberryPi
+
+      - name: Reject tracked credential files
+        shell: bash
+        run: |
+          set -euo pipefail
+          tracked="$(git ls-files | grep -Ei '(^|/)(\.env($|\.)|google-services\.json$|firebase_key\.json$|.*service[-_]account.*\.json$|.*\.(pem|p12|pfx|jks|keystore)$)' || true)"
+          if [ -n "${tracked}" ]; then
+            echo "::error::Tracked credential-like files detected"
+            echo "${tracked}"
+            exit 1
+          fi
+          if git grep -nE 'BEGIN ([A-Z0-9 ]+ )?PRIVATE KEY'; then
+            echo "::error::Private key material detected"
+            exit 1
+          fi
 
       - name: Run Raspberry Pi test scripts
         shell: bash

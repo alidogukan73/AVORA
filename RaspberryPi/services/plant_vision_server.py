@@ -19,7 +19,7 @@ from firebase_admin import app_check, credentials
 from core.config import FirebaseConfig
 from services.plant_vision_service import PlantVisionService
 
-HOST = os.getenv("AVORA_VISION_HOST", "0.0.0.0")
+HOST = os.getenv("AVORA_VISION_HOST", "127.0.0.1")
 PORT = int(os.getenv("AVORA_VISION_PORT", "8787"))
 MAX_BODY_BYTES = 7 * 1024 * 1024
 REQUEST_READ_TIMEOUT_SECONDS = max(
@@ -54,6 +54,14 @@ class RequestValidationError(Exception):
         super().__init__(code)
         self.status = status
         self.code = code
+
+
+class PlantVisionHttpServer(ThreadingHTTPServer):
+    """Small bounded-listener server intended for a local TLS reverse proxy."""
+
+    daemon_threads = True
+    allow_reuse_address = True
+    request_queue_size = 16
 
 
 def _content_length(headers: Mapping[str, str]) -> int:
@@ -186,6 +194,9 @@ def _authorization_method(
 
 
 class Handler(BaseHTTPRequestHandler):
+    server_version = "AVORA"
+    sys_version = ""
+
     def do_GET(self) -> None:  # noqa: N802
         if self.path != "/health":
             self._json(HTTPStatus.NOT_FOUND, {"error": "NOT_FOUND"})
@@ -244,10 +255,21 @@ class Handler(BaseHTTPRequestHandler):
     def _json(self, status: HTTPStatus, payload: dict) -> None:
         content = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
+        self._security_headers()
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(content)))
         self.end_headers()
         self.wfile.write(content)
+
+    def _security_headers(self) -> None:
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header(
+            "Content-Security-Policy",
+            "default-src 'none'; frame-ancestors 'none'",
+        )
+        self.send_header("Referrer-Policy", "no-referrer")
 
 
 def main() -> None:
@@ -257,7 +279,7 @@ def main() -> None:
     except Exception:
         LOGGER.exception("Plant vision Firebase App Check initialization failed.")
         raise
-    server = ThreadingHTTPServer((HOST, PORT), Handler)
+    server = PlantVisionHttpServer((HOST, PORT), Handler)
     LOGGER.info("Plant vision server listening on %s:%s", HOST, PORT)
     server.serve_forever()
 

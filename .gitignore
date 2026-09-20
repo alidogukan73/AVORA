@@ -29,6 +29,8 @@ RaspberryPi/feedback_email.env
 RaspberryPi/*feedback-email*.env
 Arduino/ESP32/**/secrets*.h
 Arduino/ESP8266/**/secrets*.h
+!Arduino/ESP32/**/secrets.example.h
+!Arduino/ESP8266/**/secrets.example.h
 
 # Local Android / Codex build caches and temporary UI captures
 .artifacts/

@@ -13,6 +13,13 @@
 
 #include "secrets.h"
 
+#ifndef MQTT_USERNAME
+#define MQTT_USERNAME ""
+#endif
+#ifndef MQTT_PASSWORD
+#define MQTT_PASSWORD ""
+#endif
+
 constexpr int SDA_PIN = 21;
 constexpr int SCL_PIN = 22;
 constexpr uint8_t ADS_PRIMARY_ADDRESS = 0x48;
@@ -476,15 +483,23 @@ void connectToMqtt() {
                 "\"primary_address\":\"0x48\","
                 "\"secondary_address\":\"0x49\","
                 "\"rssi\":0,\"uptime\":0}";
-        if (mqttClient.connect(
-                clientId.c_str(),
-                nullptr,
-                nullptr,
-                ADS_STATUS_TOPIC,
-                0,
-                true,
-                offlineStatus
-        )) {
+        const bool usernameConfigured = MQTT_USERNAME[0] != '\0';
+        const bool passwordConfigured = MQTT_PASSWORD[0] != '\0';
+        if (usernameConfigured != passwordConfigured) {
+            Serial.println("HATA: MQTT kullanici adi ve parola birlikte ayarlanmali.");
+            delay(5000);
+            return;
+        }
+        const bool connected = usernameConfigured
+                ? mqttClient.connect(
+                        clientId.c_str(), MQTT_USERNAME, MQTT_PASSWORD,
+                        ADS_STATUS_TOPIC, 0, true, offlineStatus
+                )
+                : mqttClient.connect(
+                        clientId.c_str(), nullptr, nullptr,
+                        ADS_STATUS_TOPIC, 0, true, offlineStatus
+                );
+        if (connected) {
             Serial.println("MQTT baglantisi kuruldu.");
             if (!mqttClient.subscribe(SENSOR_CONFIG_TOPIC_FILTER)) {
                 Serial.println("HATA: Sensor ayar konusuna abone olunamadi.");

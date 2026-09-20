@@ -7,6 +7,8 @@ import threading
 
 import paho.mqtt.client as mqtt
 
+from hardware.mqtt_security import configure_mqtt_credentials
+
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +21,8 @@ class Esp32SensorConfigPublisher:
         broker: str,
         port: int,
         client_id: str = "avora-pi-sensor-config",
+        username: str | None = None,
+        password: str | None = None,
     ) -> None:
         self._broker = broker
         self._port = port
@@ -28,6 +32,11 @@ class Esp32SensorConfigPublisher:
             callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
             client_id=client_id,
             protocol=mqtt.MQTTv311,
+        )
+        self._authenticated = configure_mqtt_credentials(
+            self._client,
+            username,
+            password,
         )
         self._client.reconnect_delay_set(min_delay=1, max_delay=30)
 
@@ -42,9 +51,10 @@ class Esp32SensorConfigPublisher:
             self._client.connect(self._broker, self._port, keepalive=60)
             self._client.loop_start()
             logger.info(
-                "ESP32 sensor configuration publisher started. broker=%s:%s",
+                "ESP32 sensor configuration publisher started. broker=%s:%s authenticated=%s",
                 self._broker,
                 self._port,
+                self._authenticated,
             )
         except Exception:
             with self._lock:
