@@ -10,6 +10,13 @@
 #include <DallasTemperature.h>
 #include "secrets.h"
 
+#ifndef MQTT_USERNAME
+#define MQTT_USERNAME ""
+#endif
+#ifndef MQTT_PASSWORD
+#define MQTT_PASSWORD ""
+#endif
+
 namespace {
 constexpr char NODE_ID[] = "seedling-001";
 constexpr char AVORA_DEVICE_ID[] = "avora-001";
@@ -218,7 +225,18 @@ bool discoverBroker() {
 void connectMqtt() {
   while (!mqtt.connected()) {
     String clientId = String("avora-") + NODE_ID + "-" + ESP.getChipId();
-    if (mqtt.connect(clientId.c_str(), MQTT_STATUS_TOPIC, 0, true, "offline")) {
+    const bool usernameConfigured = MQTT_USERNAME[0] != '\0';
+    const bool passwordConfigured = MQTT_PASSWORD[0] != '\0';
+    if (usernameConfigured != passwordConfigured) {
+      Serial.println("HATA: MQTT kullanici adi ve parola birlikte ayarlanmali.");
+      delay(5000);
+      return;
+    }
+    const bool connected = usernameConfigured
+        ? mqtt.connect(clientId.c_str(), MQTT_USERNAME, MQTT_PASSWORD,
+                       MQTT_STATUS_TOPIC, 0, true, "offline")
+        : mqtt.connect(clientId.c_str(), MQTT_STATUS_TOPIC, 0, true, "offline");
+    if (connected) {
       mqtt.publish(MQTT_STATUS_TOPIC, "online", true);
       Serial.printf("MQTT baglandi: %s:%u\n", brokerHost.c_str(), brokerPort);
       return;

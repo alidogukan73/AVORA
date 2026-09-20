@@ -548,8 +548,13 @@ class Handler(BaseHTTPRequestHandler):
     def _security_headers(self) -> None:
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "DENY")
         self.send_header("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
         self.send_header("Referrer-Policy", "no-referrer")
+        self.send_header(
+            "Permissions-Policy",
+            "camera=(), geolocation=(), microphone=()",
+        )
 
     def log_message(self, format: str, *args: Any) -> None:
         LOGGER.info("client=%s %s", self.client_address[0], format % args)

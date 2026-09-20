@@ -10,6 +10,8 @@ from typing import Any
 
 import paho.mqtt.client as mqtt
 
+from hardware.mqtt_security import configure_mqtt_credentials
+
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +91,8 @@ class MqttSoilMoistureSensor:
         sensor_id: str = "soil-001",
         stale_after_seconds: float = 30.0,
         client_id: str = "avora-pi-wireless-sensor",
+        username: str | None = None,
+        password: str | None = None,
     ) -> None:
         if not broker:
             raise ValueError("MQTT broker adresi boş olamaz.")
@@ -135,6 +139,11 @@ class MqttSoilMoistureSensor:
             callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
             client_id=self._client_id,
             protocol=mqtt.MQTTv311,
+        )
+        self._authenticated = configure_mqtt_credentials(
+            self._client,
+            username,
+            password,
         )
 
         self._client.on_connect = self._on_connect
@@ -195,10 +204,11 @@ class MqttSoilMoistureSensor:
             self._is_started = True
 
         logger.info(
-            "Kablosuz sensör başlatılıyor: broker=%s:%s topic=%s",
+            "Kablosuz sensör başlatılıyor: broker=%s:%s topic=%s authenticated=%s",
             self._broker,
             self._port,
             self._topic,
+            self._authenticated,
         )
 
         try:

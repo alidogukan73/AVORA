@@ -97,6 +97,11 @@ class HttpContractTest(unittest.TestCase):
         self.assertEqual("ok", body["status"])
         self.assertEqual("nosniff", headers["X-Content-Type-Options"])
         self.assertEqual("no-store", headers["Cache-Control"])
+        self.assertEqual("DENY", headers["X-Frame-Options"])
+        self.assertEqual(
+            "camera=(), geolocation=(), microphone=()",
+            headers["Permissions-Policy"],
+        )
 
     def test_forwarded_ip_is_only_trusted_from_loopback_proxy(self) -> None:
         self.assertEqual(
