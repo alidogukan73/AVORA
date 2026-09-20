@@ -990,13 +990,6 @@ public class AIAssistantActivity extends EdgeToEdgeActivity {
                 wateringStatus
         );
 
-        Log.d(
-                TAG,
-                "AI Learning Sensor="
-                        + sensorStatus
-                        + " Watering="
-                        + wateringStatus
-        );
         // -------------------------------------------------
         // AI Learning progress hesapları
         // -------------------------------------------------
