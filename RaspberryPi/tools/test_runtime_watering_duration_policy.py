@@ -92,6 +92,13 @@ def main() -> None:
     assert uncertain.effective_duration_seconds == 100
     print("[PASS] Recommendation below confidence threshold was rejected.")
 
+    drip_irrigation = policy.resolve(
+        configured_duration_seconds=5 * 60 * 60,
+    )
+    assert drip_irrigation.effective_duration_seconds == 5 * 60 * 60
+    assert drip_irrigation.source == "CONFIGURED"
+    print("[PASS] Five-hour drip irrigation duration was preserved.")
+
     print("All runtime watering-duration policy tests passed.")
 
 

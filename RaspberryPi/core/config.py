@@ -134,6 +134,11 @@ class RelayConfig:
 
     ACTIVE_LOW = False
 
+    # Local actuator-level ceiling.  This value is deliberately not loaded
+    # from Firebase, Android, or a zone configuration, so an invalid upper
+    # layer command can never keep the pump energized indefinitely.
+    MAX_CONTINUOUS_RUN_SECONDS = 5 * 60 * 60
+
 
 class ValveConfig:
     """
@@ -239,7 +244,8 @@ class IrrigationConfig:
     MAX_MOISTURE_LIMIT = 95
 
     MIN_PUMP_DURATION_SECONDS = 0
-    MAX_PUMP_DURATION_SECONDS = 10800
+    # Damlama sulama bölgelerinde tek çevrim beş saate kadar çıkabilir.
+    MAX_PUMP_DURATION_SECONDS = 5 * 60 * 60
 
     MIN_RESTART_DELTA = 1
     MAX_RESTART_DELTA = 30

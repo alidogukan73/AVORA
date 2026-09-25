@@ -513,7 +513,7 @@ public class ZoneDetailActivity extends EdgeToEdgeActivity {
             );
             originalPumpDuration = Math.max(
                     0,
-                    Math.min(10800, zone.getPump_duration())
+                    Math.min(18000, zone.getPump_duration())
             );
             originalCooldownMinutes = Math.max(
                     1,
