@@ -171,6 +171,32 @@ class WateringController:
                 if on_progress is not None:
                     on_progress()
 
+                if bool(
+                    getattr(
+                        self._relay,
+                        "hard_timeout_latched",
+                        False,
+                    )
+                ):
+                    # The actuator watchdog has already removed pump power.
+                    # End the watering unit immediately so water cannot keep
+                    # flowing through an open valve by gravity.
+                    self._relay.off()
+                    self._notify_relay_changed(
+                        callback=on_relay_changed,
+                        relay_on=False,
+                    )
+                    self._state = WateringState.ERROR
+                    elapsed = int(time.monotonic() - started)
+                    self._logger.error(
+                        "Irrigation stopped by relay hard safety timeout.",
+                    )
+                    return WateringResult(
+                        completed=False,
+                        stop_reason="HARD_SAFETY_TIMEOUT",
+                        duration=elapsed,
+                    )
+
                 commands = get_commands()
 
                 # Sistem kapatıldı

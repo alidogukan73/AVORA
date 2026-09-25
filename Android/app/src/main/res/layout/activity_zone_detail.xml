@@ -204,7 +204,7 @@
                     android:layout_height="wrap_content"
                     android:value="10"
                     android:valueFrom="0"
-                    android:valueTo="10800"
+                    android:valueTo="18000"
                     android:stepSize="1"
                     app:haloColor="@color/infoBackground"
                     app:thumbColor="@color/info"

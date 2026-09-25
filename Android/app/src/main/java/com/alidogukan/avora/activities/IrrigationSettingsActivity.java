@@ -600,7 +600,7 @@ public class IrrigationSettingsActivity extends AppCompatActivity {
         updatingUi = true;
         originalMoistureLimit = positiveOrDefault(
                 command.getMoistureLimit(), DEFAULT_MOISTURE_LIMIT, 10, 80);
-        originalPumpDuration = clamp(command.getPumpDuration(), 0, 10800);
+        originalPumpDuration = clamp(command.getPumpDuration(), 0, 18000);
         originalCooldownSeconds = roundToMinute(
                 positiveOrDefault(command.getCooldownSeconds(), DEFAULT_COOLDOWN_SECONDS, 300, 3600));
         originalRestartDelta = positiveOrDefault(

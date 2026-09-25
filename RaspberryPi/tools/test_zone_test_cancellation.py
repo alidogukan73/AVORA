@@ -63,12 +63,20 @@ class FakeValves:
 class FakeFirebase:
     def __init__(self) -> None:
         self.acknowledgements: list[dict[str, object]] = []
+        self.relay_commands: list[bool] = []
+        self.relay_states: list[bool] = []
 
     def update_active_zone_valve(self, *_args) -> None:
         return None
 
     def acknowledge_zone_test(self, **kwargs) -> None:
         self.acknowledgements.append(kwargs)
+
+    def set_relay_command(self, relay: bool) -> None:
+        self.relay_commands.append(relay)
+
+    def update_relay_status(self, relay: bool) -> None:
+        self.relay_states.append(relay)
 
 
 class FakeZoneStateReference:
@@ -143,6 +151,8 @@ def service_with_fakes() -> tuple[
     service._active_zone_test_mode = ""
     service._active_zone_test_deadline = 0.0
     service._last_zone_test_request_id = ""
+    service._manual_relay_started_at = 10.0
+    service._manual_relay_timeout_latched = True
     service._is_recent_command = lambda _requested_at: True
     return service, relay, valves, firebase
 
@@ -165,6 +175,31 @@ def verify_zone_test_does_not_block_cancellation() -> None:
     assert firebase.acknowledgements[-1]["result"] == (
         "PHYSICAL_TEST_CANCELLED"
     )
+
+
+def verify_active_zone_test_blocks_every_pump_path() -> None:
+    service, relay, valves, firebase = service_with_fakes()
+
+    service._process_zone_test_command(command(requested=True, cancel=False))
+    relay.is_on = True
+
+    blocked = service._enforce_zone_test_pump_lock(
+        SimpleNamespace(relay=True),
+    )
+
+    assert blocked is True
+    assert relay.is_on is False
+    assert relay.off_count >= 2
+    assert valves.active_valve_id == "valve-001"
+    assert service._manual_relay_started_at == 0.0
+    assert service._manual_relay_timeout_latched is False
+    assert firebase.relay_commands == [False]
+    assert firebase.relay_states == [False]
+
+    service._active_zone_test_request_id = ""
+    assert service._enforce_zone_test_pump_lock(
+        SimpleNamespace(relay=True),
+    ) is False
 
 
 def verify_active_acknowledgement_preserves_cancel_request() -> None:
@@ -243,6 +278,7 @@ def verify_restart_clears_stale_zone_watering_states() -> None:
 
 def main() -> None:
     verify_zone_test_does_not_block_cancellation()
+    verify_active_zone_test_blocks_every_pump_path()
     verify_active_acknowledgement_preserves_cancel_request()
     verify_restart_clears_stale_test_state()
     verify_restart_clears_stale_zone_watering_states()

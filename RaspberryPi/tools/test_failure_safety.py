@@ -81,6 +81,44 @@ class StaleMqttSensor:
         return self.reading
 
 
+class InitializationProbe:
+    def __init__(
+        self,
+        events: list[str],
+        name: str,
+        *,
+        fail: bool = False,
+    ) -> None:
+        self._events = events
+        self._name = name
+        self._fail = fail
+
+    def initialize(self) -> None:
+        self._events.append(self._name)
+        if self._fail:
+            raise RuntimeError("sensor initialization failed")
+
+
+def verify_actuators_initialize_before_sensor() -> None:
+    events: list[str] = []
+    service = IrrigationService.__new__(IrrigationService)
+    service._relay = InitializationProbe(events, "relay")
+    service._valves = InitializationProbe(events, "valves")
+    service._sensor = InitializationProbe(
+        events,
+        "sensor",
+        fail=True,
+    )
+
+    try:
+        service.initialize()
+        raise AssertionError("Sensor initialization failure was ignored.")
+    except RuntimeError as exc:
+        assert str(exc) == "sensor initialization failed"
+
+    assert events == ["relay", "valves", "sensor"]
+
+
 def service_with(
     relay: FakeRelay,
     valves: FakeValves,
@@ -95,6 +133,8 @@ def service_with(
 
 
 def main() -> None:
+    verify_actuators_initialize_before_sensor()
+
     provider = SoilMoistureSensorProvider.__new__(
         SoilMoistureSensorProvider,
     )

@@ -11,6 +11,7 @@ def install_hardware_import_stubs() -> None:
         import firebase_admin  # noqa: F401
     except ModuleNotFoundError:
         firebase_admin = types.ModuleType("firebase_admin")
+        auth = types.ModuleType("firebase_admin.auth")
         credentials = types.ModuleType("firebase_admin.credentials")
         database = types.ModuleType("firebase_admin.db")
         messaging = types.ModuleType("firebase_admin.messaging")
@@ -24,9 +25,11 @@ def install_hardware_import_stubs() -> None:
         messaging.AndroidNotification = object
         messaging.send = lambda *_args, **_kwargs: "test-message"
         firebase_admin.credentials = credentials
+        firebase_admin.auth = auth
         firebase_admin.db = database
         firebase_admin.messaging = messaging
         sys.modules["firebase_admin"] = firebase_admin
+        sys.modules["firebase_admin.auth"] = auth
         sys.modules["firebase_admin.credentials"] = credentials
         sys.modules["firebase_admin.db"] = database
         sys.modules["firebase_admin.messaging"] = messaging

@@ -23,7 +23,7 @@ class RuntimeWateringDurationPolicy:
         adaptive_recommendation=None,
         weather_adjustment=None,
         minimum_duration_seconds: int = 1,
-        maximum_duration_seconds: int = 10800,
+        maximum_duration_seconds: int = 5 * 60 * 60,
     ) -> WateringDurationPlan:
         configured = self._clamp(
             int(configured_duration_seconds),

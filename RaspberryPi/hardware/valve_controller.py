@@ -131,16 +131,30 @@ class ValveController:
         self._require_initialized()
 
         previous = self._active_valve_id
+        physical_pins = self._physical_pins()
+        failures: list[tuple[int, Exception]] = []
 
-        if self._physical_pins():
-            for pin in self._physical_pins():
-                GPIO.output(
-                    pin,
-                    GPIO.HIGH
-                    if ValveConfig.ACTIVE_LOW
-                    else GPIO.LOW,
-                )
+        # Attempt every installed channel independently.  One failed GPIO
+        # write must not prevent the remaining valves from receiving their
+        # safe CLOSED level.
+        if physical_pins:
+            inactive_level = (
+                GPIO.HIGH
+                if ValveConfig.ACTIVE_LOW
+                else GPIO.LOW
+            )
+            for pin in physical_pins:
+                try:
+                    GPIO.output(
+                        pin,
+                        inactive_level,
+                    )
+                except Exception as exc:
+                    failures.append((pin, exc))
 
+        # Clear the software interlock state even when a physical output write
+        # failed.  This prevents the pump from treating an uncertain valve as
+        # confirmed open on the next control cycle.
         self._active_valve_id = None
         self._active_valve_opened_at = None
 
@@ -155,6 +169,20 @@ class ValveController:
 
             if self.is_physical_valve(previous):
                 time.sleep(ValveConfig.CLOSING_DELAY_SECONDS)
+
+        if failures:
+            failed_pins = ",".join(
+                str(pin)
+                for pin, _error in failures
+            )
+            self._logger.error(
+                "Zone valve shutdown was incomplete. gpio_pins=%s",
+                failed_pins,
+            )
+            raise RuntimeError(
+                "Failed to drive zone valve GPIO pins CLOSED: "
+                f"{failed_pins}"
+            ) from failures[0][1]
 
     @property
     def simulation_mode(self) -> bool:

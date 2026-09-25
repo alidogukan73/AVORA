@@ -211,10 +211,14 @@ class IrrigationService:
         Initialize all services.
         """
 
-        self._sensor.initialize()
-
+        # Actuators are initialized before every sensor, network, or cloud
+        # dependency.  If one of those dependencies fails during startup, the
+        # pump and all valve relays have already been driven to their safe OFF
+        # electrical levels.
         self._relay.initialize()
         self._valves.initialize()
+
+        self._sensor.initialize()
 
         self._firebase.initialize()
         try:
@@ -1742,6 +1746,12 @@ class IrrigationService:
 
             self._process_zone_test_command(commands)
 
+            # A valve test owns the actuator path exclusively.  While it is
+            # active, no automatic decision, direct manual relay command, or
+            # dedicated manual-watering request may reach the shared pump.
+            if self._enforce_zone_test_pump_lock(commands):
+                return
+
             if self._process_manual_watering_command(commands):
                 return
 
@@ -3102,6 +3112,25 @@ class IrrigationService:
             and self._valves.is_ready_for_pump(active_valve_id)
         )
 
+    def _enforce_zone_test_pump_lock(self, commands) -> bool:
+        """Keep every pump command OFF while a valve-only test is active."""
+        if not self._active_zone_test_request_id:
+            return False
+
+        # Reassert the physical OFF level on every control cycle.  Resetting
+        # the manual timer prevents a command queued before the test from
+        # resuming with an already elapsed timeout window.
+        self._relay.off()
+        self._reset_manual_relay_safety()
+
+        # Consume an old direct-relay request so it cannot start the pump as
+        # soon as a short valve test finishes.
+        if bool(getattr(commands, "relay", False)):
+            self._firebase.set_relay_command(False)
+
+        self._firebase.update_relay_status(False)
+        return True
+
     def _process_zone_test_command(
         self,
         commands,
@@ -3109,7 +3138,8 @@ class IrrigationService:
         """
         Run one safe valve-only test requested by Android.
 
-        The real pump remains blocked while valves are simulated.
+        The real pump remains blocked for the complete physical or simulated
+        valve-test lifetime.
         """
 
         if self._active_zone_test_request_id:

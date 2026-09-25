@@ -53,6 +53,34 @@ def main() -> None:
             pin: valve_module.GPIO.HIGH
             for pin in ValveConfig.GPIO_PINS.values()
         }
+
+        failed_pin = ValveConfig.GPIO_PINS["valve-003"]
+        close_attempts: list[tuple[int, int]] = []
+
+        def fail_one_close(pin: int, level: int) -> None:
+            close_attempts.append((pin, level))
+            if pin == failed_pin:
+                raise RuntimeError("simulated GPIO failure")
+
+        valves._active_valve_id = "valve-001"
+        valves._active_valve_opened_at = time.monotonic()
+        valve_module.GPIO.output = fail_one_close
+
+        try:
+            valves.close_all()
+            raise AssertionError("Valve GPIO failure was ignored.")
+        except RuntimeError as exc:
+            assert str(failed_pin) in str(exc)
+
+        assert len(close_attempts) == len(ValveConfig.GPIO_PINS)
+        assert {
+            pin for pin, _level in close_attempts
+        } == set(ValveConfig.GPIO_PINS.values())
+        assert all(
+            level == valve_module.GPIO.HIGH
+            for _pin, level in close_attempts
+        )
+        assert valves.active_valve_id is None
     finally:
         valve_module.GPIO.output = original_output
         valve_module.time.sleep = original_sleep
