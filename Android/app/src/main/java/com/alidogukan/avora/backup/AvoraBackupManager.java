@@ -218,11 +218,17 @@ public final class AvoraBackupManager {
                 .put("zone_count", zoneCount)
                 .put("photo_files_included", false)
                 .put("live_device_data_included", false));
+        refreshIntegrity(backup);
+        return backup;
+    }
+
+    /** Re-signs a backup after a safe, in-memory merge. */
+    static void refreshIntegrity(JSONObject backup) throws JSONException {
+        backup.remove("integrity");
         Map<String, Object> integrityPayload = objectMap(backup);
         backup.put("integrity", new JSONObject()
                 .put("algorithm", BackupIntegrity.ALGORITHM)
                 .put("content_sha256", BackupIntegrity.sha256(integrityPayload)));
-        return backup;
     }
 
     /** Returns an invalid result, or {@code null} when integrity is valid/not present. */
@@ -253,7 +259,7 @@ public final class AvoraBackupManager {
     }
 
     @SuppressWarnings("unchecked")
-    private static Map<String, Object> objectMap(JSONObject value) throws JSONException {
+    static Map<String, Object> objectMap(JSONObject value) throws JSONException {
         Object converted = javaValue(value);
         if (!(converted instanceof Map)) {
             throw new JSONException("JSON object expected");
@@ -515,7 +521,7 @@ public final class AvoraBackupManager {
         }
     }
 
-    private static Object jsonValue(Object value) throws JSONException {
+    static Object jsonValue(Object value) throws JSONException {
         if (value == null) {
             return JSONObject.NULL;
         }
