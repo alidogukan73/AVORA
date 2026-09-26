@@ -521,7 +521,7 @@ public final class AvoraBackupManager {
         }
     }
 
-    private static Object jsonValue(Object value) throws JSONException {
+    static Object jsonValue(Object value) throws JSONException {
         if (value == null) {
             return JSONObject.NULL;
         }
