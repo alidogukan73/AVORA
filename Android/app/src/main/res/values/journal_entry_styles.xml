@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="ThemeOverlay.AVORA.JournalEntrySheet" parent="ThemeOverlay.Material3.BottomSheetDialog">
+        <item name="bottomSheetStyle">@style/Widget.AVORA.JournalEntrySheet</item>
+        <item name="android:navigationBarColor">@color/card</item>
+        <item name="enableEdgeToEdge">true</item>
+    </style>
+    <style name="Widget.AVORA.JournalEntrySheet" parent="Widget.Material3.BottomSheet.Modal">
+        <item name="backgroundTint">@color/card</item>
+        <item name="paddingBottomSystemWindowInsets">false</item>
+        <item name="paddingLeftSystemWindowInsets">false</item>
+        <item name="paddingRightSystemWindowInsets">false</item>
+    </style>
+</resources>

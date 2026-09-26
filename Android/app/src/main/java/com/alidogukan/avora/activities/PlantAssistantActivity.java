@@ -50,6 +50,7 @@ import org.json.JSONObject;
 
 /** AI Bitki Asistanı: fotoğraf, belirtiler, sensör ve hava bağlamıyla güvenli ön değerlendirme. */
 public class PlantAssistantActivity extends EdgeToEdgeActivity {
+    public static final String EXTRA_JOURNAL_GROWTH = "journal_growth";
     private static final String LOG_TAG = "AVORA-PlantAssistant";
     private static final String STATE_SELECTED_PLANT = "plant_selected_key";
     private static final String STATE_REQUESTED_ZONE = "plant_requested_zone";
@@ -136,6 +137,7 @@ public class PlantAssistantActivity extends EdgeToEdgeActivity {
         requestedZoneId = safe(getIntent().getStringExtra("zone_id"));
         requestedSeasonId = safe(getIntent().getStringExtra("season_id"));
         bindViews();
+        growthStatus.setChecked(getIntent().getBooleanExtra(EXTRA_JOURNAL_GROWTH, false));
         bindActions();
         if (state != null) restoreInstanceState(state);
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
