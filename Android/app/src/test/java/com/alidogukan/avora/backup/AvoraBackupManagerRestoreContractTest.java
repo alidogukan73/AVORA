@@ -7,7 +7,8 @@ import org.junit.Test;
 
 public class AvoraBackupManagerRestoreContractTest {
     @Test
-    public void restoresJournalRecordsThatDoNotDependOnPhotoFiles() {
+    public void restoresSeasonAndJournalRecordsThatDoNotDependOnPhotoFiles() {
+        assertTrue(AvoraBackupManager.isRestorableGardenJournalSection("seasons"));
         assertTrue(AvoraBackupManager.isRestorableGardenJournalSection("events"));
         assertTrue(AvoraBackupManager.isRestorableGardenJournalSection("season_outcomes"));
     }

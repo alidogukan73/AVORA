@@ -63,7 +63,7 @@ public final class AvoraBackupManager {
     // alone can create broken references and can also fail newer Firebase validation rules when
     // the source contains legacy photo records.
     private static final List<String> GARDEN_JOURNAL_ROOTS =
-            Arrays.asList("events", "season_outcomes");
+            Arrays.asList("seasons", "events", "season_outcomes");
 
     private static final List<String> LOCAL_PREFERENCE_FILES = Arrays.asList(
             "avora_garden_profile", "avora_display_units", "avora_notification_settings",

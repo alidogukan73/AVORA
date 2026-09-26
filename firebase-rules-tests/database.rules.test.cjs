@@ -1,5 +1,6 @@
 const fs = require("node:fs");
 const path = require("node:path");
+const assert = require("node:assert/strict");
 const { after, before, beforeEach, test } = require("node:test");
 
 const {
@@ -538,6 +539,136 @@ test("portable restore skips legacy photo metadata that newer rules reject", asy
     "commands/auto_mode": false,
     "garden_journal/events/event-001/note": "Sulama kontrol edildi",
   }));
+});
+
+test("critical garden records survive backup delete and safe restore", async () => {
+  const owner = authenticatedDatabase(OWNER_UID);
+  const devicePath = `devices/${DEVICE_ID}`;
+  const backup = {
+    profile: {
+      name: "AVORA bahçesi",
+    },
+    zones: {
+      "zone-001": {
+        name: "Domates",
+        moisture_limit: 40,
+        pump_duration: 1800,
+        season: {
+          active: true,
+          season_id: "season-zone-001-2026",
+        },
+      },
+    },
+    watering_history: {
+      "watering-001": {
+        zone_id: "zone-001",
+        season_id: "season-zone-001-2026",
+        duration_seconds: 1800,
+        completed_at_epoch: 1788271200,
+      },
+    },
+    fertilizer_products: {
+      "product-001": {
+        name: "Organik sıvı gübre",
+      },
+    },
+    fertilizer_plans: {
+      "plan-zone-001": {
+        zone_id: "zone-001",
+        season_id: "season-zone-001-2026",
+      },
+    },
+    fertilizer_history: {
+      "application-001": {
+        zone_id: "zone-001",
+        season_id: "season-zone-001-2026",
+        product_id: "product-001",
+        applied_at_epoch: 1788184800,
+      },
+    },
+    garden_journal: {
+      seasons: {
+        "season-zone-001-2026": {
+          season_id: "season-zone-001-2026",
+          zone_id: "zone-001",
+          status: "ACTIVE",
+          started_at_epoch: 1785592800,
+          updated_at_epoch: 1788271200,
+        },
+      },
+      events: {
+        "event-001": {
+          zone_id: "zone-001",
+          season_id: "season-zone-001-2026",
+          note: "Sulama hattı kontrol edildi",
+          occurred_at_epoch: 1788271200,
+        },
+      },
+      season_outcomes: {
+        "season-zone-001-2026": {
+          id: "season-zone-001-2026",
+          zone_id: "zone-001",
+          season_id: "season-zone-001-2026",
+          yield_note: "İlk hasat kaydı",
+        },
+      },
+    },
+  };
+
+  await testEnvironment.withSecurityRulesDisabled(async (context) => {
+    const database = context.database();
+    await set(ref(database, devicePath), {
+      ...backup,
+      commands: {
+        relay: true,
+        auto_mode: true,
+        restart_device: true,
+        zone_test: { valve_id: "valve-001" },
+      },
+    });
+  });
+
+  const snapshot = await get(ref(owner, devicePath));
+  const original = snapshot.val();
+  await testEnvironment.withSecurityRulesDisabled(async (context) => {
+    await set(ref(context.database(), devicePath), null);
+  });
+  await assertSucceeds(update(ref(owner, devicePath), {
+    "profile/name": original.profile.name,
+    "zones/zone-001": original.zones["zone-001"],
+    "watering_history/watering-001":
+      original.watering_history["watering-001"],
+    "fertilizer_products/product-001":
+      original.fertilizer_products["product-001"],
+    "fertilizer_plans/plan-zone-001":
+      original.fertilizer_plans["plan-zone-001"],
+    "fertilizer_history/application-001":
+      original.fertilizer_history["application-001"],
+    "garden_journal/seasons/season-zone-001-2026":
+      original.garden_journal.seasons["season-zone-001-2026"],
+    "garden_journal/events/event-001":
+      original.garden_journal.events["event-001"],
+    "garden_journal/season_outcomes/season-zone-001-2026":
+      original.garden_journal.season_outcomes["season-zone-001-2026"],
+    "commands/relay": false,
+    "commands/auto_mode": false,
+    "commands/restart_device": false,
+    "commands/zone_test": null,
+  }));
+
+  const restored = (await get(ref(owner, devicePath))).val();
+  assert.deepEqual(restored.profile, backup.profile);
+  assert.deepEqual(restored.zones, backup.zones);
+  assert.deepEqual(restored.watering_history, backup.watering_history);
+  assert.deepEqual(restored.fertilizer_products, backup.fertilizer_products);
+  assert.deepEqual(restored.fertilizer_plans, backup.fertilizer_plans);
+  assert.deepEqual(restored.fertilizer_history, backup.fertilizer_history);
+  assert.deepEqual(restored.garden_journal, backup.garden_journal);
+  assert.deepEqual(restored.commands, {
+    auto_mode: false,
+    relay: false,
+    restart_device: false,
+  });
 });
 
 test("backend delivery state remains read-only to the Android owner", async () => {
