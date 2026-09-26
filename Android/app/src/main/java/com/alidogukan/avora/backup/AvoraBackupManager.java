@@ -115,6 +115,10 @@ public final class AvoraBackupManager {
         if (firebase == null) {
             return ValidationResult.invalid("Yedek veri bölümü eksik.");
         }
+        ValidationResult integrity = validateIntegrity(backup);
+        if (integrity != null) {
+            return integrity;
+        }
         JSONObject zones = firebase.optJSONObject("zones");
         int zoneCount = zones == null ? 0 : zones.length();
         int recordCount = countObject(firebase.optJSONObject("watering_history"))
@@ -214,7 +218,47 @@ public final class AvoraBackupManager {
                 .put("zone_count", zoneCount)
                 .put("photo_files_included", false)
                 .put("live_device_data_included", false));
+        Map<String, Object> integrityPayload = objectMap(backup);
+        backup.put("integrity", new JSONObject()
+                .put("algorithm", BackupIntegrity.ALGORITHM)
+                .put("content_sha256", BackupIntegrity.sha256(integrityPayload)));
         return backup;
+    }
+
+    /** Returns an invalid result, or {@code null} when integrity is valid/not present. */
+    private ValidationResult validateIntegrity(JSONObject backup) {
+        // Backups created before integrity metadata was introduced remain restorable.
+        if (!backup.has("integrity")) {
+            return null;
+        }
+        JSONObject integrity = backup.optJSONObject("integrity");
+        if (integrity == null) {
+            return ValidationResult.invalid("Yedek bütünlük bilgisi geçersiz.");
+        }
+        if (!BackupIntegrity.ALGORITHM.equals(integrity.optString("algorithm"))) {
+            return ValidationResult.invalid("Yedek bütünlük yöntemi desteklenmiyor.");
+        }
+        try {
+            Map<String, Object> payload = objectMap(backup);
+            payload.remove("integrity");
+            if (!BackupIntegrity.matches(
+                    integrity.optString("content_sha256"), payload)) {
+                return ValidationResult.invalid(
+                        "Yedek bütünlük kontrolünden geçemedi; dosya eksik veya değişmiş.");
+            }
+        } catch (JSONException error) {
+            return ValidationResult.invalid("Yedek bütünlük bilgisi okunamadı.");
+        }
+        return null;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> objectMap(JSONObject value) throws JSONException {
+        Object converted = javaValue(value);
+        if (!(converted instanceof Map)) {
+            throw new JSONException("JSON object expected");
+        }
+        return (Map<String, Object>) converted;
     }
 
     private void copyGlobalIrrigation(DataSnapshot commands, JSONObject firebase)
