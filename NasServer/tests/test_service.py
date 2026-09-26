@@ -279,7 +279,7 @@ class AvoraServiceTest(unittest.TestCase):
         )
         self.assertEqual("pending", request.status)
         self.assertEqual(self.admin.id, request.user_id)
-        self.assertEqual("admin@example.com", request.email)
+        self.assertEqual("owner@example.com", request.email)
 
         pending = self.service.list_pending_access_requests(
             self.admin, "avora-001"
