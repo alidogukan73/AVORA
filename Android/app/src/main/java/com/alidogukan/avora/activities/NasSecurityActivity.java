@@ -32,10 +32,14 @@ import java.util.Locale;
 
 /** Professional, role-aware control center for AVORA NAS account security. */
 public final class NasSecurityActivity extends EdgeToEdgeActivity {
+    private static final String STATE_REQUEST_GARDEN_ACCESS =
+            "state_request_garden_access";
     public static final String EXTRA_OPEN_PENDING_REQUESTS =
             "open_pending_access_requests";
     public static final String EXTRA_OPEN_INACTIVE_ACCOUNTS =
             "open_inactive_accounts";
+    public static final String EXTRA_REQUEST_GARDEN_ACCESS =
+            "request_garden_access";
     private TextView accountName;
     private TextView accountEmail;
     private TextView accountRole;
@@ -76,6 +80,7 @@ public final class NasSecurityActivity extends EdgeToEdgeActivity {
     private TextInputLayout registerPasswordLayout;
     private boolean openPendingRequestsOnReady;
     private boolean openInactiveAccountsOnReady;
+    private boolean requestGardenAccessOnReady;
 
     @Override
     protected void onCreate(@Nullable Bundle state) {
@@ -85,6 +90,9 @@ public final class NasSecurityActivity extends EdgeToEdgeActivity {
                 && getIntent().getBooleanExtra(EXTRA_OPEN_PENDING_REQUESTS, false);
         openInactiveAccountsOnReady = state == null
                 && getIntent().getBooleanExtra(EXTRA_OPEN_INACTIVE_ACCOUNTS, false);
+        requestGardenAccessOnReady = state == null
+                ? getIntent().getBooleanExtra(EXTRA_REQUEST_GARDEN_ACCESS, false)
+                : state.getBoolean(STATE_REQUEST_GARDEN_ACCESS, false);
         viewModel = new ViewModelProvider(this).get(NasSecurityViewModel.class);
         bindViews();
         configureToolbar();
@@ -92,6 +100,14 @@ public final class NasSecurityActivity extends EdgeToEdgeActivity {
         viewModel.state().observe(this, this::render);
         viewModel.events().observe(this, this::handleEvent);
         viewModel.refresh();
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        outState.putBoolean(
+                STATE_REQUEST_GARDEN_ACCESS,
+                requestGardenAccessOnReady);
+        super.onSaveInstanceState(outState);
     }
 
     private void bindViews() {
@@ -186,7 +202,10 @@ public final class NasSecurityActivity extends EdgeToEdgeActivity {
         findViewById(R.id.rowNasSecurityPassword).setEnabled(!state.busy);
         findViewById(R.id.rowNasSecurityDetails).setEnabled(!state.busy);
         if (state.busy) showBusyStatus(state.action);
-        if (openPendingRequestsOnReady && state.isAdministrator() && !state.busy) {
+        if (requestGardenAccessOnReady && !state.busy) {
+            requestGardenAccessOnReady = false;
+            viewModel.requestGardenAccess();
+        } else if (openPendingRequestsOnReady && state.isAdministrator() && !state.busy) {
             openPendingRequestsOnReady = false;
             viewModel.loadPendingRequests();
         } else if (openInactiveAccountsOnReady
@@ -411,6 +430,9 @@ public final class NasSecurityActivity extends EdgeToEdgeActivity {
                 setResult(RESULT_OK);
                 break;
             case SESSION_EXPIRED:
+                if (event.action == NasSecurityViewModel.Action.REQUEST_ACCESS) {
+                    requestGardenAccessOnReady = true;
+                }
                 Toast.makeText(this, R.string.data_sync_nas_session_expired,
                         Toast.LENGTH_LONG).show();
                 setResult(RESULT_OK);

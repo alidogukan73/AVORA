@@ -273,6 +273,19 @@ class AvoraServiceTest(unittest.TestCase):
                 code, "guest@example.com", "Aile Üyesi", "Aile-Uyesi-2026!"
             )
 
+    def test_admin_can_request_access_for_a_new_firebase_identity(self) -> None:
+        request = self.service.request_device_access(
+            self.admin, "avora-001", "adminFirebaseUser_001"
+        )
+        self.assertEqual("pending", request.status)
+        self.assertEqual(self.admin.id, request.user_id)
+        self.assertEqual("owner@example.com", request.email)
+
+        pending = self.service.list_pending_access_requests(
+            self.admin, "avora-001"
+        )
+        self.assertEqual([request.id], [item.id for item in pending])
+
     def test_invited_user_requests_access_and_admin_approves_it(self) -> None:
         code, _ = self.service.create_invite(self.admin, valid_hours=24, max_uses=1)
         user = self.service.register(
