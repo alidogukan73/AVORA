@@ -3,4 +3,3 @@
     <solid android:color="@color/card" />
     <corners android:topLeftRadius="28dp" android:topRightRadius="28dp" />
 </shape>
-

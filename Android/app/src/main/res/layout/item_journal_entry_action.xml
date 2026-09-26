@@ -61,4 +61,3 @@
         app:srcCompat="@drawable/ic_chevron_right_24"
         app:tint="@color/textTertiary" />
 </LinearLayout>
-
