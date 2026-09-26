@@ -32,6 +32,8 @@ import java.util.Locale;
 
 /** Professional, role-aware control center for AVORA NAS account security. */
 public final class NasSecurityActivity extends EdgeToEdgeActivity {
+    private static final String STATE_REQUEST_GARDEN_ACCESS =
+            "state_request_garden_access";
     public static final String EXTRA_OPEN_PENDING_REQUESTS =
             "open_pending_access_requests";
     public static final String EXTRA_OPEN_INACTIVE_ACCOUNTS =
@@ -89,7 +91,8 @@ public final class NasSecurityActivity extends EdgeToEdgeActivity {
         openInactiveAccountsOnReady = state == null
                 && getIntent().getBooleanExtra(EXTRA_OPEN_INACTIVE_ACCOUNTS, false);
         requestGardenAccessOnReady = state == null
-                && getIntent().getBooleanExtra(EXTRA_REQUEST_GARDEN_ACCESS, false);
+                ? getIntent().getBooleanExtra(EXTRA_REQUEST_GARDEN_ACCESS, false)
+                : state.getBoolean(STATE_REQUEST_GARDEN_ACCESS, false);
         viewModel = new ViewModelProvider(this).get(NasSecurityViewModel.class);
         bindViews();
         configureToolbar();
@@ -97,6 +100,14 @@ public final class NasSecurityActivity extends EdgeToEdgeActivity {
         viewModel.state().observe(this, this::render);
         viewModel.events().observe(this, this::handleEvent);
         viewModel.refresh();
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        outState.putBoolean(
+                STATE_REQUEST_GARDEN_ACCESS,
+                requestGardenAccessOnReady);
+        super.onSaveInstanceState(outState);
     }
 
     private void bindViews() {
@@ -419,6 +430,9 @@ public final class NasSecurityActivity extends EdgeToEdgeActivity {
                 setResult(RESULT_OK);
                 break;
             case SESSION_EXPIRED:
+                if (event.action == NasSecurityViewModel.Action.REQUEST_ACCESS) {
+                    requestGardenAccessOnReady = true;
+                }
                 Toast.makeText(this, R.string.data_sync_nas_session_expired,
                         Toast.LENGTH_LONG).show();
                 setResult(RESULT_OK);
