@@ -618,6 +618,8 @@
     <string
         name="diagnostics_relay_active">Pompa rölesi şu anda çalışıyor</string>
     <string
+        name="diagnostics_relay_unknown">Pompa rölesi durumu bağlantı olmadığı için doğrulanamıyor</string>
+    <string
         name="diagnostics_valve_simulation">Vana simülasyon koruması aktif</string>
     <string
         name="diagnostics_valve_physical_ready">Fiziksel vana kontrolü hazır</string>
@@ -625,6 +627,8 @@
         name="diagnostics_error_clear">Aktif backend hatası yok</string>
     <string
         name="diagnostics_error_active">Backend hatası: %1$s</string>
+    <string
+        name="diagnostics_error_unknown">Backend hata durumu bağlantı olmadığı için doğrulanamıyor</string>
     <string
         name="health_update_waiting">Son güncelleme bekleniyor</string>
     <string
@@ -705,11 +709,15 @@
     <string
         name="health_overall_critical">Raspberry Pi kritik durumda</string>
     <string
+        name="health_overall_offline">Raspberry Pi bağlantısı yok · son bilinen sağlık verisi</string>
+    <string
         name="health_badge_good">PI SAĞLIKLI</string>
     <string
         name="health_badge_warning">PI UYARI</string>
     <string
         name="health_badge_critical">PI KRİTİK</string>
+    <string
+        name="health_badge_offline">PI ÇEVRİMDIŞI</string>
     <string
         name="health_uptime_days_format" tools:ignore="PluralsCandidate">%1$d gün %2$d saat</string>
     <string

@@ -74,10 +74,12 @@
     <string name="diagnostics_sensor_error">No current sensor data found</string>
     <string name="diagnostics_relay_ok">Pump relay is safely off</string>
     <string name="diagnostics_relay_active">Pump relay is currently active</string>
+    <string name="diagnostics_relay_unknown">Pump relay status cannot be verified while the Pi is offline</string>
     <string name="diagnostics_valve_simulation">Valve simulation protection is active</string>
     <string name="diagnostics_valve_physical_ready">Physical valve control is ready</string>
     <string name="diagnostics_error_clear">No active backend error</string>
     <string name="diagnostics_error_active">Backend error: %1$s</string>
+    <string name="diagnostics_error_unknown">Backend error status cannot be verified while the Pi is offline</string>
     <string name="health_update_waiting">Waiting for latest update</string>
     <string name="health_badge_checking">CHECKING</string>
     <string name="health_cpu_title">CPU</string>
@@ -117,9 +119,11 @@
     <string name="health_overall_good">Raspberry Pi is healthy</string>
     <string name="health_overall_warning">Raspberry Pi needs attention</string>
     <string name="health_overall_critical">Raspberry Pi is in critical condition</string>
+    <string name="health_overall_offline">Raspberry Pi is offline · last known health data</string>
     <string name="health_badge_good">PI HEALTHY</string>
     <string name="health_badge_warning">PI WARNING</string>
     <string name="health_badge_critical">PI CRITICAL</string>
+    <string name="health_badge_offline">PI OFFLINE</string>
     <string name="health_uptime_days_format" tools:ignore="PluralsCandidate">%1$d days %2$d hours</string>
     <string name="health_uptime_hours_format" tools:ignore="PluralsCandidate">%1$d hours %2$d min</string>
     <string name="health_uptime_minutes_format">%1$d min</string>

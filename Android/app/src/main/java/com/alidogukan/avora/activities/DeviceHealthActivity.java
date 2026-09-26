@@ -2,6 +2,8 @@ package com.alidogukan.avora.activities;
 
 import android.content.res.ColorStateList;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.LinearLayout;
@@ -20,6 +22,7 @@ import com.alidogukan.avora.models.Health;
 import com.alidogukan.avora.models.Status;
 import com.alidogukan.avora.models.GardenZone;
 import com.alidogukan.avora.models.SeedlingTelemetry;
+import com.alidogukan.avora.health.DeviceHealthOverallResolver;
 import com.alidogukan.avora.viewmodels.DeviceHealthViewModel;
 import com.alidogukan.avora.viewmodels.MainViewModel;
 import com.alidogukan.avora.viewmodels.SeedlingViewModel;
@@ -36,6 +39,8 @@ import java.util.List;
 import java.util.Collections;
 
 public class DeviceHealthActivity extends AppCompatActivity {
+
+    private static final long FRESHNESS_REFRESH_INTERVAL_MILLIS = 5_000L;
 
     private DeviceHealthViewModel viewModel;
     private com.alidogukan.avora.viewmodels.DisplayUnitsViewModel displayUnits;
@@ -99,6 +104,21 @@ public class DeviceHealthActivity extends AppCompatActivity {
     private SeedlingTelemetry latestSeedlingTelemetry;
     private List<GardenZone> latestZones =
             Collections.emptyList();
+    private final Handler freshnessHandler =
+            new Handler(Looper.getMainLooper());
+    private final Runnable freshnessRefresh = new Runnable() {
+        @Override
+        public void run() {
+            renderDiagnostics();
+            if (latestHealth != null) {
+                renderOverallHealth(latestHealth);
+            }
+            freshnessHandler.postDelayed(
+                    this,
+                    FRESHNESS_REFRESH_INTERVAL_MILLIS
+            );
+        }
+    };
 
 
     @Override
@@ -118,6 +138,19 @@ public class DeviceHealthActivity extends AppCompatActivity {
         observeViewModel();
         initializeActions();
         PrimaryBottomNavigation.bind(this, PrimaryBottomNavigation.DEVICE_HEALTH);
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        freshnessHandler.removeCallbacks(freshnessRefresh);
+        freshnessHandler.post(freshnessRefresh);
+    }
+
+    @Override
+    protected void onStop() {
+        freshnessHandler.removeCallbacks(freshnessRefresh);
+        super.onStop();
     }
 
     private void applyWindowInsets() {
@@ -314,6 +347,9 @@ public class DeviceHealthActivity extends AppCompatActivity {
                 status -> {
                     latestStatus = status;
                     renderDiagnostics();
+                    if (latestHealth != null) {
+                        renderOverallHealth(latestHealth);
+                    }
                 }
         );
 
@@ -410,12 +446,10 @@ public class DeviceHealthActivity extends AppCompatActivity {
         final int totalChecks = 7;
         long nowEpoch = System.currentTimeMillis() / 1000L;
 
-        boolean piOnline =
-                latestStatus != null
-                        && latestStatus.isOnline()
-                        && latestStatus.getLastSeenEpoch() > 0L
-                        && nowEpoch
-                        - latestStatus.getLastSeenEpoch() <= 30L;
+        boolean piOnline = DeviceHealthOverallResolver.isPiOnline(
+                latestStatus,
+                nowEpoch
+        );
         addDiagnosticRow(
                 piOnline,
                 piOnline
@@ -443,12 +477,14 @@ public class DeviceHealthActivity extends AppCompatActivity {
         );
         if (sensorFresh) normalCount++;
 
-        boolean relaySafe =
-                latestStatus != null
-                        && !latestStatus.isRelay();
+        boolean relaySafe = piOnline
+                && latestStatus != null
+                && !latestStatus.isRelay();
         addDiagnosticRow(
                 relaySafe,
-                relaySafe
+                !piOnline
+                        ? R.string.diagnostics_relay_unknown
+                        : relaySafe
                         ? R.string.diagnostics_relay_ok
                         : R.string.diagnostics_relay_active
         );
@@ -474,11 +510,13 @@ public class DeviceHealthActivity extends AppCompatActivity {
         String lastError = latestStatus == null
                 ? ""
                 : latestStatus.getLastError();
-        boolean errorClear =
-                lastError == null || lastError.trim().isEmpty();
+        boolean errorClear = piOnline
+                && (lastError == null || lastError.trim().isEmpty());
         addDiagnosticRow(
                 errorClear,
-                errorClear
+                !piOnline
+                        ? getString(R.string.diagnostics_error_unknown)
+                        : errorClear
                         ? getString(
                                 R.string.diagnostics_error_clear
                         )
@@ -1327,27 +1365,33 @@ public class DeviceHealthActivity extends AppCompatActivity {
 
     private void renderOverallHealth(Health health) {
 
-        boolean critical =
-                health.isThrottled()
-                        || health.getCpuTemperature() >= 75
-                        || health.getCpuUsage() >= 85
-                        || health.getMemoryUsage() >= 90
-                        || health.getDiskUsage() >= 90
-                        || health.getWifiSignal() < -80;
-
-        boolean warning =
-                health.getCpuTemperature() >= 65
-                        || health.getCpuUsage() >= 65
-                        || health.getMemoryUsage() >= 75
-                        || health.getDiskUsage() >= 75
-                        || health.getWifiSignal() < -67;
+        DeviceHealthOverallResolver.State state =
+                DeviceHealthOverallResolver.evaluate(
+                        health,
+                        latestStatus,
+                        System.currentTimeMillis() / 1000L
+                );
 
         int statusColor;
         int backgroundColor;
         int titleResource;
         int badgeResource;
 
-        if (critical) {
+        if (state == DeviceHealthOverallResolver.State.OFFLINE) {
+
+            statusColor =
+                    color(R.color.offline);
+
+            backgroundColor =
+                    color(R.color.offlineBackground);
+
+            titleResource =
+                    R.string.health_overall_offline;
+
+            badgeResource =
+                    R.string.health_badge_offline;
+
+        } else if (state == DeviceHealthOverallResolver.State.CRITICAL) {
 
             statusColor =
                     color(R.color.offline);
@@ -1361,7 +1405,7 @@ public class DeviceHealthActivity extends AppCompatActivity {
             badgeResource =
                     R.string.health_badge_critical;
 
-        } else if (warning) {
+        } else if (state == DeviceHealthOverallResolver.State.WARNING) {
 
             statusColor =
                     color(R.color.warning);
