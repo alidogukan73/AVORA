@@ -18,8 +18,8 @@ public class IrrigationTimingSettings {
     public static final boolean DEFAULT_RECHECK_ENABLED = true;
     public static final int DEFAULT_START_HOUR = 5;
     public static final int DEFAULT_END_HOUR = 9;
-    public static final int DEFAULT_MANUAL_WATERING_MAX_DURATION_SECONDS = 4 * 60 * 60;
-    public static final int HARD_MANUAL_WATERING_MAX_DURATION_SECONDS = 12 * 60 * 60;
+    public static final int DEFAULT_MANUAL_WATERING_MAX_DURATION_SECONDS = 5 * 60 * 60;
+    public static final int HARD_MANUAL_WATERING_MAX_DURATION_SECONDS = 5 * 60 * 60;
 
     private boolean smartTimingEnabled = DEFAULT_SMART_TIMING_ENABLED;
     private String gardenEnvironment = DEFAULT_GARDEN_ENVIRONMENT;

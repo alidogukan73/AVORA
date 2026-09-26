@@ -251,7 +251,7 @@
         "weather": {
           "irrigation_settings": {
             "manual_watering_max_duration_seconds": {
-              ".validate": "newData.isNumber() && newData.val() >= 5 && newData.val() <= 43200 && newData.val() % 1 == 0"
+              ".validate": "newData.isNumber() && newData.val() >= 5 && newData.val() <= 18000 && newData.val() % 1 == 0"
             }
           }
         },

@@ -17,10 +17,10 @@
     <string name="manual_watering_safety_limit_title">En uzun manuel sulama</string>
     <string name="manual_watering_safety_owner_hint">Dokunarak saat, dakika ve saniye olarak ayarlayın.</string>
     <string name="manual_watering_safety_family_hint">Bu güvenlik sınırını yalnızca yönetici değiştirebilir.</string>
-    <string name="manual_watering_safety_default_value">4 saat</string>
+    <string name="manual_watering_safety_default_value">5 saat</string>
     <string name="manual_watering_safety_dialog_title">En uzun manuel sulama</string>
     <string name="manual_watering_safety_dialog_message">Bu değer bütün bölgeler için üst sınırdır. Pi, uygulama kapalı olsa bile süre dolunca pompayı ve vanayı kapatır.</string>
-    <string name="manual_watering_safety_invalid">5 saniye–12 saat arasında geçerli bir sınır girin.</string>
+    <string name="manual_watering_safety_invalid">5 saniye–5 saat arasında geçerli bir sınır girin.</string>
     <string name="manual_watering_safety_extended_title">Yüksek güvenlik sınırı</string>
     <string name="manual_watering_safety_extended_message">Dört saatin üzerindeki sınırlar taşma ve ekipman hasarı riskini artırabilir. %1$s üst sınırını kaydetmek istiyor musunuz?</string>
     <string name="manual_watering_safety_save">Sınırı kaydet</string>

@@ -3,8 +3,8 @@ package com.alidogukan.avora.zones;
 /** Shared Android contract for safe, user-adjustable manual watering durations. */
 public final class ManualWateringDurationPolicy {
     public static final int MIN_SECONDS = 5;
-    public static final int HARD_MAX_SECONDS = 12 * 60 * 60;
-    public static final int DEFAULT_SAFETY_LIMIT_SECONDS = 4 * 60 * 60;
+    public static final int HARD_MAX_SECONDS = 5 * 60 * 60;
+    public static final int DEFAULT_SAFETY_LIMIT_SECONDS = 5 * 60 * 60;
     public static final int EXTENDED_CONFIRMATION_SECONDS = 4 * 60 * 60;
     public static final int DEFAULT_SECONDS = 30;
 
