@@ -113,6 +113,7 @@ Up to 5 photos · tap to change</item></plurals>
     <string name="runtime_device_authorization_title">Device authorization required</string>
     <string name="runtime_device_authorization_message">A secure Firebase connection could not be established, or this phone is not yet authorized for the AVORA device.\n\nDevice authorization ID:\n%1$s</string>
     <string name="runtime_nas_invite_action">Connect with NAS invite</string>
+    <string name="runtime_nas_authorization_action">Request access with NAS account</string>
     <string name="runtime_device_authorization_id_label">Device authorization ID</string>
     <string name="runtime_copy_authorization_id">Copy ID</string>
     <string name="runtime_device_authorization_id_copied">Device authorization ID copied.</string>
