@@ -219,9 +219,14 @@ public class MainActivity extends EdgeToEdgeActivity {
                 .setMessage(getString(
                         R.string.runtime_device_authorization_message,
                         authorizationId))
-                .setNeutralButton(R.string.runtime_nas_invite_action,
-                        (dialog, which) -> startActivity(
-                                new Intent(this, NasSecurityActivity.class)))
+                .setNeutralButton(R.string.runtime_nas_authorization_action,
+                        (dialog, which) -> {
+                            Intent intent = new Intent(this, NasSecurityActivity.class);
+                            intent.putExtra(
+                                    NasSecurityActivity.EXTRA_REQUEST_GARDEN_ACCESS,
+                                    true);
+                            startActivity(intent);
+                        })
                 .setNegativeButton(R.string.runtime_close, null)
                 .setPositiveButton(R.string.runtime_copy_authorization_id,
                         (dialog, which) -> copyDeviceAuthorizationId(authorizationId))

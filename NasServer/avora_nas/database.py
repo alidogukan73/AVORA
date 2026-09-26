@@ -774,8 +774,8 @@ class AccountDatabase:
         firebase_uid: str,
         now: int | None = None,
     ) -> AccessRequest:
-        if user.role != "user":
-            raise PermissionError("Only invited users can request device access.")
+        if user.role not in ("admin", "user"):
+            raise PermissionError("Only AVORA accounts can request device access.")
         timestamp = int(time.time()) if now is None else int(now)
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")

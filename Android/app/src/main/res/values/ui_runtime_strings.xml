@@ -113,6 +113,7 @@ En fazla 5 fotoğraf · değiştirmek için dokunun</item></plurals>
     <string name="runtime_device_authorization_title">Cihaz yetkilendirmesi gerekli</string>
     <string name="runtime_device_authorization_message">Güvenli Firebase bağlantısı kurulamadı veya bu telefon henüz AVORA cihazına yetkili değil.\n\nCihaz yetkilendirme kimliği:\n%1$s</string>
     <string name="runtime_nas_invite_action">NAS davetiyle bağlan</string>
+    <string name="runtime_nas_authorization_action">NAS hesabıyla yetki iste</string>
     <string name="runtime_device_authorization_id_label">Cihaz yetkilendirme kimliği</string>
     <string name="runtime_copy_authorization_id">Kimliği kopyala</string>
     <string name="runtime_device_authorization_id_copied">Cihaz yetkilendirme kimliği kopyalandı.</string>
