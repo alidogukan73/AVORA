@@ -7,14 +7,14 @@ import com.alidogukan.avora.models.Status;
 
 import org.junit.Test;
 
-public class DeviceHealthOverallPolicyTest {
+public class DeviceHealthOverallResolverTest {
     private static final long NOW = 2_000_000L;
 
     @Test
     public void staleHeartbeatOverridesHealthyCachedMetrics() {
         assertEquals(
-                DeviceHealthOverallPolicy.State.OFFLINE,
-                DeviceHealthOverallPolicy.evaluate(
+                DeviceHealthOverallResolver.State.OFFLINE,
+                DeviceHealthOverallResolver.evaluate(
                         healthyMetrics(),
                         status(true, NOW - 31L),
                         NOW
@@ -25,8 +25,8 @@ public class DeviceHealthOverallPolicyTest {
     @Test
     public void explicitOfflineStatusOverridesHealthyCachedMetrics() {
         assertEquals(
-                DeviceHealthOverallPolicy.State.OFFLINE,
-                DeviceHealthOverallPolicy.evaluate(
+                DeviceHealthOverallResolver.State.OFFLINE,
+                DeviceHealthOverallResolver.evaluate(
                         healthyMetrics(),
                         status(false, NOW),
                         NOW
@@ -37,8 +37,8 @@ public class DeviceHealthOverallPolicyTest {
     @Test
     public void freshHeartbeatAllowsResourceHealthEvaluation() {
         assertEquals(
-                DeviceHealthOverallPolicy.State.HEALTHY,
-                DeviceHealthOverallPolicy.evaluate(
+                DeviceHealthOverallResolver.State.HEALTHY,
+                DeviceHealthOverallResolver.evaluate(
                         healthyMetrics(),
                         status(true, NOW - 30L),
                         NOW
@@ -48,8 +48,8 @@ public class DeviceHealthOverallPolicyTest {
         Health warning = healthyMetrics();
         warning.setMemoryUsage(75);
         assertEquals(
-                DeviceHealthOverallPolicy.State.WARNING,
-                DeviceHealthOverallPolicy.evaluate(
+                DeviceHealthOverallResolver.State.WARNING,
+                DeviceHealthOverallResolver.evaluate(
                         warning,
                         status(true, NOW),
                         NOW
@@ -59,8 +59,8 @@ public class DeviceHealthOverallPolicyTest {
         Health critical = healthyMetrics();
         critical.setCpuTemperature(75);
         assertEquals(
-                DeviceHealthOverallPolicy.State.CRITICAL,
-                DeviceHealthOverallPolicy.evaluate(
+                DeviceHealthOverallResolver.State.CRITICAL,
+                DeviceHealthOverallResolver.evaluate(
                         critical,
                         status(true, NOW),
                         NOW

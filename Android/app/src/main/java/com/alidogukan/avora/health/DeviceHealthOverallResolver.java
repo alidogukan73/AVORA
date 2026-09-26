@@ -4,7 +4,7 @@ import com.alidogukan.avora.models.Health;
 import com.alidogukan.avora.models.Status;
 
 /** Resolves the Pi summary without treating stale health metrics as live. */
-public final class DeviceHealthOverallPolicy {
+public final class DeviceHealthOverallResolver {
     public static final long MAX_HEARTBEAT_AGE_SECONDS = 30L;
 
     public enum State {
@@ -14,7 +14,7 @@ public final class DeviceHealthOverallPolicy {
         HEALTHY
     }
 
-    private DeviceHealthOverallPolicy() {
+    private DeviceHealthOverallResolver() {
     }
 
     public static boolean isPiOnline(Status status, long nowEpoch) {

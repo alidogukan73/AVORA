@@ -22,7 +22,7 @@ import com.alidogukan.avora.models.Health;
 import com.alidogukan.avora.models.Status;
 import com.alidogukan.avora.models.GardenZone;
 import com.alidogukan.avora.models.SeedlingTelemetry;
-import com.alidogukan.avora.health.DeviceHealthOverallPolicy;
+import com.alidogukan.avora.health.DeviceHealthOverallResolver;
 import com.alidogukan.avora.viewmodels.DeviceHealthViewModel;
 import com.alidogukan.avora.viewmodels.MainViewModel;
 import com.alidogukan.avora.viewmodels.SeedlingViewModel;
@@ -446,7 +446,7 @@ public class DeviceHealthActivity extends AppCompatActivity {
         final int totalChecks = 7;
         long nowEpoch = System.currentTimeMillis() / 1000L;
 
-        boolean piOnline = DeviceHealthOverallPolicy.isPiOnline(
+        boolean piOnline = DeviceHealthOverallResolver.isPiOnline(
                 latestStatus,
                 nowEpoch
         );
@@ -1365,8 +1365,8 @@ public class DeviceHealthActivity extends AppCompatActivity {
 
     private void renderOverallHealth(Health health) {
 
-        DeviceHealthOverallPolicy.State state =
-                DeviceHealthOverallPolicy.evaluate(
+        DeviceHealthOverallResolver.State state =
+                DeviceHealthOverallResolver.evaluate(
                         health,
                         latestStatus,
                         System.currentTimeMillis() / 1000L
@@ -1377,7 +1377,7 @@ public class DeviceHealthActivity extends AppCompatActivity {
         int titleResource;
         int badgeResource;
 
-        if (state == DeviceHealthOverallPolicy.State.OFFLINE) {
+        if (state == DeviceHealthOverallResolver.State.OFFLINE) {
 
             statusColor =
                     color(R.color.offline);
@@ -1391,7 +1391,7 @@ public class DeviceHealthActivity extends AppCompatActivity {
             badgeResource =
                     R.string.health_badge_offline;
 
-        } else if (state == DeviceHealthOverallPolicy.State.CRITICAL) {
+        } else if (state == DeviceHealthOverallResolver.State.CRITICAL) {
 
             statusColor =
                     color(R.color.offline);
@@ -1405,7 +1405,7 @@ public class DeviceHealthActivity extends AppCompatActivity {
             badgeResource =
                     R.string.health_badge_critical;
 
-        } else if (state == DeviceHealthOverallPolicy.State.WARNING) {
+        } else if (state == DeviceHealthOverallResolver.State.WARNING) {
 
             statusColor =
                     color(R.color.warning);
