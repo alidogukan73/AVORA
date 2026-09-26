@@ -34,9 +34,10 @@ public final class NewJournalRecordActivity extends EdgeToEdgeActivity {
     public static final String EXTRA_SEASON_ID = "season_id";
     public static final String EXTRA_INITIAL_TYPE = "initial_record_type";
     public static final String EXTRA_RELATED_APPLICATION_ID = "related_application_id";
+    /** Legacy navigation value: photo launches now become observation records with photos attached. */
     public static final String RECORD_TYPE_PHOTO = "photo";
-    private static final String[] TYPES = {"observation", "watering", "fertilization", "photo", "event"};
-    private static final int[] TYPE_CARDS = {R.id.cardRecordObservation, R.id.cardRecordWatering, R.id.cardRecordFertilizer, R.id.cardRecordPhoto, R.id.cardRecordEvent};
+    private static final String[] TYPES = {"observation", "watering", "fertilization", "event"};
+    private static final int[] TYPE_CARDS = {R.id.cardRecordObservation, R.id.cardRecordWatering, R.id.cardRecordFertilizer, R.id.cardRecordEvent};
     private final Calendar selectedDateTime = Calendar.getInstance();
     private String zoneId = "";
     private String seasonId = "";
@@ -89,6 +90,7 @@ public final class NewJournalRecordActivity extends EdgeToEdgeActivity {
         relatedApplicationId = getIntent().getStringExtra(EXTRA_RELATED_APPLICATION_ID);
         if (relatedApplicationId == null) relatedApplicationId = "";
         String initialType = getIntent().getStringExtra(EXTRA_INITIAL_TYPE);
+        boolean legacyPhotoLaunch = RECORD_TYPE_PHOTO.equals(initialType);
         dateText = findViewById(R.id.txtNewRecordDate);
         timeText = findViewById(R.id.txtNewRecordTime);
         photoState = findViewById(R.id.txtNewRecordPhotoState);
@@ -104,6 +106,9 @@ public final class NewJournalRecordActivity extends EdgeToEdgeActivity {
         }
         refreshDateTime();
         selectType(typeIndex(initialType));
+        if (legacyPhotoLaunch) {
+            photoState.post(this::showPhotoSourceDialog);
+        }
     }
 
     private int typeIndex(String requestedType) {
@@ -195,11 +200,6 @@ public final class NewJournalRecordActivity extends EdgeToEdgeActivity {
 
     private void save() {
         if (zoneId.isBlank()) { Toast.makeText(this, R.string.runtime_zone_not_found, Toast.LENGTH_SHORT).show(); return; }
-        boolean hasPhoto = !selectedPhotos.isEmpty();
-        if (RECORD_TYPE_PHOTO.equals(selectedType) && !hasPhoto) {
-            Toast.makeText(this, R.string.runtime_photo_required, Toast.LENGTH_SHORT).show();
-            return;
-        }
         View saveButton = findViewById(R.id.btnNewRecordSave);
         saveButton.setEnabled(false);
         viewModel.requireActiveSeasonId(zoneId)
