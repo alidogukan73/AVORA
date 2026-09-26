@@ -198,4 +198,15 @@
     <string name="data_sync_portable_backup_section">Taşınabilir yedekler</string>
     <string name="data_sync_portable_backup_title">Dosyaya yedekleme</string>
     <string name="data_sync_portable_backup_message">Ayar ve kayıtları JSON dosyasına, fotoğrafları ZIP arşivine aktarın veya güvenli biçimde geri yükleyin.</string>
+    <string name="data_sync_nas_two_way_button">NAS ile Güvenli Eşitle</string>
+    <string name="data_sync_nas_two_way_title">NAS ile çift yönlü eşitle</string>
+    <string name="data_sync_nas_two_way_preparing">Telefon, Firebase ve NAS kayıtları karşılaştırılıyor…</string>
+    <string name="data_sync_nas_two_way_preview">NAS’a eklenecek veri alanı: %1$d\nFirebase’e eklenecek veri alanı: %2$d\nNAS’a gönderilecek fotoğraf: %3$d\nTelefona indirilecek fotoğraf: %4$d\n\nAynı kimliğe sahip mevcut kayıtlar korunacak. Hiçbir kayıt veya fotoğraf silinmeyecek.</string>
+    <string name="data_sync_nas_two_way_confirm">Güvenli Eşitle</string>
+    <string name="data_sync_nas_two_way_history">Geçmiş yedekler</string>
+    <string name="data_sync_nas_two_way_working">Eksik veriler ve fotoğraflar iki yönde güvenle eşitleniyor…</string>
+    <string name="data_sync_nas_two_way_success">Eşitleme tamamlandı · NAS’a %1$d veri alanı, Firebase’e %2$d veri alanı, NAS’a %3$d fotoğraf, telefona %4$d fotoğraf eklendi.</string>
+    <string name="data_sync_nas_two_way_invalid_backup">NAS’taki yedek geçersiz olduğu için eşitleme başlatılmadı. Geçmiş yedeklerden sağlam bir kopya seçin.</string>
+    <string name="data_sync_nas_two_way_connection_error">Eşitleme tamamlanamadı. İnternet ve NAS bağlantısını kontrol edin; hiçbir kayıt silinmedi.</string>
+    <string name="data_sync_nas_two_way_error">Güvenli eşitleme tamamlanamadı. Mevcut kayıtlar korundu; yeniden deneyin.</string>
 </resources>

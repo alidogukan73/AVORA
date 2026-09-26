@@ -198,4 +198,15 @@
     <string name="data_sync_portable_backup_section">Portable backups</string>
     <string name="data_sync_portable_backup_title">File backup</string>
     <string name="data_sync_portable_backup_message">Export settings and records to JSON, archive photos as ZIP, or restore them safely.</string>
+    <string name="data_sync_nas_two_way_button">Safely Sync with NAS</string>
+    <string name="data_sync_nas_two_way_title">Two-way NAS sync</string>
+    <string name="data_sync_nas_two_way_preparing">Comparing phone, Firebase and NAS records…</string>
+    <string name="data_sync_nas_two_way_preview">Data fields to add to NAS: %1$d\nData fields to add to Firebase: %2$d\nPhotos to upload to NAS: %3$d\nPhotos to download to phone: %4$d\n\nExisting records with the same identifier will be preserved. No record or photo will be deleted.</string>
+    <string name="data_sync_nas_two_way_confirm">Sync Safely</string>
+    <string name="data_sync_nas_two_way_history">Backup history</string>
+    <string name="data_sync_nas_two_way_working">Safely synchronizing missing data and photos in both directions…</string>
+    <string name="data_sync_nas_two_way_success">Sync complete · %1$d data fields added to NAS, %2$d to Firebase, %3$d photos to NAS and %4$d photos to phone.</string>
+    <string name="data_sync_nas_two_way_invalid_backup">Sync was not started because the NAS backup is invalid. Select a valid copy from backup history.</string>
+    <string name="data_sync_nas_two_way_connection_error">Sync could not finish. Check internet and NAS connectivity; no records were deleted.</string>
+    <string name="data_sync_nas_two_way_error">Safe sync could not finish. Existing records were preserved; try again.</string>
 </resources>
