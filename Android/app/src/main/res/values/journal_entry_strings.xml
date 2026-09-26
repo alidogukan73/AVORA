@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="journal_add_title">Günlüğe ekle</string>
+    <string name="journal_milestone">Önemli gelişme</string>
+    <string name="journal_manual_watering">Manuel sulama</string>
+    <string name="journal_note_required">Lütfen bir açıklama yazın.</string>
+    <string name="journal_date_invalid">Tarih sezon başlangıcından önce veya gelecekte olamaz.</string>
+    <string name="journal_description">Açıklama (gözlem ve önemli gelişmeler için gerekli)</string>
+    <string name="journal_sheet_subtitle">Ne eklemek istersiniz?</string>
+    <string name="journal_growth_title">Gelişim fotoğrafı</string>
+    <string name="journal_growth_description">Bitki Asistanı ile gelişimi değerlendir</string>
+    <string name="journal_observation_description">Gözlemlerini ve notlarını kaydet</string>
+    <string name="journal_milestone_description">Dikim, çiçeklenme veya hasadı işaretle</string>
+    <string name="journal_care_actions">Bakım işlemleri</string>
+    <string name="journal_watering_description">Sulama ekranına geç</string>
+    <string name="journal_fertilization_description">Gübreleme ekranını aç</string>
+    <string name="journal_save_in_progress">Kayıt tamamlanıyor, lütfen bekleyin.</string>
+</resources>

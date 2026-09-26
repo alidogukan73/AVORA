@@ -6,7 +6,6 @@ import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.PopupMenu;
-import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -66,6 +65,7 @@ public class PlantTimelineActivity extends EdgeToEdgeActivity {
     private String selectedSeasonId = "";
     private boolean seasonSelectionInitialized;
     private boolean zoneSnapshotLoaded;
+    private com.google.android.material.bottomsheet.BottomSheetDialog journalEntrySheet;
     private TextView tabTimeline, tabPhotos, tabNotes, tabCompare;
     private int selectedYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR);
     private final int[] filterIds = {R.id.filterTimelineAll, R.id.filterTimelineWatering, R.id.filterTimelineFertilizer, R.id.filterTimelineAnalysis, R.id.filterTimelineEvent};
@@ -116,6 +116,11 @@ public class PlantTimelineActivity extends EdgeToEdgeActivity {
     }
 
     @Override protected void onResume() { super.onResume(); loadItems(); render(); }
+
+    @Override protected void onDestroy() {
+        if (journalEntrySheet != null) journalEntrySheet.dismiss();
+        super.onDestroy();
+    }
 
     private void loadItems() {
         items.clear();
@@ -807,68 +812,29 @@ public class PlantTimelineActivity extends EdgeToEdgeActivity {
         return viewModel.belongsToSeason(item.seasonId(), item.time(), selected);
     }
     private void showNewRecordTypes() {
-        GardenSeason active = activeSeason();
-        if (active == null) {
+        if (journalEntrySheet != null && journalEntrySheet.isShowing()) return;
+        GardenSeason active = selectedSeason();
+        if (active == null || !SeasonStatus.isActive(active.getStatus())) {
             Toast.makeText(this, R.string.runtime_start_season_first, Toast.LENGTH_LONG).show();
             return;
         }
-        PopupMenu menu = new PopupMenu(this, findViewById(R.id.btnTimelineAdd));
-        String[] types = {"planting", "observation", "flowering", "first_product", "harvest", "special", "photo_growth"};
-        for (int index = 0; index < types.length; index++) {
-            menu.getMenu().add(0, index, index, eventTypeLabel(types[index]));
-        }
-        menu.setOnMenuItemClickListener(choice -> {
-            String type = types[choice.getItemId()];
-            if ("photo_growth".equals(type)) {
-                Intent i = new Intent(this, NewJournalRecordActivity.class);
-                i.putExtra(NewJournalRecordActivity.EXTRA_ZONE_ID, zoneId);
-                i.putExtra(NewJournalRecordActivity.EXTRA_SEASON_ID, active.getSeason_id());
-                i.putExtra(NewJournalRecordActivity.EXTRA_INITIAL_TYPE, NewJournalRecordActivity.RECORD_TYPE_PHOTO);
-                startActivity(i);
-            } else showNewEventDialog(type);
-            return true;
-        });
-        menu.show();
+        journalEntrySheet = com.alidogukan.avora.ui.JournalEntryBottomSheet.show(this,
+                action -> openJournalAction(action, active));
     }
 
-    private String eventTypeLabel(String type) {
-        if ("planting".equals(type)) return getString(R.string.runtime_event_planting);
-        if ("observation".equals(type)) return getString(R.string.runtime_event_note);
-        if ("flowering".equals(type)) return getString(R.string.runtime_event_flowering);
-        if ("first_product".equals(type)) return getString(R.string.runtime_event_first_product);
-        if ("harvest".equals(type)) return getString(R.string.runtime_event_harvest);
-        if ("special".equals(type)) return getString(R.string.runtime_event_special);
-        if ("photo_growth".equals(type)) return getString(R.string.runtime_event_growth_photo);
-        return type;
-    }
-
-    private void showNewEventDialog(String type) {
-        GardenSeason active = activeSeason();
-        if (active == null) {
-            Toast.makeText(this, R.string.runtime_start_season_first, Toast.LENGTH_LONG).show();
-            return;
+    private void openJournalAction(String type, GardenSeason active) {
+        Class<?> screen = "photo_growth".equals(type) ? PlantAssistantActivity.class
+                : "watering".equals(type) ? AIAssistantActivity.class
+                : "fertilization".equals(type) ? FertilizationZoneDetailActivity.class
+                : NewJournalRecordActivity.class;
+        Intent intent = new Intent(this, screen);
+        intent.putExtra(NewJournalRecordActivity.EXTRA_ZONE_ID, zoneId);
+        intent.putExtra(NewJournalRecordActivity.EXTRA_SEASON_ID, active.getSeason_id());
+        intent.putExtra(NewJournalRecordActivity.EXTRA_INITIAL_TYPE, type);
+        if ("photo_growth".equals(type)) {
+            intent.putExtra(PlantAssistantActivity.EXTRA_JOURNAL_GROWTH, true);
         }
-        EditText input = new EditText(this);
-        input.setHint(type.equals("planting")
-                ? R.string.runtime_planting_hint : R.string.runtime_short_note_hint);
-        input.setMinLines(3);
-        int pad = dp(20);
-        input.setPadding(pad, dp(8), pad, dp(8));
-        new MaterialAlertDialogBuilder(this)
-                .setTitle(eventTypeLabel(type))
-                .setMessage(R.string.runtime_active_season_record_note)
-                .setView(input)
-                .setNegativeButton(R.string.settings_quick_cancel, null)
-                .setPositiveButton(R.string.settings_quick_save, (dialog, which) -> {
-                    viewModel.addEventForSeason(zoneId, active.getSeason_id(),
-                                    type, input.getText().toString())
-                            .addOnSuccessListener(unused -> {
-                                loadItems();
-                                render();
-                            })
-                            .addOnFailureListener(error -> Toast.makeText(
-                                    this, error.getMessage(), Toast.LENGTH_LONG).show());
-                }).show();
+        startActivity(intent);
     }
     private static final class TimelineItem {
         final GardenEvent event; final GardenPhoto photo; final FertilizerApplication fertilizer; final WateringHistory watering;
