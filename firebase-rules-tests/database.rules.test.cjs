@@ -314,7 +314,7 @@ test("only the device owner can change the bounded manual watering safety limit"
       status: { online: true },
       weather: {
         irrigation_settings: {
-          manual_watering_max_duration_seconds: 14400,
+          manual_watering_max_duration_seconds: 18000,
         },
       },
     });
@@ -333,8 +333,8 @@ test("only the device owner can change the bounded manual watering safety limit"
   const family = unclaimedDatabase(FAMILY_UID);
   const path = `devices/${DEVICE_ID}/weather/irrigation_settings/manual_watering_max_duration_seconds`;
 
-  await assertSucceeds(set(ref(owner, path), 43200));
-  await assertFails(set(ref(owner, path), 43201));
+  await assertSucceeds(set(ref(owner, path), 18000));
+  await assertFails(set(ref(owner, path), 18001));
   await assertFails(set(ref(owner, path), 4));
   await assertFails(set(ref(family, path), 7200));
   await assertSucceeds(update(

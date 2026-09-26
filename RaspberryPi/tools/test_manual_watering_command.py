@@ -73,7 +73,7 @@ class FakeValves:
 
 
 class FakeFirebase:
-    def __init__(self, command: CommandState, *, manual_limit: int = 4 * 60 * 60) -> None:
+    def __init__(self, command: CommandState, *, manual_limit: int = 5 * 60 * 60) -> None:
         self.command_state = command
         self.manual_limit = manual_limit
         self.acknowledgements: list[dict[str, object]] = []
@@ -200,7 +200,7 @@ def service_with_fakes(
     command: CommandState,
     *,
     physical: bool = True,
-    manual_limit: int = 4 * 60 * 60,
+    manual_limit: int = 5 * 60 * 60,
 ):
     service = IrrigationService.__new__(IrrigationService)
     service._relay = FakeRelay()
@@ -274,13 +274,13 @@ def verify_second_installed_zone_can_water() -> None:
 
 def verify_configurable_duration_reaches_executor() -> None:
     service = service_with_fakes(manual_command(
-        manual_watering_duration=12 * 60 * 60,
-    ), manual_limit=12 * 60 * 60)
+        manual_watering_duration=5 * 60 * 60,
+    ), manual_limit=5 * 60 * 60)
     assert service._process_manual_watering_command(
         service._firebase.command_state,
     )
-    assert service._firebase.saved_records[0][1].duration == 12 * 60 * 60
-    assert IrrigationConfig.MAX_MANUAL_PUMP_DURATION_SECONDS == 12 * 60 * 60
+    assert service._firebase.saved_records[0][1].duration == 5 * 60 * 60
+    assert IrrigationConfig.MAX_MANUAL_PUMP_DURATION_SECONDS == 5 * 60 * 60
 
 
 def verify_admin_limit_is_authoritative() -> None:

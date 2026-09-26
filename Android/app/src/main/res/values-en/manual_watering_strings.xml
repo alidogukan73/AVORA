@@ -17,10 +17,10 @@
     <string name="manual_watering_safety_limit_title">Maximum manual watering</string>
     <string name="manual_watering_safety_owner_hint">Tap to set hours, minutes and seconds.</string>
     <string name="manual_watering_safety_family_hint">Only the administrator can change this safety limit.</string>
-    <string name="manual_watering_safety_default_value">4 hours</string>
+    <string name="manual_watering_safety_default_value">5 hours</string>
     <string name="manual_watering_safety_dialog_title">Maximum manual watering</string>
     <string name="manual_watering_safety_dialog_message">This is the upper limit for every zone. The Pi closes the pump and valve when time expires, even if the app is closed.</string>
-    <string name="manual_watering_safety_invalid">Enter a valid limit between 5 seconds and 12 hours.</string>
+    <string name="manual_watering_safety_invalid">Enter a valid limit between 5 seconds and 5 hours.</string>
     <string name="manual_watering_safety_extended_title">High safety limit</string>
     <string name="manual_watering_safety_extended_message">Limits above four hours increase overflow and equipment damage risk. Save %1$s as the upper limit?</string>
     <string name="manual_watering_safety_save">Save limit</string>
