@@ -26,6 +26,8 @@ the database connection uses ADB reverse forwarding.
 The persistence tests save observations without photos and milestones with a
 camera-result fixture, recreate the form, verify selected date/time and persisted
 metadata, and open the record from the timeline to check its attached photo.
+They also seed unrelated fertilizer history in the same zone and season, wait
+for the detail screen to receive it, and verify that no linked-record section appears.
 The camera fixture writes a real JPEG to the app's capture URI; camera hardware
 and gallery-provider UI are outside this test's scope.
 

@@ -19,6 +19,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 import com.alidogukan.avora.activities.NewJournalRecordActivity;
 import com.alidogukan.avora.activities.PlantTimelineActivity;
+import com.alidogukan.avora.activities.JournalRecordDetailActivity;
+import com.alidogukan.avora.viewmodels.PlantJournalViewModel;
 import com.alidogukan.avora.config.AppInfo;
 import com.alidogukan.avora.journal.LocalGardenEventStore;
 import com.alidogukan.avora.models.GardenEvent;
@@ -58,6 +60,11 @@ public final class JournalRecordPersistenceTest {
         seed.put("garden_journal/seasons/" + SEASON + "/zone_id", ZONE);
         seed.put("garden_journal/seasons/" + SEASON + "/status", "ACTIVE");
         seed.put("garden_journal/seasons/" + SEASON + "/started_at_epoch", 1L);
+        seed.put("fertilizer_history/unrelated/application_id", "unrelated");
+        seed.put("fertilizer_history/unrelated/zone_id", ZONE);
+        seed.put("fertilizer_history/unrelated/season_id", SEASON);
+        seed.put("fertilizer_history/unrelated/product_name", "Unrelated fertilizer fixture");
+        seed.put("fertilizer_history/unrelated/applied_at_epoch", 1L);
         Tasks.await(device.updateChildren(seed), 10, TimeUnit.SECONDS);
     }
 
@@ -145,9 +152,33 @@ public final class JournalRecordPersistenceTest {
                 new Intent(context, PlantTimelineActivity.class).putExtra("zone_id", ZONE).putExtra("season_id", SEASON))) {
             // Selecting a real timeline card exercises its detail intent and photo-group linkage.
             onView(withText(note)).perform(scrollTo(), click());
+            awaitDetailFertilizerHistory();
             onView(withId(R.id.txtRecordDetail)).check(matches(withText(note)));
             onView(withId(R.id.layoutRecordPhotos)).check(matches(withEffectiveVisibility(withPhoto ? Visibility.VISIBLE : Visibility.GONE)));
+            onView(withId(R.id.layoutRecordLinks)).check(matches(withEffectiveVisibility(Visibility.GONE)));
+            onView(withId(R.id.txtLinkedRecordsHeading)).check(matches(withEffectiveVisibility(Visibility.GONE)));
         }
+    }
+
+    private void awaitDetailFertilizerHistory() throws Exception {
+        java.util.concurrent.CountDownLatch loaded = new java.util.concurrent.CountDownLatch(1);
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            for (Activity activity : androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
+                    .getInstance().getActivitiesInStage(androidx.test.runner.lifecycle.Stage.RESUMED)) {
+                if (!(activity instanceof JournalRecordDetailActivity)) continue;
+                JournalRecordDetailActivity detail = (JournalRecordDetailActivity) activity;
+                new androidx.lifecycle.ViewModelProvider(detail).get(PlantJournalViewModel.class)
+                        .getFertilizerHistory().observe(detail, values -> {
+                            if (values != null && values.stream()
+                                    .anyMatch(value -> "unrelated".equals(value.getApplication_id()))) {
+                                loaded.countDown();
+                            }
+                        });
+            }
+        });
+        assertTrue("Detail must receive fertilizer history before checking links",
+                loaded.await(10, TimeUnit.SECONDS));
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
     }
 
     private static androidx.test.espresso.ViewAction setDateTime(boolean date) {

@@ -184,10 +184,12 @@
                     android:textAppearance="@style/TextAppearance.AVORA.Body" />
             </com.google.android.material.card.MaterialCardView>
             <TextView
+                android:id="@+id/txtLinkedRecordsHeading"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="18dp"
                 android:text="@string/record_linked_records"
+                android:visibility="gone"
                 android:textColor="@color/textPrimary"
                 android:textSize="12sp"
                 android:textStyle="bold" />
@@ -195,6 +197,7 @@
                 android:id="@+id/layoutRecordLinks"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:visibility="gone"
                 android:orientation="vertical" />
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnRecordDelete"

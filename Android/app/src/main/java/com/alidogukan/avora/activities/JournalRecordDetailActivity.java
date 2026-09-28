@@ -21,7 +21,7 @@ import androidx.lifecycle.ViewModelProvider;
 import com.alidogukan.avora.R;
 import com.alidogukan.avora.models.FertilizerApplication;
 import com.alidogukan.avora.models.GardenPhoto;
-import com.alidogukan.avora.models.WateringHistory;
+import com.alidogukan.avora.journal.JournalLinkedRecordFilter;
 import com.alidogukan.avora.photos.GardenPhotoCapture;
 import com.alidogukan.avora.photos.JournalPhotoRecordFilter;
 import com.alidogukan.avora.ui.GardenPhotoViewerDialog;
@@ -48,7 +48,6 @@ public class JournalRecordDetailActivity extends EdgeToEdgeActivity {
     private LinearLayout photosLayout, linksLayout;
     private TextView photosTitle, assistantHeading, assistantText;
     private List<FertilizerApplication> fertilizers = new ArrayList<>();
-    private List<WateringHistory> wateringRecords = new ArrayList<>();
     private List<GardenPhoto> relatedPhotos = new ArrayList<>();
     private GardenPhotoCapture.Target pendingCameraPhoto;
 
@@ -82,10 +81,6 @@ public class JournalRecordDetailActivity extends EdgeToEdgeActivity {
         renderPhotosAndAnalysis();
         viewModel.getFertilizerHistory().observe(this, values -> {
             fertilizers = values == null ? new ArrayList<>() : values;
-            renderLinks();
-        });
-        viewModel.getWateringHistory().observe(this, values -> {
-            wateringRecords = values == null ? new ArrayList<>() : values;
             renderLinks();
         });
     }
@@ -161,6 +156,7 @@ public class JournalRecordDetailActivity extends EdgeToEdgeActivity {
                 : getString(R.string.runtime_two_sections, title, advice));
         findViewById(R.id.txtFollowupHeading).setVisibility(View.GONE);
         findViewById(R.id.cardRecordFollowup).setVisibility(View.GONE);
+        renderLinks();
     }
 
     private void addPhoto(GardenPhoto photo, int position, int total) {
@@ -244,29 +240,15 @@ public class JournalRecordDetailActivity extends EdgeToEdgeActivity {
 
     private void renderLinks() {
         linksLayout.removeAllViews();
-        int count = 0;
-        for (FertilizerApplication item : fertilizers) {
-            if (!zoneId.equals(item.getZone_id()) || isSameRecord(item.getApplied_at_epoch())) continue;
+        List<FertilizerApplication> linked = JournalLinkedRecordFilter.selectFertilizers(
+                fertilizers, relatedPhotos, zoneId, seasonId);
+        boolean hasLinks = !linked.isEmpty();
+        linksLayout.setVisibility(hasLinks ? View.VISIBLE : View.GONE);
+        findViewById(R.id.txtLinkedRecordsHeading).setVisibility(hasLinks ? View.VISIBLE : View.GONE);
+        for (FertilizerApplication item : linked) {
             addLinkedCard("🌿", getString(R.string.notification_category_fertilization), safe(item.getProduct_name()) + " · " + trimNumber(item.getApplied_dose()) + " " + safe(item.getDose_unit()), item.getApplied_at_epoch());
-            if (++count == 2) return;
-        }
-        for (WateringHistory item : wateringRecords) {
-            long when = parseWateringTime(item.getFinishedAt());
-            if (!zoneId.equals(item.getZoneId()) || !item.isCompleted() || isSameRecord(when)) continue;
-            addLinkedCard(getString(R.string.symbol_water_drop), getString(R.string.notification_category_irrigation), getString(R.string.runtime_duration_seconds, item.getDuration()), when);
-            if (++count == 2) return;
-        }
-        if (count == 0) {
-            TextView empty = new TextView(this);
-            empty.setText(R.string.runtime_no_linked_records);
-            empty.setTextColor(getColor(R.color.textSecondary));
-            empty.setTextSize(12);
-            empty.setPadding(dp(6), dp(10), dp(6), dp(6));
-            linksLayout.addView(empty);
         }
     }
-
-    private boolean isSameRecord(long time) { return time > 0L && Math.abs(time - recordEpoch) < 90L; }
 
     private void addLinkedCard(String icon, String title, String detail, long epoch) {
         MaterialCardView card = new MaterialCardView(this);
@@ -300,21 +282,6 @@ public class JournalRecordDetailActivity extends EdgeToEdgeActivity {
         intent.putExtra("season_id", seasonId);
         intent.putExtra("season_read_only", seasonReadOnly);
         startActivity(intent);
-    }
-
-    private long parseWateringTime(String value) {
-        if (value == null || value.isBlank()) return 0L;
-        String[] patterns = {"yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd'T'HH:mm:ss", "dd-MM-yyyy HH:mm", "dd.MM.yyyy HH:mm"};
-        for (String pattern : patterns) {
-            try {
-                java.util.Date parsed = new SimpleDateFormat(pattern, Locale.US).parse(value);
-                if (parsed != null) {
-                    return parsed.getTime() / 1000L;
-                }
-            } catch (Exception ignored) {
-            }
-        }
-        return 0L;
     }
 
     private void editManualRecord() {
