@@ -7,6 +7,8 @@ import unittest
 import urllib.error
 import urllib.request
 from pathlib import Path
+from dataclasses import replace
+from unittest.mock import patch
 
 from avora_nas.config import Settings
 from avora_nas.service import AvoraService
@@ -540,6 +542,78 @@ class HttpContractTest(unittest.TestCase):
         status, body, _ = self.request("GET", "/v1/photos", headers=auth)
         self.assertEqual(200, status)
         self.assertEqual("Fide", body["photos"][0]["metadata"]["note"])
+
+
+    def test_recovery_public_contract_and_session_revocation(self):
+        token = self.setup_and_login()
+        service = server_module.SERVICE
+        service.recovery.settings = replace(service.settings, smtp_host="smtp.example.com", smtp_from="avora@example.com")
+        with patch("avora_nas.recovery.send_recovery_email") as send:
+            status, body, _ = self.request("POST", "/v1/auth/forgot-password", {"email": "owner@example.com"})
+            self.assertEqual((202, {"accepted": True}), (status, body))
+            status2, body2, _ = self.request("POST", "/v1/auth/forgot-password", {"email": "missing@example.com"})
+            self.assertEqual((status, body), (status2, body2))
+            service.recovery._queue.join()
+            code = send.call_args.args[2]
+        payload = {"email": "owner@example.com", "code": code, "new_password": "Replacement-password-2026"}
+        status, body, _ = self.request("POST", "/v1/auth/reset-password", payload)
+        self.assertEqual((200, {"reset": True}), (status, body))
+        status, body, _ = self.request("POST", "/v1/auth/reset-password", payload)
+        self.assertEqual(400, status)
+        self.assertEqual("invalid_reset_token", body["error"]["code"])
+        status, _, _ = self.request("GET", "/v1/me", headers={"Authorization": "Bearer " + token})
+        self.assertEqual(401, status)
+        status, _, _ = self.request("POST", "/v1/auth/login", {
+            "email": "owner@example.com", "password": "Replacement-password-2026"})
+        self.assertEqual(200, status)
+
+    def test_unconfigured_recovery_is_explicit(self):
+        status, body, _ = self.request("POST", "/v1/auth/forgot-password", {"email": "owner@example.com"})
+        self.assertEqual(503, status)
+        self.assertEqual("recovery_unavailable", body["error"]["code"])
+
+    def test_owner_identity_requires_live_admin_session_and_ignores_client_identity(self):
+        token = self.setup_and_login()
+        service = server_module.SERVICE
+        owner = service.authenticate(token)
+        invitation, _ = service.create_invite(owner)
+        member = service.register_session(invitation, "family@example.com", "Family", "Family-password-2026")
+        payload = {"uid": "attacker-chosen-uid", "device_id": "other-garden", "role": "admin"}
+        status, _, _ = self.request("POST", "/v1/auth/firebase-owner-session", payload)
+        self.assertEqual(401, status)
+        status, _, _ = self.request("POST", "/v1/auth/firebase-owner-session", payload,
+                                    {"Authorization": "Bearer " + member.token})
+        self.assertEqual(403, status)
+        status, body, _ = self.request("POST", "/v1/auth/firebase-owner-session", {},
+                                      {"Authorization": "Bearer " + token})
+        self.assertEqual(503, status)
+        self.assertEqual("firebase_identity_unavailable", body["error"]["code"])
+        with patch.object(service.firebase_identity, "create_owner_session", return_value={
+                "firebase_uid": "server-owner", "device_id": "avora-001", "custom_token": "test-token"}) as issue:
+            status, body, headers = self.request("POST", "/v1/auth/firebase-owner-session", payload,
+                                                {"Authorization": "Bearer " + token})
+            self.assertEqual(200, status)
+            issue.assert_called_once_with(owner)
+            self.assertEqual("avora-001", body["device_id"])
+            self.assertIn("no-store", headers["Cache-Control"])
+            service.logout(token)
+            status, _, _ = self.request("POST", "/v1/auth/firebase-owner-session", {},
+                                        {"Authorization": "Bearer " + token})
+            self.assertEqual(401, status)
+            self.assertEqual(1, issue.call_count)
+
+    def test_recovery_rate_limit_has_retry_header(self):
+        service = server_module.SERVICE
+        service.recovery.settings = replace(service.settings, smtp_host="smtp.example.com", smtp_from="avora@example.com")
+        with patch("avora_nas.recovery.send_recovery_email"):
+            for _ in range(3):
+                status, _, _ = self.request("POST", "/v1/auth/forgot-password", {"email": "missing@example.com"})
+                self.assertEqual(202, status)
+            service.recovery._queue.join()
+        status, body, headers = self.request("POST", "/v1/auth/forgot-password", {"email": "missing@example.com"})
+        self.assertEqual(429, status)
+        self.assertEqual("rate_limited", body["error"]["code"])
+        self.assertGreater(int(headers["Retry-After"]), 0)
 
 
 if __name__ == "__main__":

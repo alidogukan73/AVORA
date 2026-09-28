@@ -1,6 +1,6 @@
 services:
   avora-api:
-    image: python:3.12-alpine
+    image: "${AVORA_API_IMAGE:-avora-nas-api:firebase-7.5.0}"
     container_name: avora-nas-api
     restart: unless-stopped
     working_dir: /app
@@ -15,6 +15,15 @@ services:
       AVORA_LOGIN_ACCOUNT_ATTEMPTS: "5"
       AVORA_LOGIN_SOURCE_ATTEMPTS: "60"
       AVORA_LOG_LEVEL: INFO
+      AVORA_FIREBASE_DEVICE_ID: "${AVORA_FIREBASE_DEVICE_ID:-avora-001}"
+      AVORA_FIREBASE_CREDENTIALS_FILE: "${AVORA_FIREBASE_CREDENTIALS_FILE:-/data/config/firebase-service-account.json}"
+      # Set these in Portainer stack environment variables to enable email recovery.
+      AVORA_SMTP_HOST: "${AVORA_SMTP_HOST:-}"
+      AVORA_SMTP_PORT: "${AVORA_SMTP_PORT:-587}"
+      AVORA_SMTP_SECURITY: "${AVORA_SMTP_SECURITY:-starttls}"
+      AVORA_SMTP_FROM: "${AVORA_SMTP_FROM:-}"
+      AVORA_SMTP_USERNAME: "${AVORA_SMTP_USERNAME:-}"
+      AVORA_SMTP_PASSWORD: "${AVORA_SMTP_PASSWORD:-}"
       PYTHONDONTWRITEBYTECODE: "1"
       PYTHONUNBUFFERED: "1"
     ports:

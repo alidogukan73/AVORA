@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="journal_add_title">Add to journal</string>
+    <string name="journal_milestone">Milestone</string>
+    <string name="journal_manual_watering">Manual watering</string>
+    <string name="journal_note_required">Please enter a description.</string>
+    <string name="journal_date_invalid">The date cannot be before the season started or in the future.</string>
+    <string name="journal_description">Description (required for observations and milestones)</string>
+    <string name="journal_sheet_subtitle">What would you like to add?</string>
+    <string name="journal_growth_title">Growth photo</string>
+    <string name="journal_growth_description">Review growth with Plant Assistant</string>
+    <string name="journal_observation_description">Save your observations and notes</string>
+    <string name="journal_milestone_description">Mark planting, flowering or harvest</string>
+    <string name="journal_care_actions">Plant care</string>
+    <string name="journal_watering_description">Go to watering controls</string>
+    <string name="journal_fertilization_description">Open fertilization</string>
+    <string name="journal_save_in_progress">Saving your entry. Please wait.</string>
+</resources>

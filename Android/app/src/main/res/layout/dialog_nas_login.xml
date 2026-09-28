@@ -58,4 +58,10 @@
         android:layout_marginTop="8dp"
         android:text="@string/data_sync_nas_password_not_saved"
         android:textAppearance="@style/TextAppearance.AVORA.Settings.RowSubtitle" />
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnNasForgotPassword"
+        style="@style/Widget.Material3.Button.TextButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/nas_recovery_title" />
 </LinearLayout>

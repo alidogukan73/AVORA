@@ -115,36 +115,12 @@
                     android:paddingEnd="14dp" />
             </com.google.android.material.card.MaterialCardView>
             <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnDataSyncNasBackup"
+                android:id="@+id/btnDataSyncNasSync"
                 style="@style/Widget.AVORA.Button.Secondary"
                 android:layout_width="match_parent"
-                android:layout_height="50dp"
+                android:layout_height="54dp"
                 android:layout_marginTop="10dp"
-                android:text="@string/data_sync_nas_backup_button" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnDataSyncNasRestore"
-                style="@style/Widget.AVORA.Button.Secondary"
-                android:layout_width="match_parent"
-                android:layout_height="50dp"
-                android:layout_marginTop="8dp"
-                android:text="@string/data_sync_nas_restore_button" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnDataSyncNasPhotoBackup"
-                style="@style/Widget.AVORA.Button.Secondary"
-                android:layout_width="match_parent"
-                android:layout_height="50dp"
-                android:layout_marginTop="8dp"
-                android:text="@string/data_sync_nas_photo_backup_button" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnDataSyncNasPhotoRestore"
-                style="@style/Widget.AVORA.Button.Secondary"
-                android:layout_width="match_parent"
-                android:layout_height="50dp"
-                android:layout_marginTop="8dp"
-                android:text="@string/data_sync_nas_photo_restore_button" />
+                android:text="@string/data_sync_nas_two_way_button" />
 
             <com.google.android.material.card.MaterialCardView
                 style="@style/Widget.AVORA.Settings.NavigationCard"

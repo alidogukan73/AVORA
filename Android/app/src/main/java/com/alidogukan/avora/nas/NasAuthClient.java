@@ -24,6 +24,64 @@ public final class NasAuthClient {
 
     private NasAuthClient() { }
 
+    public static final class FirebaseOwnerSession {
+        public final String token, uid, deviceId;
+        FirebaseOwnerSession(String token, String uid, String deviceId) {
+            this.token = token; this.uid = uid; this.deviceId = deviceId;
+        }
+    }
+
+    public static FirebaseOwnerSession firebaseOwnerSession(String accessToken) throws NasApiException {
+        try {
+            JSONObject response = request("POST", "/v1/auth/firebase-owner-session",
+                    "{}".getBytes(StandardCharsets.UTF_8), accessToken);
+            String token = response.optString("custom_token");
+            String uid = response.optString("firebase_uid");
+            String device = response.optString("device_id");
+            if (token.isEmpty() || uid.isEmpty() || device.isEmpty()) {
+                throw new NasApiException("NAS_FIREBASE_IDENTITY_UNAVAILABLE");
+            }
+            return new FirebaseOwnerSession(token, uid, device);
+        } catch (NasApiException error) {
+            if ("NAS_HTTP_404".equals(error.getMessage())) {
+                throw new NasApiException("NAS_FIREBASE_IDENTITY_UNAVAILABLE");
+            }
+            throw error;
+        } catch (Exception error) {
+            throw new NasApiException("NAS_FIREBASE_IDENTITY_UNAVAILABLE");
+        }
+    }
+
+    public static void requestPasswordReset(String email) throws NasApiException {
+        recoveryRequest("/v1/auth/forgot-password", email, null, null, "accepted");
+    }
+
+    public static void resetPassword(String email, String code, String password)
+            throws NasApiException {
+        recoveryRequest("/v1/auth/reset-password", email, code, password, "reset");
+    }
+
+    private static void recoveryRequest(String path, String email, String code,
+                                        String password, String successKey) throws NasApiException {
+        try {
+            JSONObject body = new JSONObject().put("email", safe(email));
+            if (code != null) body.put("code", code);
+            if (password != null) body.put("new_password", password);
+            JSONObject response = request("POST", path,
+                    body.toString().getBytes(StandardCharsets.UTF_8), null);
+            if (!response.optBoolean(successKey)) throw new NasApiException("NAS_INVALID_RESPONSE");
+        } catch (NasApiException error) {
+            // Older servers authenticate unknown routes before returning a 404.
+            if ("NAS_INVALID_CREDENTIALS".equals(error.getMessage())
+                    || "NAS_HTTP_404".equals(error.getMessage())) {
+                throw new NasApiException("NAS_RECOVERY_UNAVAILABLE");
+            }
+            throw error;
+        } catch (Exception error) {
+            throw new NasApiException("NAS_INVALID_RESPONSE", error);
+        }
+    }
+
     public static NasSession login(String email, String password) throws NasApiException {
         return login(email, password, "", "");
     }
@@ -444,6 +502,9 @@ public final class NasAuthClient {
     static String mapErrorCode(int status, String serverCode,
                                boolean authenticatedRequest) {
         String code = serverCode == null ? "" : serverCode;
+        if ("firebase_identity_unavailable".equals(code)) return "NAS_FIREBASE_IDENTITY_UNAVAILABLE";
+        if ("invalid_reset_token".equals(code)) return "NAS_INVALID_RESET_TOKEN";
+        if ("recovery_unavailable".equals(code)) return "NAS_RECOVERY_UNAVAILABLE";
         if (status == HttpURLConnection.HTTP_UNAUTHORIZED
                 || "invalid_credentials".equals(code)) {
             return authenticatedRequest

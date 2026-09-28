@@ -145,7 +145,14 @@ public class MainViewModel extends AndroidViewModel {
     public void authenticate() {
         if (authenticationInProgress) return;
         authenticationInProgress = true;
-        repository.authenticateAnonymously().addOnCompleteListener(task -> {
+        new com.alidogukan.avora.nas.NasSecurityRepository(getApplication())
+                .restoreAdministratorAccess()
+                .continueWithTask(restored -> {
+                    if (!restored.isSuccessful()) {
+                        return com.google.android.gms.tasks.Tasks.forException(restored.getException());
+                    }
+                    return repository.authenticateAnonymously();
+                }).addOnCompleteListener(task -> {
             authenticationInProgress = false;
             if (task.isSuccessful()) {
                 authenticated.setValue(Boolean.TRUE.equals(task.getResult()));

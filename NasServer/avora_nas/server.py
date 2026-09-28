@@ -22,6 +22,7 @@ from .database import (
     DataConflictError,
     InvalidCurrentPasswordError,
     InvalidCredentialsError,
+    InvalidResetTokenError,
     InviteError,
     LoginRateLimitError,
     PasswordUnchangedError,
@@ -29,6 +30,8 @@ from .database import (
 )
 from .security import PasswordPolicyError
 from .service import AvoraService
+from .recovery import RecoveryUnavailableError
+from .firebase_identity import FirebaseIdentityUnavailableError
 
 
 LOGGER = logging.getLogger("avora_nas")
@@ -93,6 +96,18 @@ class Handler(BaseHTTPRequestHandler):
                 )
                 self._json(HTTPStatus.CREATED, {"user": asdict(user)})
                 return
+            if path == "/v1/auth/forgot-password" and method == "POST":
+                body = self._read_json(32 * 1024)
+                service.recovery.request(required_text(body, "email"), self._login_source())
+                self._json(HTTPStatus.ACCEPTED, {"accepted": True})
+                return
+            if path == "/v1/auth/reset-password" and method == "POST":
+                body = self._read_json(32 * 1024)
+                service.recovery.confirm(required_text(body, "email"),
+                                         required_text(body, "code"),
+                                         required_text(body, "new_password"), self._login_source())
+                self._json(HTTPStatus.OK, {"reset": True})
+                return
             if path == "/v1/auth/login" and method == "POST":
                 body = self._read_json(32 * 1024)
                 session = service.login(
@@ -141,6 +156,10 @@ class Handler(BaseHTTPRequestHandler):
                 return
             if path == "/v1/me" and method == "GET":
                 self._json(HTTPStatus.OK, {"user": asdict(user)})
+                return
+            if path == "/v1/auth/firebase-owner-session" and method == "POST":
+                self._read_json(1024)
+                self._json(HTTPStatus.OK, service.firebase_identity.create_owner_session(user))
                 return
             if path == "/v1/account/password" and method == "POST":
                 body = self._read_json(32 * 1024)
@@ -415,6 +434,12 @@ class Handler(BaseHTTPRequestHandler):
                 "Too many login attempts. Try again later.",
                 {"Retry-After": str(exc.retry_after)},
             )
+        except InvalidResetTokenError:
+            self._json_error(HTTPStatus.BAD_REQUEST, "invalid_reset_token", "Invalid or expired recovery code.")
+        except RecoveryUnavailableError:
+            self._json_error(HTTPStatus.SERVICE_UNAVAILABLE, "recovery_unavailable", "Password recovery is unavailable.")
+        except FirebaseIdentityUnavailableError:
+            self._json_error(HTTPStatus.SERVICE_UNAVAILABLE, "firebase_identity_unavailable", "Firebase identity is unavailable.")
         except InvalidCredentialsError:
             time.sleep(0.2)
             self._json_error(HTTPStatus.UNAUTHORIZED, "invalid_credentials", "Invalid credentials.")

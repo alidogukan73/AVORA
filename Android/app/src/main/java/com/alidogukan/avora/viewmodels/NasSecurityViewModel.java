@@ -306,6 +306,9 @@ public final class NasSecurityViewModel extends AndroidViewModel {
                     refreshPendingCount(authenticated);
                 }
             } catch (Exception error) {
+                // NAS authentication may have succeeded before Firebase access failed.
+                // Keep the saved account visible so refresh/reopening can retry recovery.
+                session = repository.loadSession();
                 busy = false;
                 action = Action.NONE;
                 publishState(true);
@@ -374,6 +377,9 @@ public final class NasSecurityViewModel extends AndroidViewModel {
                     activeSessions = Collections.emptyList();
                     sessionListStatus = -2;
                     publishState(true);
+                    if ("NAS_FIREBASE_IDENTITY_UNAVAILABLE".equals(message(error))) {
+                        postEvent(EventType.ERROR, Action.NONE, null, 0, message(error));
+                    }
                 }
             }
         });

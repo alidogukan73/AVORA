@@ -38,4 +38,14 @@ public class NasAuthClientTest {
         assertEquals("NAS_HTTP_503",
                 NasAuthClient.mapErrorCode(503, "server_error", true));
     }
+
+    @Test
+    public void passwordRecoveryErrorsRemainSpecific() {
+        assertEquals("NAS_INVALID_RESET_TOKEN",
+                NasAuthClient.mapErrorCode(400, "invalid_reset_token", false));
+        assertEquals("NAS_RECOVERY_UNAVAILABLE",
+                NasAuthClient.mapErrorCode(503, "recovery_unavailable", false));
+        assertEquals("NAS_RATE_LIMITED",
+                NasAuthClient.mapErrorCode(429, "rate_limited", false));
+    }
 }

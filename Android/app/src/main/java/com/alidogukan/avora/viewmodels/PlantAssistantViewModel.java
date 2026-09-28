@@ -296,10 +296,15 @@ public final class PlantAssistantViewModel extends AndroidViewModel {
                 }
                 syncPhoto(updated, syncFailure);
                 if (actionable) {
+                    String notificationDescription = getApplication().getString(
+                            R.string.notification_plant_analysis_saved_description);
+                    if ("COMPLETED".equals(followUp.type)) {
+                        notificationDescription += "\n" + getApplication().getString(
+                                R.string.notification_plant_follow_up_ready_description);
+                    }
                     publish(isHighUrgency(urgency) ? "HIGH" : "NORMAL",
                             zoneId, seasonId, title,
-                            getApplication().getString(
-                                    R.string.notification_plant_analysis_saved_description),
+                            notificationDescription,
                             "plant_analysis:" + photoId);
                 }
                 if ("SCHEDULED".equals(followUp.type)) {
@@ -316,11 +321,6 @@ public final class PlantAssistantViewModel extends AndroidViewModel {
                             getApplication().getString(R.string.runtime_follow_up_photo_title),
                             getApplication().getString(R.string.runtime_follow_up_photo_note),
                             "follow_up_next_" + photoId);
-                    publish("NORMAL", zoneId, seasonId, getApplication().getString(
-                                    R.string.notification_plant_follow_up_ready_title),
-                            getApplication().getString(
-                                    R.string.notification_plant_follow_up_ready_description),
-                            "follow_up_complete:" + photoId);
                 }
                 saved = true;
             } catch (Throwable error) {

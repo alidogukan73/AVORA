@@ -32,10 +32,14 @@ import java.util.Locale;
 
 /** Professional, role-aware control center for AVORA NAS account security. */
 public final class NasSecurityActivity extends EdgeToEdgeActivity {
+    private static final String STATE_REQUEST_GARDEN_ACCESS =
+            "state_request_garden_access";
     public static final String EXTRA_OPEN_PENDING_REQUESTS =
             "open_pending_access_requests";
     public static final String EXTRA_OPEN_INACTIVE_ACCOUNTS =
             "open_inactive_accounts";
+    public static final String EXTRA_REQUEST_GARDEN_ACCESS =
+            "request_garden_access";
     private TextView accountName;
     private TextView accountEmail;
     private TextView accountRole;
@@ -61,6 +65,9 @@ public final class NasSecurityActivity extends EdgeToEdgeActivity {
     private LinearProgressIndicator progress;
     private NasSecurityViewModel viewModel;
     private NasSession currentSession;
+    private final androidx.activity.result.ActivityResultLauncher<Intent> recoveryLauncher =
+            registerForActivityResult(new androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult(),
+                    result -> { if (result.getResultCode() == RESULT_OK) viewModel.refresh(); });
     private AlertDialog inviteDialog;
     private AlertDialog passwordDialog;
     private TextInputLayout currentPasswordLayout;
@@ -76,6 +83,7 @@ public final class NasSecurityActivity extends EdgeToEdgeActivity {
     private TextInputLayout registerPasswordLayout;
     private boolean openPendingRequestsOnReady;
     private boolean openInactiveAccountsOnReady;
+    private boolean requestGardenAccessOnReady;
 
     @Override
     protected void onCreate(@Nullable Bundle state) {
@@ -85,6 +93,9 @@ public final class NasSecurityActivity extends EdgeToEdgeActivity {
                 && getIntent().getBooleanExtra(EXTRA_OPEN_PENDING_REQUESTS, false);
         openInactiveAccountsOnReady = state == null
                 && getIntent().getBooleanExtra(EXTRA_OPEN_INACTIVE_ACCOUNTS, false);
+        requestGardenAccessOnReady = state == null
+                ? getIntent().getBooleanExtra(EXTRA_REQUEST_GARDEN_ACCESS, false)
+                : state.getBoolean(STATE_REQUEST_GARDEN_ACCESS, false);
         viewModel = new ViewModelProvider(this).get(NasSecurityViewModel.class);
         bindViews();
         configureToolbar();
@@ -92,6 +103,14 @@ public final class NasSecurityActivity extends EdgeToEdgeActivity {
         viewModel.state().observe(this, this::render);
         viewModel.events().observe(this, this::handleEvent);
         viewModel.refresh();
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        outState.putBoolean(
+                STATE_REQUEST_GARDEN_ACCESS,
+                requestGardenAccessOnReady);
+        super.onSaveInstanceState(outState);
     }
 
     private void bindViews() {
@@ -186,7 +205,10 @@ public final class NasSecurityActivity extends EdgeToEdgeActivity {
         findViewById(R.id.rowNasSecurityPassword).setEnabled(!state.busy);
         findViewById(R.id.rowNasSecurityDetails).setEnabled(!state.busy);
         if (state.busy) showBusyStatus(state.action);
-        if (openPendingRequestsOnReady && state.isAdministrator() && !state.busy) {
+        if (requestGardenAccessOnReady && !state.busy) {
+            requestGardenAccessOnReady = false;
+            viewModel.requestGardenAccess();
+        } else if (openPendingRequestsOnReady && state.isAdministrator() && !state.busy) {
             openPendingRequestsOnReady = false;
             viewModel.loadPendingRequests();
         } else if (openInactiveAccountsOnReady
@@ -411,6 +433,9 @@ public final class NasSecurityActivity extends EdgeToEdgeActivity {
                 setResult(RESULT_OK);
                 break;
             case SESSION_EXPIRED:
+                if (event.action == NasSecurityViewModel.Action.REQUEST_ACCESS) {
+                    requestGardenAccessOnReady = true;
+                }
                 Toast.makeText(this, R.string.data_sync_nas_session_expired,
                         Toast.LENGTH_LONG).show();
                 setResult(RESULT_OK);
@@ -427,6 +452,12 @@ public final class NasSecurityActivity extends EdgeToEdgeActivity {
         loginPasswordLayout = content.findViewById(R.id.layoutNasPassword);
         TextInputEditText emailInput = content.findViewById(R.id.inputNasEmail);
         TextInputEditText passwordInput = content.findViewById(R.id.inputNasPassword);
+        content.findViewById(R.id.btnNasForgotPassword).setOnClickListener(view -> {
+            if (!loginDialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled()) return;
+            loginDialog.dismiss();
+            recoveryLauncher.launch(new Intent(this, NasRecoveryActivity.class)
+                    .putExtra("email", textOf(emailInput).trim()));
+        });
         loginDialog = new MaterialAlertDialogBuilder(this)
                 .setTitle(R.string.data_sync_nas_login_title)
                 .setView(content)
@@ -835,6 +866,9 @@ public final class NasSecurityActivity extends EdgeToEdgeActivity {
                 .setTitle(R.string.data_sync_nas_change_password_title)
                 .setView(content)
                 .setNegativeButton(R.string.data_sync_nas_cancel, null)
+                .setNeutralButton(R.string.nas_recovery_title, (dialog, which) ->
+                        recoveryLauncher.launch(new Intent(this, NasRecoveryActivity.class)
+                                .putExtra("email", currentSession == null ? "" : currentSession.user.email)))
                 .setPositiveButton(R.string.data_sync_nas_change_password_confirm, null)
                 .create();
         passwordDialog.setOnShowListener(ignored ->
@@ -869,8 +903,7 @@ public final class NasSecurityActivity extends EdgeToEdgeActivity {
             currentInput.setText(null);
             newInput.setText(null);
             confirmInput.setText(null);
-            passwordDialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(false);
-            passwordDialog.getButton(AlertDialog.BUTTON_NEGATIVE).setEnabled(false);
+            setDialogEnabled(passwordDialog, false);
             viewModel.changePassword(current, next);
         }
     }
@@ -962,8 +995,7 @@ public final class NasSecurityActivity extends EdgeToEdgeActivity {
         }
         if (event.action == NasSecurityViewModel.Action.CHANGE_PASSWORD
                 && passwordDialog != null && passwordDialog.isShowing()) {
-            passwordDialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(true);
-            passwordDialog.getButton(AlertDialog.BUTTON_NEGATIVE).setEnabled(true);
+            setDialogEnabled(passwordDialog, true);
             if ("NAS_CURRENT_PASSWORD_INVALID".equals(event.code)) {
                 currentPasswordLayout.setError(getString(
                         R.string.data_sync_nas_current_password_invalid));
@@ -980,7 +1012,8 @@ public final class NasSecurityActivity extends EdgeToEdgeActivity {
                 return;
             }
         }
-        int message = "NAS_RATE_LIMITED".equals(event.code)
+        int message = "NAS_FIREBASE_IDENTITY_UNAVAILABLE".equals(event.code)
+                ? R.string.nas_owner_access_failed : "NAS_RATE_LIMITED".equals(event.code)
                 ? R.string.data_sync_nas_error_rate_limited
                 : ("NAS_TIMEOUT".equals(event.code)
                 || "NAS_UNAVAILABLE".equals(event.code))
@@ -990,6 +1023,9 @@ public final class NasSecurityActivity extends EdgeToEdgeActivity {
     }
 
     private String authenticationError(String code) {
+        if ("NAS_FIREBASE_IDENTITY_UNAVAILABLE".equals(code)) {
+            return getString(R.string.nas_owner_access_failed);
+        }
         if ("NAS_RATE_LIMITED".equals(code)) {
             return getString(R.string.data_sync_nas_error_rate_limited);
         }

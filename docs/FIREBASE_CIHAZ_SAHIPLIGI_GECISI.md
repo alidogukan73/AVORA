@@ -61,6 +61,17 @@ Bu işlem Cloud Functions veya Blaze planı gerektirmez.
 
 ## Telefon değişikliği veya uygulama verilerinin silinmesi
 
+NAS yöneticisi için kalıcı yol artık NAS hesabıyla oturum açmaktır. NAS API'nin
+`firebase-owner-session` desteği, Firebase Admin SDK ve hizmet hesabı yapılandırıldıysa
+Android aynı NAS hesabını her kurulumda aynı `avora_nas_<hesap UUID>` Firebase
+kimliğine bağlar. `avora_device_id` sunucuda atanır ve telefonda doğrulanır.
+Mevcut NAS yönetici oturumu, uygulama açılışında eksik Firebase oturumunu otomatik
+onarır. Aile hesapları yönetici kimliği alamaz; mevcut onay akışını kullanır.
+Kurulum ayrıntıları için `NasServer/README.md` içindeki kalıcı yönetici erişimi
+bölümüne bakın. Bu yol Firebase kurallarında gevşetme gerektirmez.
+
+Eski manuel yetkilendirilmiş kurulumlar için aşağıdaki araçlar geçerlidir:
+
 Anonim Firebase kullanıcı kimliği uygulama verileri silindiğinde değişebilir.
 Yeni kimliğe sahiplik verdikten sonra eski kimliğin erişimini kaldırın:
 

@@ -27,16 +27,25 @@ public final class NasSecurityRepository {
         return sessionStore.load();
     }
 
+    public com.google.android.gms.tasks.Task<Void> restoreAdministratorAccess() {
+        return NasFirebaseSessionManager.restoreAdministrator(sessionStore);
+    }
+
     public NasSession login(String email, String password) throws Exception {
-        return saveSession(NasAuthClient.login(
-                email, password, deviceIdentity.id, deviceIdentity.name));
+        NasSession session = NasAuthClient.login(email, password, deviceIdentity.id, deviceIdentity.name);
+        saveSession(session);
+        NasFirebaseSessionManager.ensureForStoredSession(sessionStore, session);
+        return session;
     }
 
     public NasSession register(String inviteCode, String email,
                                String displayName, String password) throws Exception {
-        return saveSession(NasAuthClient.register(
+        NasSession session = NasAuthClient.register(
                 inviteCode, email, displayName, password,
-                deviceIdentity.id, deviceIdentity.name));
+                deviceIdentity.id, deviceIdentity.name);
+        saveSession(session);
+        NasFirebaseSessionManager.ensureForStoredSession(sessionStore, session);
+        return session;
     }
 
     public NasAuthClient.Invite createInvite(NasSession session) throws Exception {
@@ -67,6 +76,7 @@ public final class NasSecurityRepository {
     public List<NasAuthClient.SessionSummary> sessions(NasSession session)
             throws Exception {
         requireSession(session);
+        NasFirebaseSessionManager.ensureForStoredSession(sessionStore, session);
         NasAuthClient.identifyCurrentSession(
                 session.accessToken, deviceIdentity.id, deviceIdentity.name);
         List<NasAuthClient.SessionSummary> sessions = NasAuthClient.sessions(
@@ -113,6 +123,18 @@ public final class NasSecurityRepository {
                 20, TimeUnit.SECONDS);
         NasAuthClient.approveAccessRequest(session.accessToken, request.id);
         touch(session);
+    }
+
+    public void requestPasswordReset(String email) throws Exception {
+        NasAuthClient.requestPasswordReset(email);
+    }
+
+    public void resetPassword(String email, String code, String password) throws Exception {
+        NasAuthClient.resetPassword(email, code, password);
+        NasSession session = sessionStore.load();
+        if (session != null && session.user.email.equalsIgnoreCase(email.trim())) {
+            expireLocalSession();
+        }
     }
 
     public void keepInactiveAccess(NasSession session,
@@ -213,6 +235,7 @@ public final class NasSecurityRepository {
         new NasPhotoBackupSettings(context).setEnabled(false);
         NasPhotoBackupScheduler.cancel(context);
         sessionStore.clear();
+        NasFirebaseSessionManager.signOutNasOwner();
         if (session == null) return;
         try {
             NasAuthClient.logout(session.accessToken);
