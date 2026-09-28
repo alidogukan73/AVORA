@@ -19,13 +19,14 @@ Android sürümü henüz `3.6.12` (75); bu belge 3.7 yayımlandığı anlamına 
   NAS yedeği: `/share/Docker/AVORA/backups/smtp-update-20260928-160754-k192smth`.
   Kullanıcı, telefonun Şifremi unuttum ekranından istediği gerçek kurtarma kodunun
   e-postaya geldiğini de doğruladı. Kodun kullanılıp hesap parolasının değiştirildiği
-  ayrıca doğrulanmadı; kod isteme ve teslim aşaması tamamlandı.
+  canlı kullanıcı hesabında ayrıca doğrulanmadı; kontrollü hesap kabulü aşağıda tamamlandı.
 - Eski API ağ alanına bağlı kalıp 128 koduyla durmuş Tailscale tüneli onarıldı.
   İlk onarımda API kimliği ve sağlığı korundu. SMTP uygulanırken tünel önce
   kaldırılıp API'den sonra oluşturuldu; kalıcı veri birimleri silinmedi.
 - Entegrasyon dalı GitHub'a gönderildi; taslak PR #14 açıldı.
   `ea4855d` için Android, NAS, Pi ve Firebase CI işleri başarılı.
   SMTP aracı dahil `1fff415` için AVORA CI #35 de başarılı.
+  Günlük ilişki düzeltmesi `bdf4f0e` için AVORA CI #36 başarılı.
 - Gübre ekranındaki toplu uygulama butonunun hizalanması.
 - Analiz ve tamamlanan takip için tek bildirim: `9af1efe`.
   Eski stash silinmedi; ESP32/ESP8266 MQTT kimlik doğrulama değişiklikleri güncel kodda zaten var.
@@ -49,11 +50,18 @@ Android sürümü henüz `3.6.12` (75); bu belge 3.7 yayımlandığı anlamına 
   aynı bölgedeki ilk iki gübreleme/sulama kaydını bağlantı olmadan gösteriyordu.
   Bu seçim kaldırıldı; yalnız fotoğrafta açık uygulama kimliği bulunan, aynı bölge
   ve sezona ait gübreleme gösteriliyor. Bağlantı yoksa ilişkili kayıt bölümü gizli.
-  Düzeltmeden sonra 2. madde telefonda yeniden doğrulanmalı. Test edilen eski
-  telefon APK'sının özeti ayrıca doğrulanmadı.
+  Kullanıcı düzeltmeden sonra 2. maddeyi telefonda yeniden kontrol edip geçtiğini
+  bildirdi. Böylece telefon kabul maddeleri 1, 2, 3 ve 4 tamamlandı.
 - 28 Eylül: NAS unittest paketi 72/72 başarılı.
 - SMTP kurulum aracının 11 yerel testi başarılı: yalnız tünel onarımı, güvenli
   başlatma sırası, yapılandırma koruması, hata/iptal geri dönüşü ve tanılama gizliliği.
+- 28 Eylül 18:02: NAS konteynerinde kurulu kod ve mevcut Gmail ayarlarıyla kontrollü
+  kurtarma kabul testi başarılı. Loopback HTTP sunucusu ve ayrı geçici veritabanındaki
+  test hesabı için gerçek e-posta teslimi, kodla parola değişimi, yeni parolayla giriş,
+  aynı kodun ikinci kullanımının reddi, eski parolanın ve iki eski oturumun reddi
+  doğrulandı. Geçici veriler kaldırıldı; mevcut API kimliği/sağlığı değişmedi.
+  Canlı kullanıcı hesabının parolası değiştirilmedi. Araç: `NasServer/verify_password_recovery.py`.
+  Aracın üç yerel testi ve mevcut 12 kurtarma/HTTP testi başarılı.
 - 28 Eylül: Pi süre politikası, röle zaman aşımı, yeniden başlatma güvenliği ve
   çevrimdışı komut politikası yerel testleri başarılı; gerçek donanım testi değildir.
 - Önceki çalışma kayıtları günlük, sağlık ve kurtarma emülatör testlerini başarılı bildiriyor.
@@ -62,21 +70,16 @@ Android sürümü henüz `3.6.12` (75); bu belge 3.7 yayımlandığı anlamına 
 
 ## Açık işler ve sıra
 
-1. Günlük düzeltmesini içeren APK ile telefonda fotoğraflı/fotoğrafsız kaydı yeniden
-   açıp ilgisiz gübreleme/sulama bilgisinin görünmediğini doğrula.
-   Diğer telefon maddeleri (1, 3, 4) kullanıcı tarafından geçti olarak bildirildi.
-   28 Eylül kontrolünde ADB'ye bağlı cihaz yoktu. Veri yedeği olmadan uygulamayı silme.
-2. Kontrollü hesapta kurtarma kodunu kullanarak parola sıfırlamayı ve eski kodun
-   ikinci kullanımının reddini doğrula. Gerçek kullanıcı parolası/sessiyonları bu
-   kabul kaydında değiştirilmiş sayılmıyor.
-3. Saha adayı ve çalışan bileşen sürümleri sabitlenince RC-6'yı yeniden başlat.
+1. Pi geri bildirim e-postasının teslimatını doğrula; eski SMTP bilgileriyle görülen
+   535 kimlik doğrulama hatasını gider. NAS SMTP kurulumu bu Pi ayarını değiştirmedi.
+2. Saha adayı ve çalışan bileşen sürümleri sabitlenince RC-6'yı yeniden başlat.
    26 Eylül'de başlatılan önceki RC-6 kullanıcı tarafından iptal edildi;
    eski 29 Eylül bitiş zamanı yeni test için geçerli değildir.
    Yeni başlangıç, commit/APK özeti, servis başlangıç zamanları ve NRestarts değerlerini kaydet.
    Kesintisiz 72 saat boyunca sürüm değişirse test başlangıcını yeniden belirle.
-4. RC-7: servis/log/bağlantı durumu, yetkisiz erişim reddi, güvenli aktüatör durumu,
+3. RC-7: servis/log/bağlantı durumu, yetkisiz erişim reddi, güvenli aktüatör durumu,
    yedek geri dönüşü ve geçici erişimlerin kaldırılmasını doğrula.
-5. Saha kabulü ve CI tamamlandıktan sonra sürüm numarasını 3.7 olarak güncelle,
+4. Saha kabulü ve CI tamamlandıktan sonra sürüm numarasını 3.7 olarak güncelle,
    imzalı sürümü doğrula ve yayımla.
 
 RC-6 yeniden başlamadı; RC-7 ve 3.7 yayın onayı açık.

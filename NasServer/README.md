@@ -166,6 +166,21 @@ güncellenmelidir. Yalnızca Android APK güncellemesi canlı sunucuda kurtarmay
 28 Eylül 2026'daki AVORA NAS kurulumunda SMTP ve gerçek gelen kutusu teslimatı
 doğrulandı. Telefon üzerinden hesap kurtarma testi ayrı bir kabul adımıdır.
 
+### Çalışan sürümde kontrollü kurtarma kabul testi
+
+NAS'a kopyalanan `verify_password_recovery.py` aracını
+`sudo /usr/local/bin/python3 verify_password_recovery.py` ile çalıştırın.
+Araç sağlıklı `avora-nas-api` konteynerindeki kurulu kodla, yalnız loopback üzerinde
+geçici bir HTTP sunucusu ve ayrı veritabanı oluşturur. Mevcut Gmail hesabının
+benzersiz `+avora-check-...` adresine gerçek kurtarma e-postası ister; yalnız bu
+mesajı INBOX'tan salt okunur olarak alır. SMTP bilgileri konteyner dışına çıkmaz.
+
+Kodla parola değiştirme, aynı kodun ikinci kullanımının reddi, eski parolanın ve
+iki eski oturumun reddi, yeni parolayla giriş doğrulanır. Test hesabı/veritabanı
+sonunda kaldırılır; mevcut kullanıcı parolaları, servis yapılandırması ve bahçe
+verileri değiştirilmez. Başarı çıktısı bu izole hesap testinin kapsamını belirtir;
+telefon arayüzü ve canlı kullanıcı hesabında parola değişimi ayrıca doğrulanır.
+
 ### Mevcut AVORA NAS için etkileşimli SMTP kurulum aracı
 
 `configure_recovery_smtp.py` ve `deploy_owner_update.py` dosyalarını aynı NAS
