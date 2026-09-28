@@ -184,6 +184,9 @@ jobs:
       - name: Compile NAS sources
         run: python -m compileall -q NasServer
 
+      - name: Install NAS dependencies
+        run: python -m pip install -r NasServer/requirements.txt
+
       - name: Run NAS unit tests
         env:
           PYTHONPATH: NasServer

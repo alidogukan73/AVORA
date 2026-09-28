@@ -1,7 +1,10 @@
 # AVORA 3.7 stabilizasyon durumu
 
 Son kontrol: 28 Eylül 2026. Entegrasyon dalı: `integration/phone-last-working`.
-Android sürümü henüz `3.6.12` (75); bu belge 3.7 yayımlandığı anlamına gelmez.
+Yedek adayı kaynak sürümleri: Android `3.7.0` (80), Pi `2.12.7`, NAS `0.1.7`.
+Sürüm numaraları kullanıcı isteğiyle yükseltildi. RC-6/RC-7 tamamlanmadı;
+bu kayıt saha kabulünün veya mağaza yayınının tamamlandığı anlamına gelmez.
+Pi ve NAS kaynak sürümlerinin yükseltilmesi canlı servislere dağıtım yapmaz.
 
 ## Tamamlanan çalışmalar
 
@@ -90,8 +93,8 @@ Android sürümü henüz `3.6.12` (75); bu belge 3.7 yayımlandığı anlamına 
    Kesintisiz 72 saat boyunca sürüm değişirse test başlangıcını yeniden belirle.
 2. RC-7: servis/log/bağlantı durumu, yetkisiz erişim reddi, güvenli aktüatör durumu,
    yedek geri dönüşü ve geçici erişimlerin kaldırılmasını doğrula.
-3. Saha kabulü ve CI tamamlandıktan sonra sürüm numarasını 3.7 olarak güncelle,
-   imzalı sürümü doğrula ve yayımla.
+3. Saha kabulü ve CI tamamlandıktan sonra 3.7.0 imzalı sürümünü yayımla.
+   Sürüm numarası kullanıcı isteğiyle main/yedek hazırlığında önceden güncellendi.
 
 RC-6 yeniden başlamadı; RC-7 ve 3.7 yayın onayı açık.
 
