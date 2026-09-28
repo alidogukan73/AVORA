@@ -31,6 +31,8 @@ from .database import (
 )
 from .database import tenant_database_path
 from .security import constant_time_equal
+from .recovery import PasswordRecovery
+from .firebase_identity import FirebaseIdentity
 
 
 _DOCUMENT_KEY = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$")
@@ -44,6 +46,8 @@ class AvoraService:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings.prepare()
         self.accounts = AccountDatabase(self.settings.account_database)
+        self.recovery = PasswordRecovery(self.settings, self.accounts)
+        self.firebase_identity = FirebaseIdentity(self.settings)
 
     def health(self) -> dict[str, Any]:
         return {

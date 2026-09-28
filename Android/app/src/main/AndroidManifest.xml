@@ -42,6 +42,8 @@
         <activity
             android:name=".activities.ThemeSettingsActivity"
             android:exported="false" />
+        <activity android:name=".activities.NasRecoveryActivity"
+            android:exported="false" android:windowSoftInputMode="adjustResize" />
         <activity
             android:name=".activities.LanguageSettingsActivity"
             android:exported="false" />

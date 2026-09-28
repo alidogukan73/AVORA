@@ -113,8 +113,17 @@ public final class DataSyncViewModel extends AndroidViewModel {
         setAutomaticNasPhotoBackupEnabled(false);
     }
     public NasSession loadNasSession() { return nasSessionStore.load(); }
+    public NasSession loginNas(String email, String password) throws Exception {
+        return new com.alidogukan.avora.nas.NasSecurityRepository(getApplication()).login(email, password);
+    }
+    public NasSession registerNas(String invite, String email, String name, String password) throws Exception {
+        return new com.alidogukan.avora.nas.NasSecurityRepository(getApplication()).register(invite, email, name, password);
+    }
     public void saveNasSession(NasSession session) { nasSessionStore.save(session); }
-    public void clearNasSession() { nasSessionStore.clear(); }
+    public void clearNasSession() {
+        nasSessionStore.clear();
+        com.alidogukan.avora.nas.NasFirebaseSessionManager.signOutNasOwner();
+    }
     public Task<JSONObject> createNasBackup() { return nasBackupManager.createBackup(); }
     public BackupValidation validateNasBackup(JSONObject backup) {
         AvoraBackupManager.ValidationResult value = nasBackupManager.validate(backup);

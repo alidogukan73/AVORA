@@ -1,0 +1,2 @@
+# Matches the Firebase Admin SDK already used by AVORA on Raspberry Pi.
+firebase-admin==7.5.0

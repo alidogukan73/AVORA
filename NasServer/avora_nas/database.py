@@ -34,6 +34,10 @@ class InvalidCurrentPasswordError(RuntimeError):
     """Raised when an authenticated user cannot confirm the current password."""
 
 
+class InvalidResetTokenError(RuntimeError):
+    """Invalid, expired, consumed or disabled-account recovery token."""
+
+
 class PasswordUnchangedError(RuntimeError):
     """Raised when a password change would keep the existing password."""
 
@@ -217,6 +221,11 @@ class AccountDatabase:
                 );
                 CREATE INDEX IF NOT EXISTS login_throttle_updated_idx
                     ON login_throttle(updated_at);
+                CREATE TABLE IF NOT EXISTS password_resets (
+                    token_hash TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    expires_at INTEGER NOT NULL
+                );
                 """
             )
 
@@ -458,6 +467,7 @@ class AccountDatabase:
             if verify_password(new_password, row["password_hash"]):
                 raise PasswordUnchangedError("The new password must be different.")
             encoded_password = hash_password(new_password)
+            connection.execute("DELETE FROM password_resets WHERE user_id = ?", (user.id,))
             connection.execute(
                 "UPDATE users SET password_hash = ? WHERE id = ?",
                 (encoded_password, user.id),
@@ -467,6 +477,45 @@ class AccountDatabase:
                 (user.id, current_token_hash),
             )
         return max(0, cursor.rowcount)
+
+    def create_password_reset(self, email: str, now: int) -> str | None:
+        email = normalize_email(email)
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            connection.execute("DELETE FROM password_resets WHERE expires_at <= ?", (now,))
+            row = connection.execute(
+                "SELECT id FROM users WHERE email = ? AND active = 1", (email,)
+            ).fetchone()
+            if row is None:
+                return None
+            token = new_secret(24)
+            connection.execute(
+                "INSERT INTO password_resets(token_hash, user_id, expires_at) VALUES (?, ?, ?)",
+                (token_digest(token), row["id"], now + 15 * 60),
+            )
+            return token
+
+    def discard_password_reset(self, token: str) -> None:
+        with self._connect() as connection:
+            connection.execute("DELETE FROM password_resets WHERE token_hash = ?", (token_digest(token),))
+
+    def reset_password(self, email: str, token: str, password: str, now: int) -> None:
+        email = normalize_email(email)
+        validate_password(password)
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                """SELECT users.id FROM password_resets JOIN users
+                   ON users.id = password_resets.user_id
+                   WHERE token_hash = ? AND expires_at > ? AND email = ? AND active = 1""",
+                (token_digest(token), now, email),
+            ).fetchone()
+            if row is None:
+                raise InvalidResetTokenError("Invalid or expired recovery code.")
+            connection.execute("UPDATE users SET password_hash = ? WHERE id = ?",
+                               (hash_password(password), row["id"]))
+            connection.execute("DELETE FROM sessions WHERE user_id = ?", (row["id"],))
+            connection.execute("DELETE FROM password_resets WHERE user_id = ?", (row["id"],))
 
     def revoke_other_sessions(self, user: User, current_token: str) -> int:
         current_token_hash = token_digest(current_token)
@@ -942,6 +991,7 @@ class AccountDatabase:
             sessions = connection.execute(
                 "DELETE FROM sessions WHERE user_id = ?", (user_id,)
             ).rowcount
+            connection.execute("DELETE FROM password_resets WHERE user_id = ?", (user_id,))
             connection.execute(
                 "DELETE FROM access_requests WHERE user_id = ?", (user_id,)
             )

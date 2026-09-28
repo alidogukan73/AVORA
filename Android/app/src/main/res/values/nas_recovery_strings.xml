@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="nas_recovery_title">Şifremi unuttum</string>
+    <string name="nas_recovery_message">NAS hesabınızın e-posta adresine sıfırlama kodu isteyin. Kodunuz varsa doğrudan aşağıya yapıştırabilirsiniz.</string>
+    <string name="nas_recovery_code">E-postadaki sıfırlama kodu</string>
+    <string name="nas_recovery_send">E-posta ile kod gönder</string>
+    <string name="nas_recovery_submit">Şifreyi sıfırla</string>
+    <string name="nas_recovery_done">Hesap ekranına dön</string>
+    <string name="nas_recovery_busy">İşlem sürüyor…</string>
+    <string name="nas_recovery_sent">Bu adresle etkin bir NAS hesabı varsa sıfırlama kodu gönderilecektir. Gelen kutusu ve spam klasörünü kontrol edin. Kod 15 dakika geçerlidir. E-posta gelmezse daha sonra tekrar deneyin veya NAS yöneticinize başvurun.</string>
+    <string name="nas_recovery_complete">Şifreniz sıfırlandı ve tüm NAS oturumları kapatıldı. Yeni şifrenizle tekrar giriş yapın. Kayıtlarınız ve fotoğraflarınız korunmuştur.</string>
+    <string name="nas_recovery_invalid_code">Kod geçersiz, kullanılmış veya süresi dolmuş. E-posta adresini ve kodu kontrol edin ya da yeni kod isteyin.</string>
+    <string name="nas_recovery_unavailable">Şifre kurtarma şu anda kullanılamıyor. NAS yöneticinizin e-posta ile kurtarmayı etkinleştirmesi gerekebilir.</string>
+    <string name="nas_recovery_rate_limited">Çok fazla kurtarma denemesi yapıldı. 15 dakika sonra tekrar deneyin.</string>
+    <string name="nas_recovery_password_policy">Şifre 12–128 karakter olmalı ve kontrol karakteri içermemelidir.</string>
+    <string name="nas_recovery_network_error">NAS sunucusuna ulaşılamadı veya işlem tamamlanamadı. Bağlantınızı kontrol edip tekrar deneyin.</string>
+</resources>

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="nas_recovery_title">Forgot password</string>
+    <string name="nas_recovery_message">Request a reset code for your NAS account email address. If you already have a code, paste it below.</string>
+    <string name="nas_recovery_code">Reset code from email</string>
+    <string name="nas_recovery_send">Email a reset code</string>
+    <string name="nas_recovery_submit">Reset password</string>
+    <string name="nas_recovery_done">Return to account</string>
+    <string name="nas_recovery_busy">Working…</string>
+    <string name="nas_recovery_sent">If an active NAS account uses this address, a reset code will be sent. Check your inbox and spam folder. The code expires in 15 minutes. If no email arrives, try again later or contact your NAS administrator.</string>
+    <string name="nas_recovery_complete">Your password has been reset and all NAS sessions have been signed out. Sign in with your new password. Your records and photos are preserved.</string>
+    <string name="nas_recovery_invalid_code">The code is invalid, used or expired. Check the email address and code, or request a new code.</string>
+    <string name="nas_recovery_unavailable">Password recovery is currently unavailable. Your NAS administrator may need to enable email recovery.</string>
+    <string name="nas_recovery_rate_limited">Too many recovery attempts. Try again in 15 minutes.</string>
+    <string name="nas_recovery_password_policy">Use 12–128 characters without control characters.</string>
+    <string name="nas_recovery_network_error">The NAS server could not be reached or the request failed. Check your connection and try again.</string>
+</resources>

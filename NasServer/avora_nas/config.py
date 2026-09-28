@@ -6,7 +6,7 @@ import os
 import secrets
 import sqlite3
 from contextlib import closing
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 
@@ -27,6 +27,14 @@ class Settings:
     login_block_seconds: int = 15 * 60
     login_account_attempts: int = 5
     login_source_attempts: int = 60
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_security: str = "starttls"
+    smtp_username: str = ""
+    smtp_password: str = field(default="", repr=False)
+    smtp_from: str = ""
+    firebase_credentials_file: str = ""
+    firebase_device_id: str = ""
 
     @property
     def database_dir(self) -> Path:
@@ -61,6 +69,16 @@ class Settings:
         return self.config_dir / "setup_token.txt"
 
     def prepare(self) -> "Settings":
+        if self.smtp_security not in ("starttls", "ssl"):
+            raise ConfigurationError("AVORA_SMTP_SECURITY must be starttls or ssl.")
+        if self.smtp_host:
+            from .security import normalize_email
+            try:
+                normalize_email(self.smtp_from)
+            except ValueError as exc:
+                raise ConfigurationError("AVORA_SMTP_FROM must be an email address.") from exc
+            if bool(self.smtp_username) != bool(self.smtp_password):
+                raise ConfigurationError("SMTP username and password must be configured together.")
         root = self.data_dir.expanduser().resolve()
         if root == Path(root.anchor):
             raise ConfigurationError("AVORA_DATA_DIR cannot be a filesystem root.")
@@ -112,6 +130,14 @@ class Settings:
             login_block_seconds=login_block_seconds,
             login_account_attempts=login_account_attempts,
             login_source_attempts=login_source_attempts,
+            smtp_host=os.environ.get("AVORA_SMTP_HOST", "").strip(),
+            smtp_port=_bounded_int("AVORA_SMTP_PORT", 587, 1, 65535),
+            smtp_security=os.environ.get("AVORA_SMTP_SECURITY", "starttls").strip(),
+            smtp_username=os.environ.get("AVORA_SMTP_USERNAME", ""),
+            smtp_password=os.environ.get("AVORA_SMTP_PASSWORD", ""),
+            smtp_from=os.environ.get("AVORA_SMTP_FROM", "").strip(),
+            firebase_credentials_file=os.environ.get("AVORA_FIREBASE_CREDENTIALS_FILE", "").strip(),
+            firebase_device_id=os.environ.get("AVORA_FIREBASE_DEVICE_ID", "").strip(),
         ).prepare()
         token = os.environ.get("AVORA_SETUP_TOKEN", "").strip()
         if not token:
@@ -120,19 +146,7 @@ class Settings:
             )
         if len(token) < 32:
             raise ConfigurationError("The AVORA setup token must contain at least 32 characters.")
-        return cls(
-            data_dir=settings.data_dir,
-            host=settings.host,
-            port=settings.port,
-            session_hours=settings.session_hours,
-            setup_token=token,
-            max_json_bytes=settings.max_json_bytes,
-            max_photo_bytes=settings.max_photo_bytes,
-            login_window_seconds=settings.login_window_seconds,
-            login_block_seconds=settings.login_block_seconds,
-            login_account_attempts=settings.login_account_attempts,
-            login_source_attempts=settings.login_source_attempts,
-        )
+        return replace(settings, setup_token=token)
 
 
 def _bounded_int(name: str, default: int, minimum: int, maximum: int) -> int:

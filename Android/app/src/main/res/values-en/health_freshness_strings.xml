@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="health_overall_unverified">No live connection · Raspberry Pi status cannot be verified</string>
+    <string name="health_overall_stale">Raspberry Pi connection is current · health data is out of date</string>
+    <string name="health_badge_unverified">UNVERIFIED</string>
+    <string name="diagnostics_pi_unverified">No live connection; Raspberry Pi status cannot be verified</string>
+    <string name="diagnostics_valve_unknown">Valve configuration saved; live status cannot be verified</string>
+</resources>

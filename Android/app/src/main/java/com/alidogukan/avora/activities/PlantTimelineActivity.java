@@ -323,6 +323,12 @@ public class PlantTimelineActivity extends EdgeToEdgeActivity {
     private boolean visibleInTab(TimelineItem item) {
         if ("photos".equals(activeTab)) return item.photo != null;
         if ("notes".equals(activeTab)) return item.event != null && "MANUAL".equals(item.event.getSource());
+        if (item.photo != null && "all".equals(activeFilter)) {
+            for (TimelineItem candidate : items) {
+                if (candidate.event != null && ("journal_record_" + candidate.event.getId())
+                        .equals(item.photo.getRelated_application_id())) return false;
+            }
+        }
         return item.matches(activeFilter);
     }
 
@@ -473,6 +479,7 @@ public class PlantTimelineActivity extends EdgeToEdgeActivity {
         if (item.event != null && "MANUAL".equals(item.event.getSource())) {
             intent.putExtra("manual_event_id", item.event.getId());
             intent.putExtra("manual_event_type", item.event.getType());
+            intent.putExtra("photo_group_id", "journal_record_" + item.event.getId());
         }
         if (item.photo != null) {
             intent.putExtra("photo_path", item.photo.getLocal_path());

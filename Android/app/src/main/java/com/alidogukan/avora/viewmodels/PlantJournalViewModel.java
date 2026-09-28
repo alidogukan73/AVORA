@@ -298,11 +298,18 @@ public final class PlantJournalViewModel extends AndroidViewModel {
                                     List<Bitmap> selectedBitmaps) {
         List<Task<?>> writes = new ArrayList<>();
         try {
+            GardenEvent event = null;
+            if (!"Fotoğraf".equals(type) && !"photo".equals(type)) {
+                event = events.add(zoneId, type, note, occurredAtEpoch);
+                event.setSeason_id(seasonId);
+                events.replaceSeasonId(event.getId(), seasonId);
+            }
             boolean hasPhoto = (selectedPhotos != null && !selectedPhotos.isEmpty())
                     || (selectedBitmaps != null && !selectedBitmaps.isEmpty());
             if (hasPhoto) {
-                String groupId = relatedApplicationId == null || relatedApplicationId.isBlank()
-                        ? "journal_record_" + UUID.randomUUID() : relatedApplicationId;
+                String groupId = relatedApplicationId != null && !relatedApplicationId.isBlank()
+                        ? relatedApplicationId
+                        : "journal_record_" + (event != null ? event.getId() : UUID.randomUUID());
                 if (selectedPhotos != null) {
                     for (Uri uri : selectedPhotos) {
                         writes.add(savePhoto(photos.save(uri, zoneId, note, groupId), seasonId));
@@ -313,10 +320,9 @@ public final class PlantJournalViewModel extends AndroidViewModel {
                         writes.add(savePhoto(photos.save(bitmap, zoneId, note, groupId), seasonId));
                     }
                 }
-            } else if (!"Fotoğraf".equals(type)) {
-                GardenEvent event = events.add(zoneId, type, note, occurredAtEpoch);
-                event.setSeason_id(seasonId);
-                events.replaceSeasonId(event.getId(), seasonId);
+            }
+            // Photos supplement the observation or milestone; they do not replace it.
+            if (event != null) {
                 writes.add(repository.saveGardenEvent(event));
             }
             return Tasks.whenAll(writes);
@@ -372,6 +378,7 @@ public final class PlantJournalViewModel extends AndroidViewModel {
     }
 
     public void deleteEvent(String id) {
+        deletePhotoRecord(null, "journal_record_" + id);
         if (events.delete(id)) repository.deleteGardenEvent(id);
     }
 

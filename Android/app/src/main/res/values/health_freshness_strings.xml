@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="health_overall_unverified">Canlı bağlantı yok · Raspberry Pi durumu doğrulanamıyor</string>
+    <string name="health_overall_stale">Raspberry Pi bağlantısı güncel · sağlık verisi güncel değil</string>
+    <string name="health_badge_unverified">DOĞRULANAMADI</string>
+    <string name="diagnostics_pi_unverified">Canlı bağlantı yok; Raspberry Pi durumu doğrulanamıyor</string>
+    <string name="diagnostics_valve_unknown">Vana yapılandırması kayıtlı; canlı durumu doğrulanamıyor</string>
+</resources>

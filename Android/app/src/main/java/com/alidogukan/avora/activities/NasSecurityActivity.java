@@ -65,6 +65,9 @@ public final class NasSecurityActivity extends EdgeToEdgeActivity {
     private LinearProgressIndicator progress;
     private NasSecurityViewModel viewModel;
     private NasSession currentSession;
+    private final androidx.activity.result.ActivityResultLauncher<Intent> recoveryLauncher =
+            registerForActivityResult(new androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult(),
+                    result -> { if (result.getResultCode() == RESULT_OK) viewModel.refresh(); });
     private AlertDialog inviteDialog;
     private AlertDialog passwordDialog;
     private TextInputLayout currentPasswordLayout;
@@ -449,6 +452,12 @@ public final class NasSecurityActivity extends EdgeToEdgeActivity {
         loginPasswordLayout = content.findViewById(R.id.layoutNasPassword);
         TextInputEditText emailInput = content.findViewById(R.id.inputNasEmail);
         TextInputEditText passwordInput = content.findViewById(R.id.inputNasPassword);
+        content.findViewById(R.id.btnNasForgotPassword).setOnClickListener(view -> {
+            if (!loginDialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled()) return;
+            loginDialog.dismiss();
+            recoveryLauncher.launch(new Intent(this, NasRecoveryActivity.class)
+                    .putExtra("email", textOf(emailInput).trim()));
+        });
         loginDialog = new MaterialAlertDialogBuilder(this)
                 .setTitle(R.string.data_sync_nas_login_title)
                 .setView(content)
@@ -857,6 +866,9 @@ public final class NasSecurityActivity extends EdgeToEdgeActivity {
                 .setTitle(R.string.data_sync_nas_change_password_title)
                 .setView(content)
                 .setNegativeButton(R.string.data_sync_nas_cancel, null)
+                .setNeutralButton(R.string.nas_recovery_title, (dialog, which) ->
+                        recoveryLauncher.launch(new Intent(this, NasRecoveryActivity.class)
+                                .putExtra("email", currentSession == null ? "" : currentSession.user.email)))
                 .setPositiveButton(R.string.data_sync_nas_change_password_confirm, null)
                 .create();
         passwordDialog.setOnShowListener(ignored ->
@@ -891,8 +903,7 @@ public final class NasSecurityActivity extends EdgeToEdgeActivity {
             currentInput.setText(null);
             newInput.setText(null);
             confirmInput.setText(null);
-            passwordDialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(false);
-            passwordDialog.getButton(AlertDialog.BUTTON_NEGATIVE).setEnabled(false);
+            setDialogEnabled(passwordDialog, false);
             viewModel.changePassword(current, next);
         }
     }
@@ -984,8 +995,7 @@ public final class NasSecurityActivity extends EdgeToEdgeActivity {
         }
         if (event.action == NasSecurityViewModel.Action.CHANGE_PASSWORD
                 && passwordDialog != null && passwordDialog.isShowing()) {
-            passwordDialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(true);
-            passwordDialog.getButton(AlertDialog.BUTTON_NEGATIVE).setEnabled(true);
+            setDialogEnabled(passwordDialog, true);
             if ("NAS_CURRENT_PASSWORD_INVALID".equals(event.code)) {
                 currentPasswordLayout.setError(getString(
                         R.string.data_sync_nas_current_password_invalid));
@@ -1002,7 +1012,8 @@ public final class NasSecurityActivity extends EdgeToEdgeActivity {
                 return;
             }
         }
-        int message = "NAS_RATE_LIMITED".equals(event.code)
+        int message = "NAS_FIREBASE_IDENTITY_UNAVAILABLE".equals(event.code)
+                ? R.string.nas_owner_access_failed : "NAS_RATE_LIMITED".equals(event.code)
                 ? R.string.data_sync_nas_error_rate_limited
                 : ("NAS_TIMEOUT".equals(event.code)
                 || "NAS_UNAVAILABLE".equals(event.code))
@@ -1012,6 +1023,9 @@ public final class NasSecurityActivity extends EdgeToEdgeActivity {
     }
 
     private String authenticationError(String code) {
+        if ("NAS_FIREBASE_IDENTITY_UNAVAILABLE".equals(code)) {
+            return getString(R.string.nas_owner_access_failed);
+        }
         if ("NAS_RATE_LIMITED".equals(code)) {
             return getString(R.string.data_sync_nas_error_rate_limited);
         }

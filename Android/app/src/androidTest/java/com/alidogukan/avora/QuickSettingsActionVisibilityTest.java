@@ -23,7 +23,7 @@ public final class QuickSettingsActionVisibilityTest {
     @Test public void editorActionsAreVisibleOnOneRow() {
         try (ActivityScenario<SettingsHubActivity> ignored =
                      ActivityScenario.launch(SettingsHubActivity.class)) {
-            onView(withId(R.id.btnEditQuickSettings)).perform(click());
+            onView(withId(R.id.btnSettingsToolbarAction)).perform(click());
 
             onView(withId(R.id.btnQuickSettingsRestoreDefaults))
                     .check(matches(withText(R.string.settings_quick_restore_defaults)))

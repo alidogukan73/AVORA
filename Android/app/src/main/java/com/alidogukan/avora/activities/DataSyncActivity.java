@@ -513,6 +513,12 @@ public class DataSyncActivity extends AppCompatActivity {
                         beginNasLogin(dialog, emailLayout, passwordLayout,
                                 emailInput, passwordInput)));
         dialog.show();
+        content.findViewById(R.id.btnNasForgotPassword).setOnClickListener(view -> {
+            if (nasAccountBusy) return;
+            dialog.dismiss();
+            startActivity(new android.content.Intent(this, NasRecoveryActivity.class)
+                    .putExtra("email", emailInput.getText() == null ? "" : emailInput.getText().toString().trim()));
+        });
     }
 
     private void beginNasLogin(AlertDialog dialog, TextInputLayout emailLayout,
@@ -546,7 +552,7 @@ public class DataSyncActivity extends AppCompatActivity {
 
         nasExecutor.execute(() -> {
             try {
-                NasSession session = NasAuthClient.login(email, password);
+                NasSession session = viewModel.loginNas(email, password);
                 boolean accessPending = false;
                 boolean accessRequestFailed = false;
                 if (!firebaseConnected && "user".equals(session.user.role)) {
@@ -676,7 +682,7 @@ public class DataSyncActivity extends AppCompatActivity {
         dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setEnabled(false);
         nasExecutor.execute(() -> {
             try {
-                NasSession session = NasAuthClient.register(
+                NasSession session = viewModel.registerNas(
                         inviteCode, email, displayName, password);
                 boolean accessPending = false;
                 boolean accessRequestFailed = false;
@@ -1788,6 +1794,9 @@ public class DataSyncActivity extends AppCompatActivity {
     }
 
     private String nasLoginError(Exception error) {
+        if ("NAS_FIREBASE_IDENTITY_UNAVAILABLE".equals(error.getMessage())) {
+            return getString(R.string.nas_owner_access_failed);
+        }
         if (error instanceof IllegalStateException) {
             return getString(R.string.data_sync_nas_error_storage);
         }

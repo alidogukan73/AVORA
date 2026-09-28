@@ -12,7 +12,6 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.PickVisualMediaRequest;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.Nullable;
-import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.ViewModelProvider;
 
 import com.alidogukan.avora.R;
@@ -36,13 +35,14 @@ public final class NewJournalRecordActivity extends EdgeToEdgeActivity {
     public static final String EXTRA_RELATED_APPLICATION_ID = "related_application_id";
     /** Legacy navigation value: photo launches now become observation records with photos attached. */
     public static final String RECORD_TYPE_PHOTO = "photo";
-    private static final String[] TYPES = {"observation", "watering", "fertilization", "event"};
-    private static final int[] TYPE_CARDS = {R.id.cardRecordObservation, R.id.cardRecordWatering, R.id.cardRecordFertilizer, R.id.cardRecordEvent};
+    private static final String[] TYPES = {"observation", "event"};
+    private static final int[] TYPE_CARDS = {R.id.cardRecordObservation, R.id.cardRecordEvent};
     private final Calendar selectedDateTime = Calendar.getInstance();
     private String zoneId = "";
     private String seasonId = "";
     private String relatedApplicationId = "";
     private String selectedType = TYPES[0];
+    private String milestoneType = "special";
     private static final int MAX_PHOTOS_PER_RECORD = 5;
     private final List<Uri> selectedPhotos = new ArrayList<>();
     private final List<GardenPhotoCapture.Target> capturedPhotos = new ArrayList<>();
@@ -57,6 +57,14 @@ public final class NewJournalRecordActivity extends EdgeToEdgeActivity {
                 clearCapturedPhotos();
                 selectedPhotos.clear();
                 selectedPhotos.addAll(uris.subList(0, Math.min(MAX_PHOTOS_PER_RECORD, uris.size())));
+                for (Uri uri : selectedPhotos) {
+                    try {
+                        getContentResolver().takePersistableUriPermission(uri,
+                                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    } catch (SecurityException ignored) {
+                        // Some providers only grant access for the current session.
+                    }
+                }
                 showSelectedPhotoState();
             });
 
@@ -91,6 +99,22 @@ public final class NewJournalRecordActivity extends EdgeToEdgeActivity {
         if (relatedApplicationId == null) relatedApplicationId = "";
         String initialType = getIntent().getStringExtra(EXTRA_INITIAL_TYPE);
         boolean legacyPhotoLaunch = RECORD_TYPE_PHOTO.equals(initialType);
+        if (isJournalMilestone(initialType)) {
+            milestoneType = initialType;
+        }
+        if (state != null) {
+            initialType = state.getString("journal.type", initialType);
+            milestoneType = state.getString("journal.milestone", milestoneType);
+            selectedDateTime.setTimeInMillis(state.getLong("journal.date", selectedDateTime.getTimeInMillis()));
+            ArrayList<String> photos = state.getStringArrayList("journal.photos");
+            if (photos != null) for (String uri : photos) selectedPhotos.add(Uri.parse(uri));
+            ArrayList<String> captures = state.getStringArrayList("journal.captures");
+            if (captures != null) for (String path : captures) {
+                GardenPhotoCapture.Target target = restoreCapture(path);
+                if (target != null) capturedPhotos.add(target);
+            }
+            pendingCameraPhoto = restoreCapture(state.getString("journal.pendingCamera"));
+        }
         dateText = findViewById(R.id.txtNewRecordDate);
         timeText = findViewById(R.id.txtNewRecordTime);
         photoState = findViewById(R.id.txtNewRecordPhotoState);
@@ -102,16 +126,24 @@ public final class NewJournalRecordActivity extends EdgeToEdgeActivity {
         findViewById(R.id.btnNewRecordSave).setOnClickListener(v -> save());
         for (int i = 0; i < TYPE_CARDS.length; i++) {
             final int index = i;
-            findViewById(TYPE_CARDS[i]).setOnClickListener(v -> selectType(index));
+            findViewById(TYPE_CARDS[i]).setOnClickListener(v -> {
+                if (index == 1) {
+                    chooseMilestone();
+                } else {
+                    selectType(index);
+                }
+            });
         }
         refreshDateTime();
         selectType(typeIndex(initialType));
-        if (legacyPhotoLaunch) {
+        if (!selectedPhotos.isEmpty()) showSelectedPhotoState();
+        if (legacyPhotoLaunch && state == null) {
             photoState.post(this::showPhotoSourceDialog);
         }
     }
 
     private int typeIndex(String requestedType) {
+        if (isJournalMilestone(requestedType)) return 1;
         if (requestedType == null || requestedType.isBlank()) return 0;
         for (int i = 0; i < TYPES.length; i++) {
             if (TYPES[i].equals(requestedType)) return i;
@@ -120,13 +152,88 @@ public final class NewJournalRecordActivity extends EdgeToEdgeActivity {
     }
 
     private void selectType(int index) {
-        selectedType = TYPES[index];
+        selectedType = index == 1 ? milestoneType : TYPES[index];
+        updateMilestoneLabel();
         for (int i = 0; i < TYPE_CARDS.length; i++) {
             MaterialCardView card = findViewById(TYPE_CARDS[i]);
             boolean active = i == index;
             card.setStrokeColor(getColor(active ? R.color.primary : R.color.border));
             card.setStrokeWidth(active ? dp(2) : dp(1));
             card.setCardBackgroundColor(getColor(active ? R.color.surfaceGreen : R.color.card));
+        }
+    }
+
+    private static boolean isJournalMilestone(String type) {
+        return "planting".equals(type)
+                || "flowering".equals(type)
+                || "first_product".equals(type)
+                || "harvest".equals(type)
+                || "special".equals(type);
+    }
+
+    private GardenPhotoCapture.Target restoreCapture(String path) {
+        try {
+            return GardenPhotoCapture.restore(this, path);
+        } catch (java.io.IOException ignored) {
+            return null;
+        }
+    }
+
+    @Override protected void onSaveInstanceState(Bundle state) {
+        state.putString("journal.type", selectedType);
+        state.putString("journal.milestone", milestoneType);
+        state.putLong("journal.date", selectedDateTime.getTimeInMillis());
+        ArrayList<String> photos = new ArrayList<>();
+        for (Uri uri : selectedPhotos) photos.add(uri.toString());
+        state.putStringArrayList("journal.photos", photos);
+        ArrayList<String> captures = new ArrayList<>();
+        for (GardenPhotoCapture.Target target : capturedPhotos) captures.add(target.getAbsolutePath());
+        state.putStringArrayList("journal.captures", captures);
+        if (pendingCameraPhoto != null) state.putString("journal.pendingCamera", pendingCameraPhoto.getAbsolutePath());
+        super.onSaveInstanceState(state);
+    }
+
+    private void chooseMilestone() {
+        String[] types = {
+                "planting",
+                "flowering",
+                "first_product",
+                "harvest",
+                "special"
+        };
+
+        String[] labels = {
+                getString(R.string.runtime_event_planting),
+                getString(R.string.runtime_event_flowering),
+                getString(R.string.runtime_event_first_product),
+                getString(R.string.runtime_event_harvest),
+                getString(R.string.runtime_event_special)
+        };
+
+        new MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.journal_milestone)
+                .setItems(labels, (dialog, which) -> {
+                    milestoneType = types[which];
+                    selectType(1);
+                })
+                .show();
+    }
+
+    private void updateMilestoneLabel() {
+        TextView label = findViewById(R.id.txtJournalMilestoneType);
+        if (label == null) return;
+        label.setVisibility(isJournalMilestone(selectedType) ? View.VISIBLE : View.GONE);
+
+        if ("planting".equals(milestoneType)) {
+            label.setText(R.string.runtime_event_planting);
+        } else if ("flowering".equals(milestoneType)) {
+            label.setText(R.string.runtime_event_flowering);
+        } else if ("first_product".equals(milestoneType)) {
+            label.setText(R.string.runtime_event_first_product);
+        } else if ("harvest".equals(milestoneType)) {
+            label.setText(R.string.runtime_event_harvest);
+        } else {
+            label.setText(R.string.runtime_event_special);
         }
     }
 
@@ -199,7 +306,16 @@ public final class NewJournalRecordActivity extends EdgeToEdgeActivity {
     }
 
     private void save() {
+        String note = noteInput.getText() == null ? "" : noteInput.getText().toString().trim();
+        if (note.isBlank()) {
+            noteInput.setError(getString(R.string.journal_note_required));
+            noteInput.requestFocus();
+            return;
+        }
         if (zoneId.isBlank()) { Toast.makeText(this, R.string.runtime_zone_not_found, Toast.LENGTH_SHORT).show(); return; }
+        final String recordType = selectedType;
+        final long recordEpoch = selectedDateTime.getTimeInMillis() / 1000L;
+        final List<Uri> recordPhotos = new ArrayList<>(selectedPhotos);
         View saveButton = findViewById(R.id.btnNewRecordSave);
         saveButton.setEnabled(false);
         viewModel.requireActiveSeasonId(zoneId)
@@ -214,11 +330,9 @@ public final class NewJournalRecordActivity extends EdgeToEdgeActivity {
                         return;
                     }
                     seasonId = activeSeasonId;
-                    String note = noteInput.getText() == null
-                            ? "" : noteInput.getText().toString().trim();
-                    viewModel.persistRecord(zoneId, seasonId, selectedType, note,
-                                    selectedDateTime.getTimeInMillis() / 1000L,
-                                    relatedApplicationId, selectedPhotos,
+                    viewModel.persistRecord(zoneId, seasonId, recordType, note,
+                                    recordEpoch,
+                                    relatedApplicationId, recordPhotos,
                                     java.util.Collections.emptyList())
                             .addOnSuccessListener(unused -> {
                                 clearCapturedPhotos();

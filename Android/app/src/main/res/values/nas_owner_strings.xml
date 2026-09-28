@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="nas_owner_access_failed">NAS yönetici hesabı doğrulandı ancak bahçe yetkisi kurulamadı. Bağlantınızı kontrol edip yeniden deneyin. Sorun sürerse NAS yetkilendirme hizmetini kontrol edin.</string>
+</resources>

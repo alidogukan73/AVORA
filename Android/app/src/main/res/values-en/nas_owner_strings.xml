@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="nas_owner_access_failed">The NAS administrator account was verified, but garden access could not be established. Check your connection and try again. If this continues, check the NAS authorization service.</string>
+</resources>

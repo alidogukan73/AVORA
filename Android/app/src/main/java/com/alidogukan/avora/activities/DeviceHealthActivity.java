@@ -31,7 +31,6 @@ import com.alidogukan.avora.ui.PrimaryBottomNavigation;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 
-import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
@@ -101,6 +100,7 @@ public class DeviceHealthActivity extends AppCompatActivity {
     private LinearLayout layoutDiagnostics;
     private Status latestStatus;
     private Health latestHealth;
+    private boolean latestConnectionVerified;
     private SeedlingTelemetry latestSeedlingTelemetry;
     private List<GardenZone> latestZones =
             Collections.emptyList();
@@ -110,9 +110,8 @@ public class DeviceHealthActivity extends AppCompatActivity {
         @Override
         public void run() {
             renderDiagnostics();
-            if (latestHealth != null) {
-                renderOverallHealth(latestHealth);
-            }
+            renderOverallHealth(latestHealth);
+            renderNodeMcuHealth();
             freshnessHandler.postDelayed(
                     this,
                     FRESHNESS_REFRESH_INTERVAL_MILLIS
@@ -342,14 +341,18 @@ public class DeviceHealthActivity extends AppCompatActivity {
                 new ViewModelProvider(this)
                         .get(MainViewModel.class);
 
-        mainViewModel.getStatus().observe(
+        viewModel.getConnection().observe(this, connected -> {
+            latestConnectionVerified = Boolean.TRUE.equals(connected);
+            renderDiagnostics();
+            renderOverallHealth(latestHealth);
+            renderNodeMcuHealth();
+        });
+        viewModel.getStatus().observe(
                 this,
                 status -> {
                     latestStatus = status;
                     renderDiagnostics();
-                    if (latestHealth != null) {
-                        renderOverallHealth(latestHealth);
-                    }
+                    renderOverallHealth(latestHealth);
                 }
         );
 
@@ -372,6 +375,7 @@ public class DeviceHealthActivity extends AppCompatActivity {
                     latestSeedlingTelemetry = nodeState == null
                             ? null
                             : nodeState.getLatest();
+                    renderDiagnostics();
                     renderNodeMcuHealth();
                 }
         );
@@ -415,12 +419,27 @@ public class DeviceHealthActivity extends AppCompatActivity {
                 .show();
     }
     private void renderHealth(Health health) {
-
+        latestHealth = health;
         if (health == null) {
+            txtLastHealthUpdate.setText(R.string.health_update_waiting);
+            for (TextView value : new TextView[] {txtCpuTemperature, txtCpuUsage, txtRamUsage,
+                    txtRamDetail, txtDiskUsage, txtDiskDetail, txtWifiSignal, txtWifiQuality,
+                    txtIpAddress, txtThrottlingStatus, txtThrottlingDescription, txtFirmware,
+                    txtUptime, txtCurrentPowerEvents, txtHistoricalPowerEvents, txtThrottlingRaw}) {
+                value.setText(R.string.health_detail_waiting);
+                value.setTextColor(color(R.color.textSecondary));
+            }
+            progressCpu.setProgress(0);
+            progressRam.setProgress(0);
+            progressDisk.setProgress(0);
+            cardWifiStatus.setCardBackgroundColor(color(R.color.surfaceSoft));
+            cardWifiStatus.setStrokeColor(color(R.color.border));
+            cardThrottlingBadge.setCardBackgroundColor(color(R.color.surfaceSoft));
+            cardThrottlingBadge.setStrokeColor(color(R.color.border));
+            renderOverallHealth(null);
+            renderDiagnostics();
             return;
         }
-
-        latestHealth = health;
 
         renderCpu(health);
         renderMemory(health);
@@ -446,13 +465,13 @@ public class DeviceHealthActivity extends AppCompatActivity {
         final int totalChecks = 7;
         long nowEpoch = System.currentTimeMillis() / 1000L;
 
-        boolean piOnline = DeviceHealthOverallResolver.isPiOnline(
+        boolean piOnline = latestConnectionVerified && DeviceHealthOverallResolver.isPiOnline(
                 latestStatus,
                 nowEpoch
         );
         addDiagnosticRow(
                 piOnline,
-                piOnline
+                !latestConnectionVerified ? R.string.diagnostics_pi_unverified : piOnline
                         ? R.string.diagnostics_pi_ok
                         : R.string.diagnostics_pi_error
         );
@@ -461,9 +480,7 @@ public class DeviceHealthActivity extends AppCompatActivity {
         boolean sensorFresh = false;
         for (GardenZone zone : latestZones) {
             if (
-                    zone.getUpdated_at_epoch() > 0L
-                            && nowEpoch
-                            - zone.getUpdated_at_epoch() <= 90L
+                    latestConnectionVerified && DeviceHealthOverallResolver.isFresh(zone.getUpdated_at_epoch(), nowEpoch, 90L)
             ) {
                 sensorFresh = true;
                 break;
@@ -500,12 +517,12 @@ public class DeviceHealthActivity extends AppCompatActivity {
             }
         }
         addDiagnosticRow(
-                true,
-                physicalValveReady
+                piOnline,
+                !piOnline ? R.string.diagnostics_valve_unknown : physicalValveReady
                         ? R.string.diagnostics_valve_physical_ready
                         : R.string.diagnostics_valve_simulation
         );
-        normalCount++;
+        if (piOnline) normalCount++;
 
         String lastError = latestStatus == null
                 ? ""
@@ -527,10 +544,8 @@ public class DeviceHealthActivity extends AppCompatActivity {
         );
         if (errorClear) normalCount++;
 
-        boolean adsStatusFresh = latestHealth != null
-                && latestHealth.getAds1115StatusUpdatedAtEpoch() > 0L
-                && (latestHealth.getAds1115StatusUpdatedAtEpoch() > nowEpoch
-                || nowEpoch - latestHealth.getAds1115StatusUpdatedAtEpoch() <= 90L);
+        boolean adsStatusFresh = latestConnectionVerified && latestHealth != null
+                && DeviceHealthOverallResolver.isFresh(latestHealth.getAds1115StatusUpdatedAtEpoch(), nowEpoch, 90L);
         boolean esp32Online = adsStatusFresh
                 && latestHealth.isEsp32NodeOnline();
         boolean primaryAds = esp32Online
@@ -564,7 +579,7 @@ public class DeviceHealthActivity extends AppCompatActivity {
         addDiagnosticRow(esp32AdsHealthy, esp32Diagnostic);
         if (esp32AdsHealthy) normalCount++;
 
-        boolean nodeMcuFresh = latestSeedlingTelemetry != null
+        boolean nodeMcuFresh = latestConnectionVerified && latestSeedlingTelemetry != null
                 && latestSeedlingTelemetry.isFresh(nowEpoch, 90L);
         boolean nodeMcuHealthy = nodeMcuFresh
                 && latestSeedlingTelemetry.isSoil_moisture_available();
@@ -635,7 +650,7 @@ public class DeviceHealthActivity extends AppCompatActivity {
                 newestEpoch = updatedAt;
                 newest = zone;
             }
-            if (updatedAt > 0L && nowEpoch - updatedAt <= 90L) {
+            if (latestConnectionVerified && DeviceHealthOverallResolver.isFresh(updatedAt, nowEpoch, 90L)) {
                 connected++;
             }
         }
@@ -694,11 +709,11 @@ public class DeviceHealthActivity extends AppCompatActivity {
     }
 
     private boolean renderAds1115ModuleFault(long nowEpoch) {
-        if (latestHealth == null) {
+        if (!latestConnectionVerified || latestHealth == null) {
             return false;
         }
         long updatedAt = latestHealth.getAds1115StatusUpdatedAtEpoch();
-        if (updatedAt <= 0L || nowEpoch - updatedAt > 90L) {
+        if (!DeviceHealthOverallResolver.isFresh(updatedAt, nowEpoch, 90L)) {
             return false;
         }
 
@@ -798,7 +813,7 @@ public class DeviceHealthActivity extends AppCompatActivity {
                 firmware
         );
 
-        if (!telemetry.isFresh(nowEpoch, 90L)) {
+        if (!latestConnectionVerified || !telemetry.isFresh(nowEpoch, 90L)) {
             setNodeMcuCard(
                     getString(R.string.runtime_no_connection_badge),
                     getString(R.string.health_nodemcu_stale),
@@ -1369,7 +1384,8 @@ public class DeviceHealthActivity extends AppCompatActivity {
                 DeviceHealthOverallResolver.evaluate(
                         health,
                         latestStatus,
-                        System.currentTimeMillis() / 1000L
+                        System.currentTimeMillis() / 1000L,
+                        latestConnectionVerified
                 );
 
         int statusColor;
@@ -1377,7 +1393,14 @@ public class DeviceHealthActivity extends AppCompatActivity {
         int titleResource;
         int badgeResource;
 
-        if (state == DeviceHealthOverallResolver.State.OFFLINE) {
+        if (state == DeviceHealthOverallResolver.State.UNVERIFIED
+                || state == DeviceHealthOverallResolver.State.STALE) {
+            statusColor = color(R.color.warning);
+            backgroundColor = color(R.color.warningBackground);
+            titleResource = state == DeviceHealthOverallResolver.State.UNVERIFIED
+                    ? R.string.health_overall_unverified : R.string.health_overall_stale;
+            badgeResource = R.string.health_badge_unverified;
+        } else if (state == DeviceHealthOverallResolver.State.OFFLINE) {
 
             statusColor =
                     color(R.color.offline);
@@ -1538,57 +1561,10 @@ public class DeviceHealthActivity extends AppCompatActivity {
     }
 
     private String formatUpdatedAt(String updatedAt) {
-
-        if (
-                updatedAt == null
-                        || updatedAt.isBlank()
-        ) {
-
-            return getString(
-                    R.string.health_update_waiting
-            );
-        }
-
-        try {
-
-            String normalized =
-                    updatedAt.length() >= 19
-                            ? updatedAt.substring(0, 19)
-                            : updatedAt;
-
-            SimpleDateFormat sourceFormat =
-                    new SimpleDateFormat(
-                            "yyyy-MM-dd'T'HH:mm:ss",
-                            Locale.US
-                    );
-
-            SimpleDateFormat displayFormat =
-                    new SimpleDateFormat(
-                            "dd-MM-yyyy HH:mm",
-                            Locale.forLanguageTag("tr-TR")
-                    );
-
-            Date date =
-                    sourceFormat.parse(normalized);
-
-            if (date == null) {
-
-                return getString(
-                        R.string.health_update_waiting
-                );
-            }
-
-            return getString(
-                    R.string.health_last_update_format,
-                    displayFormat.format(date)
-            );
-
-        } catch (ParseException exception) {
-
-            return getString(
-                    R.string.health_update_waiting
-            );
-        }
+        long epoch = DeviceHealthOverallResolver.healthUpdatedAtEpoch(updatedAt);
+        if (epoch <= 0L) return getString(R.string.health_update_waiting);
+        return getString(R.string.health_last_update_format,
+                new SimpleDateFormat("dd-MM-yyyy HH:mm", Locale.getDefault()).format(new Date(epoch * 1000L)));
     }
 
     private int color(int colorResource) {
