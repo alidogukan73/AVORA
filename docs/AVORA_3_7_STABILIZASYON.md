@@ -30,6 +30,9 @@ Android sürümü henüz `3.6.12` (75); bu belge 3.7 yayımlandığı anlamına 
 - Gübre ekranındaki toplu uygulama butonunun hizalanması.
 - Analiz ve tamamlanan takip için tek bildirim: `9af1efe`.
   Eski stash silinmedi; ESP32/ESP8266 MQTT kimlik doğrulama değişiklikleri güncel kodda zaten var.
+- Pi geri bildirim e-postası yeniden etkinleştirildi. Kullanıcının açık onayıyla
+  NAS'taki çalışan Gmail uygulama şifresi Pi'ye RSA-OAEP ile şifreli aktarıldı.
+  Eski 535 kimlik doğrulama hatası giderildi; SMTP ve IMAP girişleri başarılı.
 
 ## Doğrulama kanıtları
 
@@ -64,26 +67,33 @@ Android sürümü henüz `3.6.12` (75); bu belge 3.7 yayımlandığı anlamına 
   Aracın üç yerel testi ve mevcut 12 kurtarma/HTTP testi başarılı.
 - 28 Eylül: Pi süre politikası, röle zaman aşımı, yeniden başlatma güvenliği ve
   çevrimdışı komut politikası yerel testleri başarılı; gerçek donanım testi değildir.
+- 28 Eylül 18:31: Pi arka plan servisi kontrollü geri bildirimi `sent` olarak işaretledi;
+  tam Message-ID Gmail INBOX'ta doğrulandı. Aynı hesaba teslim için mevcut
+  `gmail_inbox` modu kullanılıyor. Test geri bildirimi Firebase'den temizlendi;
+  kuyrukta bekleyen bir eski geri bildirim de teslim edildi.
+  Aktif sulama kontrolünden sonra servis 18:29:49'da yeniden başlatıldı; son kontrolde
+  `active/running`, PID `16084`, `NRestarts=0`. Ortam dosyası izni `600`; tek kullanımlık
+  aktarım anahtarı kaldırıldı. Yedek:
+  `/etc/avora/feedback-email.env.before-repair-20260928-182948`.
+  Onarım korumaları için 3 test, şifreli aktarım için 2 test ve mevcut geri bildirim
+  teslimat regresyon betiği başarılı.
 - Önceki çalışma kayıtları günlük, sağlık ve kurtarma emülatör testlerini başarılı bildiriyor.
 - RC-1–RC-5 ve gerçek yedek/geri yükleme denemeleri önceki sohbet kayıtlarında başarılı;
   yeni aday için gereken saha kontrolleri tekrar doğrulanmalıdır.
 
 ## Açık işler ve sıra
 
-1. Pi geri bildirim e-postasının teslimatını doğrula; eski SMTP bilgileriyle görülen
-   535 kimlik doğrulama hatasını gider. NAS SMTP kurulumu bu Pi ayarını değiştirmedi.
-2. Saha adayı ve çalışan bileşen sürümleri sabitlenince RC-6'yı yeniden başlat.
+1. Saha adayı ve çalışan bileşen sürümleri sabitlenince RC-6'yı yeniden başlat.
    26 Eylül'de başlatılan önceki RC-6 kullanıcı tarafından iptal edildi;
    eski 29 Eylül bitiş zamanı yeni test için geçerli değildir.
    Yeni başlangıç, commit/APK özeti, servis başlangıç zamanları ve NRestarts değerlerini kaydet.
    Kesintisiz 72 saat boyunca sürüm değişirse test başlangıcını yeniden belirle.
-3. RC-7: servis/log/bağlantı durumu, yetkisiz erişim reddi, güvenli aktüatör durumu,
+2. RC-7: servis/log/bağlantı durumu, yetkisiz erişim reddi, güvenli aktüatör durumu,
    yedek geri dönüşü ve geçici erişimlerin kaldırılmasını doğrula.
-4. Saha kabulü ve CI tamamlandıktan sonra sürüm numarasını 3.7 olarak güncelle,
+3. Saha kabulü ve CI tamamlandıktan sonra sürüm numarasını 3.7 olarak güncelle,
    imzalı sürümü doğrula ve yayımla.
 
 RC-6 yeniden başlamadı; RC-7 ve 3.7 yayın onayı açık.
 
-Not: NAS için yeni Gmail uygulama şifresi kullanıldı. Pi'deki eski geri bildirim
-e-posta şifresi bu işlemde değiştirilmedi; önceki SMTP giriş denemeleri 535 hatası
-vermişti. Pi geri bildirim teslimatı ayrıca kontrol edilmeli.
+NAS ve Pi artık doğrulanmış Gmail uygulama şifresini kullanıyor; gizli değer Git'e
+veya tanılama çıktısına yazılmadı.
