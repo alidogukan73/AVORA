@@ -13,7 +13,15 @@ Android sürümü henüz `3.6.12` (75); bu belge 3.7 yayımlandığı anlamına 
 - Bağlantısı doğrulanamayan veya sağlık raporu eski Pi için sağlıklı gösteriminin kaldırılması.
 - NAS yönetici girişinden kalıcı Firebase kimliğiyle bahçe yetkisinin geri alınması.
   27 Eylül dağıtım kaydı iki bağımsız girişte aynı kimliği ve altı bölgenin okunmasını doğruluyor.
-- Şifre sıfırlama kodu ve testleri; canlı SMTP kurulumu aşağıda açık kalıyor.
+- Şifre sıfırlama kodu, testleri ve canlı SMTP kurulumu tamamlandı.
+  28 Eylül 16:08'de Gmail kimlik doğrulaması, test e-postasının gelen kutusunda
+  bulunması ve Portainer kaydının güncellenmesi doğrulandı. Hesap parolası değiştirilmedi.
+  NAS yedeği: `/share/Docker/AVORA/backups/smtp-update-20260928-160754-k192smth`.
+- Eski API ağ alanına bağlı kalıp 128 koduyla durmuş Tailscale tüneli onarıldı.
+  İlk onarımda API kimliği ve sağlığı korundu. SMTP uygulanırken tünel önce
+  kaldırılıp API'den sonra oluşturuldu; kalıcı veri birimleri silinmedi.
+- Entegrasyon dalı GitHub'a gönderildi; taslak PR #14 açıldı.
+  `ea4855d` için Android, NAS, Pi ve Firebase CI işleri başarılı.
 - Gübre ekranındaki toplu uygulama butonunun hizalanması.
 - Analiz ve tamamlanan takip için tek bildirim: `9af1efe`.
   Eski stash silinmedi; ESP32/ESP8266 MQTT kimlik doğrulama değişiklikleri güncel kodda zaten var.
@@ -24,6 +32,8 @@ Android sürümü henüz `3.6.12` (75); bu belge 3.7 yayımlandığı anlamına 
 - 28 Eylül: `assembleDebug` ve `assembleDebugAndroidTest` başarılı.
   Ekran testi APK'sının derlenmesi, cihazda testlerin çalıştırıldığı anlamına gelmez.
 - 28 Eylül: NAS unittest paketi 72/72 başarılı.
+- SMTP kurulum aracının 11 yerel testi başarılı: yalnız tünel onarımı, güvenli
+  başlatma sırası, yapılandırma koruması, hata/iptal geri dönüşü ve tanılama gizliliği.
 - 28 Eylül: Pi süre politikası, röle zaman aşımı, yeniden başlatma güvenliği ve
   çevrimdışı komut politikası yerel testleri başarılı; gerçek donanım testi değildir.
 - Önceki çalışma kayıtları günlük, sağlık ve kurtarma emülatör testlerini başarılı bildiriyor.
@@ -32,9 +42,10 @@ Android sürümü henüz `3.6.12` (75); bu belge 3.7 yayımlandığı anlamına 
 
 ## Açık işler ve sıra
 
-1. Entegrasyon değişikliklerini Git'e kaydet, uzak dala gönder ve CI sonucunu izle.
-2. SMTP gönderen hesabını yapılandır; gerçek teslimatı ve tek kullanımlık kodla
-   sıfırlamayı test hesabında doğrula. Parolaları Git'e veya sohbet kayıtlarına koyma.
+1. Yeni SMTP kurulum aracı ve canlı doğrulama kaydını Git'e kaydet; güncel CI'ı izle.
+2. Telefonun Şifremi unuttum ekranından gerçek kurtarma kodunu istemeyi ve kontrollü
+   hesapta tek kullanımlık kodla sıfırlamayı doğrula. SMTP test mesajının teslimi
+   tamamlandı; bu henüz uçtan uca hesap sıfırlama testi değildir.
 3. Fiziksel telefonda yönetici girişi, verilerin gelmesi, günlükte fotoğraflı/fotoğrafsız
    kayıt, cihaz sağlığı ve tek bildirim davranışını doğrula.
    28 Eylül kontrolünde ADB'ye bağlı cihaz yoktu. Veri yedeği olmadan uygulamayı silme.
@@ -49,3 +60,7 @@ Android sürümü henüz `3.6.12` (75); bu belge 3.7 yayımlandığı anlamına 
    imzalı sürümü doğrula ve yayımla.
 
 RC-6 yeniden başlamadı; RC-7 ve 3.7 yayın onayı açık.
+
+Not: NAS için yeni Gmail uygulama şifresi kullanıldı. Pi'deki eski geri bildirim
+e-posta şifresi bu işlemde değiştirilmedi; önceki SMTP giriş denemeleri 535 hatası
+vermişti. Pi geri bildirim teslimatı ayrıca kontrol edilmeli.

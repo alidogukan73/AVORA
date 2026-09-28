@@ -163,7 +163,30 @@ değerleri bu değişkenlerden alır; gerçek SMTP parolasını repoya yazmayın
 Kullanıcı adı ve parola birlikte tanımlanmalıdır. Sunucu sertifikası doğrulanır.
 SMTP kurulumundan sonra ayrı bir dağıtım adımında NAS API kaynakları ve stack
 güncellenmelidir. Yalnızca Android APK güncellemesi canlı sunucuda kurtarmayı açmaz.
-Bu geliştirme sırasında çalışan NAS/Portainer ayarları değiştirilmemiştir.
+28 Eylül 2026'daki AVORA NAS kurulumunda SMTP ve gerçek gelen kutusu teslimatı
+doğrulandı. Telefon üzerinden hesap kurtarma testi ayrı bir kabul adımıdır.
+
+### Mevcut AVORA NAS için etkileşimli SMTP kurulum aracı
+
+`configure_recovery_smtp.py` ve `deploy_owner_update.py` dosyalarını aynı NAS
+dizinine koyup SSH terminalinde `sudo /usr/local/bin/python3 configure_recovery_smtp.py`
+çalıştırın. Araç bu kurulumun `/share/Docker/AVORA` ve Portainer stack 1 yollarını,
+`avora-nas-api` / `avora-tailscale` konteynerlerini ve mevcut Gmail gönderenini
+doğrular; başka bir NAS'a uyarlanmadan kullanılmamalıdır. Google uygulama şifresi
+yalnız etkileşimli terminalde gizli girilir; komut satırı argümanına yazılmaz.
+
+- `--diagnose-only` yalnız servis durumunu ve sabit hata kategorilerini gösterir.
+- Eski API ağına bağlı, 128 koduyla durmuş tünel için yalnız tünel yeniden oluşturulur;
+  mevcut API'nin kimliği ve sağlığı doğrulanır.
+- SMTP girişi başarılı olunca özel izinli yapılandırma yedeği alınır. API güncellenirken
+  tünel önce kaldırılır, sonra yeni API ağıyla oluşturulur; veri birimleri silinmez.
+- Test mesajının gönderilmesi ve Gmail INBOX içinde aynı Message-ID ile bulunması
+  doğrulanır. Yalnız bundan sonra hem yerel hem Portainer Compose kaydı güncellenir.
+- Hata veya kullanıcı iptalinde önceki yapılandırma geri yüklenir. Başarılı sonuç ve
+  yedek dizini gösterilir; SMTP parolası, kurtarma kodları ve posta içerikleri loglanmaz.
+
+Bu test hesap parolasını değiştirmez; telefon üzerinden gerçek kurtarma akışını
+ayrıca doğrulayın. Pi'deki geri bildirim hesabının ayarları bu araçla değiştirilmez.
 
 Yeni, oturum gerektirmeyen uçlar:
 
