@@ -6,7 +6,6 @@ on failure. Does not restore or delete user data during rollback.
 """
 from __future__ import annotations
 
-import fcntl
 import ipaddress
 import json
 import os
@@ -150,6 +149,7 @@ def validate_candidate(backup, environment, api):
 
 
 def main():
+    import fcntl
     if os.geteuid() != 0:
         raise SystemExit("Run this prepared script with sudo on the NAS.")
     os.umask(0o077)

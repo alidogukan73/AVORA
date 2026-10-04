@@ -1,0 +1,150 @@
+{
+  "id": "rc6-20260928-370",
+  "status": "running",
+  "start_utc": "2026-09-28T16:08:00Z",
+  "end_utc": "2026-10-01T16:08:00Z",
+  "timezone": "Europe/Istanbul",
+  "source_commit": "0e821da488d8ddd8d2168b0902be4e7d2b44aca8",
+  "android": {
+    "version": "3.7.0",
+    "version_code": 80,
+    "apk_sha256": "15FB3A183D68DCDD86536993D18A9F2FA477283F521658B026614B563E7F710E",
+    "installation_evidence": "User reports Android 3.7 installed; device package/hash not inspected through ADB"
+  },
+  "source_versions": {
+    "pi": "2.12.7",
+    "nas": "0.1.7"
+  },
+  "runtime_versions": {
+    "pi_config": "2.12.1",
+    "nas_health": "0.1.6"
+  },
+  "pi": {
+    "success": true,
+    "pid": 17210,
+    "folder": "/var/lib/avora-rc6/20260928-370",
+    "baseline": {
+      "mode": "pi",
+      "started_at": "2026-09-28T16:06:58.722903+00:00",
+      "snapshot": {
+        "observed_at": "2026-09-28T16:06:58.132393+00:00",
+        "boot_id": "0c80e8fb-2e84-4914-b03e-f4d56f35b0d5",
+        "services": {
+          "avora.service": {
+            "MainPID": "16084",
+            "NRestarts": "0",
+            "ExecMainStartTimestamp": "Mon 2026-09-28 18:29:49 +03",
+            "ExecMainStartTimestampMonotonic": "34793326352",
+            "ActiveState": "active",
+            "SubState": "running"
+          },
+          "avora-vision.service": {
+            "MainPID": "759",
+            "NRestarts": "0",
+            "ExecMainStartTimestamp": "Mon 2026-09-28 08:44:30 +03",
+            "ExecMainStartTimestampMonotonic": "18647912",
+            "ActiveState": "active",
+            "SubState": "running"
+          },
+          "mosquitto.service": {
+            "MainPID": "783",
+            "NRestarts": "0",
+            "ExecMainStartTimestamp": "Mon 2026-09-28 08:44:30 +03",
+            "ExecMainStartTimestampMonotonic": "19093238",
+            "ActiveState": "active",
+            "SubState": "running"
+          }
+        },
+        "code_sha256": "f93ccda54ef320b5b8d4ba837f8d08b70c5724db0ec4ce0dd2e249f71a069182",
+        "version": "2.12.1",
+        "nas_version": "0.1.6",
+        "nas_healthy": true,
+        "vision_healthy": true,
+        "issues": []
+      },
+      "observer_sha256": "c60dadadbb52a4b7cf2720654fc6437334930670325a59822f486e8a314c6769"
+    }
+  },
+  "nas": {
+    "success": true,
+    "pid": 23013,
+    "folder": "/share/Docker/AVORA/rc6-20260928-370",
+    "baseline": {
+      "mode": "nas",
+      "started_at": "2026-09-28T16:07:01.943782+00:00",
+      "snapshot": {
+        "observed_at": "2026-09-28T16:07:01.878860+00:00",
+        "boot_id": "1fa3ea8f-15b2-499b-b7c6-0b62375a173b",
+        "containers": {
+          "avora-nas-api": {
+            "id": "c84eb9aaacf9dce11b291fda446627115a16647bf7308ec0f4a6a85c94de9d6e",
+            "image": "sha256:c06cc98028c9b4f8ccc65a69cb87f1fddb624fbd62d58f4d70171bae2bf8c505",
+            "status": "running",
+            "started_at": "2026-09-28T13:07:59.022911846Z",
+            "restarts": 0,
+            "health": "healthy",
+            "oom_killed": false
+          },
+          "avora-tailscale": {
+            "id": "dc4c9766ce23d3e3387eae828ca8425b7f1cbb4f8e77405596bc0e7c1cddaba9",
+            "image": "sha256:2a422afefb534f32fa1267998ef48ebf1d7a64f84da9db8b8a18f4d99744d86f",
+            "status": "running",
+            "started_at": "2026-09-28T13:08:02.642424559Z",
+            "restarts": 0,
+            "health": "none",
+            "oom_killed": false
+          }
+        },
+        "version": "0.1.6",
+        "code_sha256": "ba99bf8749bf57c9b19a345b5c5db585f465e982a29805ce116097d8e7eb2cbf",
+        "issues": []
+      },
+      "observer_sha256": "c60dadadbb52a4b7cf2720654fc6437334930670325a59822f486e8a314c6769"
+    }
+  },
+  "nas_initial_status": {
+    "mode": "nas",
+    "running": true,
+    "pid": 23013,
+    "started_at": "2026-09-28T16:07:01.943782+00:00",
+    "last_sample_at": "2026-09-28T16:07:02.264619+00:00",
+    "sample_count": 1,
+    "problem_samples": 0,
+    "first_issue": null,
+    "last_issues": [],
+    "last_snapshot": {
+      "observed_at": "2026-09-28T16:07:02.264621+00:00",
+      "boot_id": "1fa3ea8f-15b2-499b-b7c6-0b62375a173b",
+      "containers": {
+        "avora-nas-api": {
+          "id": "c84eb9aaacf9dce11b291fda446627115a16647bf7308ec0f4a6a85c94de9d6e",
+          "image": "sha256:c06cc98028c9b4f8ccc65a69cb87f1fddb624fbd62d58f4d70171bae2bf8c505",
+          "status": "running",
+          "started_at": "2026-09-28T13:07:59.022911846Z",
+          "restarts": 0,
+          "health": "healthy",
+          "oom_killed": false
+        },
+        "avora-tailscale": {
+          "id": "dc4c9766ce23d3e3387eae828ca8425b7f1cbb4f8e77405596bc0e7c1cddaba9",
+          "image": "sha256:2a422afefb534f32fa1267998ef48ebf1d7a64f84da9db8b8a18f4d99744d86f",
+          "status": "running",
+          "started_at": "2026-09-28T13:08:02.642424559Z",
+          "restarts": 0,
+          "health": "none",
+          "oom_killed": false
+        }
+      },
+      "version": "0.1.6",
+      "code_sha256": "ba99bf8749bf57c9b19a345b5c5db585f465e982a29805ce116097d8e7eb2cbf",
+      "error_lines": 0,
+      "issues": []
+    }
+  },
+  "automation_id": "avora-rc-6-72-saat-takibi",
+  "sample_interval_seconds": 60,
+  "observer_duration_hours": 73,
+  "stale_after_seconds": 150,
+  "nas_final_authenticated_retrieval_required": true,
+  "acceptance": "Full common 72-hour coverage and issue review required; completion time alone is not a pass."
+}

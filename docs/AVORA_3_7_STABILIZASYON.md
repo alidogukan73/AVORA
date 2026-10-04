@@ -1,9 +1,8 @@
 # AVORA 3.7 stabilizasyon durumu
 
-Son kontrol: 28 Eylül 2026. Entegrasyon dalı: `integration/phone-last-working`.
+Son kontrol: 4 Ekim 2026. Güncel dal: `main`; PR #14 birleştirildi.
 Yedek adayı kaynak sürümleri: Android `3.7.0` (80), Pi `2.12.7`, NAS `0.1.7`.
-Sürüm numaraları kullanıcı isteğiyle yükseltildi. RC-6/RC-7 tamamlanmadı;
-bu kayıt saha kabulünün veya mağaza yayınının tamamlandığı anlamına gelmez.
+Sürüm numaraları kullanıcı isteğiyle yükseltildi. RC-6, 4 Ekim kullanıcı onayıyla belgeli dış kesinti istisnalarıyla kabul edildi. RC-7, 4 Ekim son kontrolleriyle tamamlandı; Git/CI, güncel yedek ve yayın kapanışı açık.
 Pi ve NAS kaynak sürümlerinin yükseltilmesi canlı servislere dağıtım yapmaz.
 
 ## Tamamlanan çalışmalar
@@ -86,17 +85,35 @@ Pi ve NAS kaynak sürümlerinin yükseltilmesi canlı servislere dağıtım yapm
 
 ## Açık işler ve sıra
 
-1. Saha adayı ve çalışan bileşen sürümleri sabitlenince RC-6'yı yeniden başlat.
-   26 Eylül'de başlatılan önceki RC-6 kullanıcı tarafından iptal edildi;
-   eski 29 Eylül bitiş zamanı yeni test için geçerli değildir.
-   Yeni başlangıç, commit/APK özeti, servis başlangıç zamanları ve NRestarts değerlerini kaydet.
-   Kesintisiz 72 saat boyunca sürüm değişirse test başlangıcını yeniden belirle.
-2. RC-7: servis/log/bağlantı durumu, yetkisiz erişim reddi, güvenli aktüatör durumu,
-   yedek geri dönüşü ve geçici erişimlerin kaldırılmasını doğrula.
-3. Saha kabulü ve CI tamamlandıktan sonra 3.7.0 imzalı sürümünü yayımla.
-   Sürüm numarası kullanıcı isteğiyle main/yedek hazırlığında önceden güncellendi.
+RC-6 kullanıcı onayıyla kabul edildi; yeni 72 saatlik ek test iptal edildi. Önceki kesinti kanıtları korunuyor. [RC-6 sonuç ve kullanıcı kabulü](AVORA_RC6_POWER_CYCLE_20260929.md).
 
-RC-6 yeniden başlamadı; RC-7 ve 3.7 yayın onayı açık.
+Geçici gözlem temizliği tamamlandı: Pi ek gözlem süreci durduruldu; eski ve ek test NAS cron satırları yedeklenerek kaldırıldı. Diğer görevler korundu.
+
+**RC-7 tamamlandı:** servis/bağlantı, erişim reddi, güvenli GPIO çıkışları, 97 NAS testi, 9 Pi regresyon betiği, kaynak ve gerçek NAS verilerinin ayrı dizine geri açılması, geçici erişim temizliği doğrulandı. Üç geçmiş sensör veri uyarısında güncel toparlanma doğrulandı. [RC-7 raporu](AVORA_RC7_20261004.md).
+1. **Git/CI kapanışı:** NAS tünel düzeltmesi, yardımcı araçlar, testler ve güncel kabul belgelerinin çalışma ağacındaki değişikliklerini gözden geçirip kaydetme; son durum için CI doğrulama ve güncel yedek. Önceki main/yedek korunuyor.
+2. **3.7 yayın hazırlığı:** imzalı son paket ve yayın notları, kabul edilen canlı sürüm bileşiminin kaydı ve dağıtım/yayın onayı. Kaynak Pi 2.12.7/NAS 0.1.7; canlı alanlar Pi 2.12.1/NAS 0.1.6. Bu kaynak sürüm artışları henüz canlıya dağıtılmadı. Yeni dağıtım bu kabul kararıyla yapılmış sayılmaz.
+
+## Önceki test olayları (tarihsel kayıt)
+
+RC-6 kesintiye uğradı: NAS 28 Eylül 23:01'de durmuş, 29 Eylül 10:01 civarında
+yeniden açılmış. API sağlıklı; Tailscale tüneli ağ alanı hatasıyla kapalı, NAS izleyicisi
+durmuş. Mevcut pencere kesintisiz 72 saat kabulünü karşılamıyor; onarım ve yeni
+başlangıç değerlendirmesi gerekiyor. Otomatik onarım veya test sıfırlaması yapılmadı.
+RC-7 ve 3.7 yayın onayı açık.
 
 NAS ve Pi artık doğrulanmış Gmail uygulama şifresini kullanıyor; gizli değer Git'e
 veya tanılama çıktısına yazılmadı.
+
+29 Eylül: Kullanıcı planlı NAS güç döngüsü kabulünü seçti. Yeni pencere kurulum sonrası
+başlayacak; [hazırlık ve kabul ölçütleri](AVORA_RC6_POWER_CYCLE_20260929.md).
+
+29 Eylül 16:59: Güç zamanlaması korunarak yeni RC-6 penceresi **2 Ekim 16:59** bitişli
+olarak kuruldu. Kalıcı tünel ağ düzeltmesi ve kontrollü tünel yeniden başlatma doğrulandı.
+NAS root cron gözlem görevi ölçüm aldı; Pi gözlemi yeni ölçüte geçti.
+Üç gerçek sabah açılışı ve telefon saha gözlemi bekleniyor. 97 NAS testi başarılı.
+
+4 Ekim: Kullanıcı yeni 72 saatlik testi iptal etti ve RC-6'yı geçti kabul etti. Bu karar yukarıdaki tarihsel açık/başarısız RC-6 durumlarının güncel kabul durumunu değiştirir; orijinal ölçümler korunur. RC-7 ve yayın işleri açık kalır.
+
+4 Ekim RC-7 tamamlandı. Yukarıdaki tarihsel RC-7 açık notlarının güncel karşılığı [RC-7 raporudur](AVORA_RC7_20261004.md). Git/CI, son yedek ve yayın hazırlığı açık.
+
+4 Ekim Git/CI ve güncel yedek kapanışı: [kapsam ve doğrulama kaydı](AVORA_3_7_0_KAPANIS_YEDEGI_20261004.md). Sonuç, commit ve CI bağlantısı yerel yedek manifestinde tutulur; paket/dağıtım yayını ayrı kalır.

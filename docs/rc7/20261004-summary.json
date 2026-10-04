@@ -1,0 +1,73 @@
+{
+  "id": "rc7-20261004",
+  "status": "completed",
+  "result": "passed_with_observations",
+  "reviewed_at_utc": "2026-10-04T14:33:00.958774+00:00",
+  "checks": {
+    "services_active": true,
+    "health_endpoints": true,
+    "protected_http_rejected": true,
+    "mqtt_anonymous_rejected": true,
+    "firebase_anonymous_rejected": true,
+    "gpio_outputs_inactive": true,
+    "seven_local_safety_regressions": true,
+    "app_check_regression": true,
+    "owner_backup_restore_regression": true,
+    "nas_97_tests": true,
+    "source_backup_restored": true,
+    "nas_database_photo_restore": true,
+    "nas_identity_unchanged": true,
+    "temporary_observers_removed": true,
+    "temporary_keys_sessions_removed": true,
+    "sensor_currently_recovered": true,
+    "sensitive_file_permissions": true
+  },
+  "observations": {
+    "sensor_events_last_24h": [
+      {
+        "at_utc": "2026-10-03T16:33:36.863510+00:00",
+        "kind": "no_wireless_measurement_received"
+      },
+      {
+        "at_utc": "2026-10-03T20:27:06.717677+00:00",
+        "kind": "no_wireless_measurement_received"
+      },
+      {
+        "at_utc": "2026-10-04T05:34:46.244016+00:00",
+        "kind": "no_wireless_measurement_received"
+      }
+    ],
+    "sensor_live_messages": {
+      "connection_code": 0,
+      "nonretained_message_count": 6,
+      "sensors_with_live_messages": 3,
+      "observation_seconds": 12
+    },
+    "old_pi_superadmin_test_outdated": true,
+    "current_test_passed_against_same_live_module": true
+  },
+  "scope_limits": [
+    "GPIO electrical levels read only; no physical watering or flow test",
+    "NAS restore performed in separate private directory; live database not overwritten",
+    "NAS snapshots consistent per database; no coordinated full-device disaster recovery",
+    "Source/APK recovery is 28 September backup; current uncommitted changes await Git and fresh backup"
+  ],
+  "application_services_restarted": false,
+  "actuator_commands_sent": false,
+  "live_data_overwritten": false,
+  "NAS_backup_directory": "/data/backups/rc7-restore-check-20261004T142843Z",
+  "evidence_sha256": {
+    "local-checks.json": "76c6873cba9569bda232d04ba24d90bee51dd1793b97d2aa7aff56c97aa2b783",
+    "pi-live-checks.json": "8c7e60d0f1c9f99062bf8942e5a5fc4f09c2747584aead261820cc799dac2687",
+    "pi-followup-checks.json": "5c7d946b5e8bb6a9033593699ae47d52dbcf808dc55f04bbfd4ecbdcae2b6643",
+    "pi-error-classification.json": "252a252cabbb079bf2792d60dc37f47ddc217ed3b952d980f00ae7d7f4b99353",
+    "firebase-access-checks.json": "5c7c3debc3e4210b183db8268fa2c97e51f0c5b24dbc24d6e91548dfbbe89151",
+    "nas-live-checks.json": "6229f579534d5b84330d09fd7c9c333f121e3acc144e17d5290451fa8a5dd837",
+    "superadmin-current-test.json": "94ca5eabde7db55fbf494b23d901cee62d6b37d92eddd9566c73391dfa9b4e51"
+  },
+  "remaining": [
+    "Git review commit push and CI",
+    "Fresh backup including final changes",
+    "Signed 3.7 release preparation and distribution approval"
+  ]
+}

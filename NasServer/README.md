@@ -78,7 +78,7 @@ otomatik olarak yeniden uygular.
 İlk dağıtımdan sonra Portainer'da `avora-tailscale` günlüklerindeki oturum açma bağlantısı
 kullanılarak NAS Tailscale hesabına eklenir. Oturum açma tamamlanınca Funnel yapılandırması
 `TS_SERVE_CONFIG` üzerinden otomatik yüklenir. Konteyner konsolunda `tailscale funnel status`
-ile `Funnel on` ve `proxy http://127.0.0.1:8787` görüldüğü doğrulanır. Oluşan
+ile `Funnel on` ve `proxy http://avora-api:8787` görüldüğü doğrulanır. Oluşan
 `https://...ts.net` adresi AVORA istemcilerinin güvenli API adresidir. Test kullanıcılarının
 cihazlarına Tailscale kurulması gerekmez. Funnel etkinleştirilmeden önce yönlendiricideki
 `18788` kuralı devre dışı bırakılmalıdır.

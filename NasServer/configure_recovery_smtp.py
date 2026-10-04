@@ -123,8 +123,12 @@ def verify_tunnel(expected_api_id=None):
         api, tunnel = json.loads(run('docker', 'inspect', API, TUNNEL))
         if expected_api_id and api['Id'] != expected_api_id:
             raise SetupError('API identity changed during tunnel-only repair')
+        shared_namespace = tunnel['HostConfig']['NetworkMode'] == 'container:' + api['Id']
+        common_network = set(api.get('NetworkSettings', {}).get('Networks', {})) & set(
+            tunnel.get('NetworkSettings', {}).get('Networks', {}))
+        independent_network = bool(common_network - {'host', 'bridge', 'none'})
         if (api['State']['Running'] and tunnel['State']['Running']
-                and tunnel['HostConfig']['NetworkMode'] == 'container:' + api['Id']):
+                and (shared_namespace or independent_network)):
             result = subprocess.run(['docker', 'exec', TUNNEL, 'tailscale', 'status', '--json'],
                                     text=True, capture_output=True)
             try:
