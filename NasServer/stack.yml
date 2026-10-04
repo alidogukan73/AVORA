@@ -60,7 +60,9 @@ services:
     image: tailscale/tailscale:stable
     container_name: avora-tailscale
     restart: always
-    network_mode: "service:avora-api"
+    # Independent namespace allows Docker to restart either container first.
+    networks:
+      - default
     depends_on:
       avora-api:
         condition: service_healthy
