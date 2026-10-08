@@ -18,10 +18,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * process is still opening its socket. A one-shot get therefore cannot
  * distinguish startup from a real network loss.</p>
  */
-final class FirebaseConnectionProbe {
+public final class FirebaseConnectionProbe {
     private FirebaseConnectionProbe() { }
 
-    static boolean awaitConnected(long timeout, TimeUnit unit)
+    public static boolean awaitConnected(long timeout, TimeUnit unit)
             throws InterruptedException {
         CountDownLatch signal = new CountDownLatch(1);
         AtomicBoolean connected = new AtomicBoolean(false);

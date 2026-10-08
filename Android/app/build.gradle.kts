@@ -28,8 +28,8 @@ android {
         applicationId = "com.alidogukan.avora"
         minSdk = 26
         targetSdk = 36
-        versionCode = 80
-        versionName = "3.7.0"
+        versionCode = 81
+        versionName = "3.7.1"
 
         testInstrumentationRunner = if (providers.gradleProperty("journalLocalEmulator").orNull == "true")
             "com.alidogukan.avora.JournalTestRunner"
