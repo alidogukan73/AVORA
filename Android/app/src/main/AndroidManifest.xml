@@ -6,6 +6,8 @@
         android:name="android.permission.INTERNET" />
     <uses-permission
         android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission
         android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission
@@ -63,6 +65,15 @@
             android:name=".activities.RainSettingsActivity"
             android:exported="false" />
 
+        <receiver android:name=".fertilization.FertilizerReminderAlarmReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+            </intent-filter>
+        </receiver>
         <service
             android:name=".notifications.AvoraFirebaseMessagingService"
             android:exported="false">

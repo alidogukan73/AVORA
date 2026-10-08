@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="fertilizer_reminder_check">Checking fertilizer reminders</string>
     <!-- RUNTIME ADDITIONS -->
     <string name="runtime_badge_overflow">99+</string>
     <string name="runtime_avora_comment_prefix">AVORA comment: </string>

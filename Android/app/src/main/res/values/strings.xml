@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="fertilizer_reminder_check">Gübreleme hatırlatmaları kontrol ediliyor</string>
     <!-- UYGULAMA -->
     <string
         name="app_name" translatable="false">AVORA</string>

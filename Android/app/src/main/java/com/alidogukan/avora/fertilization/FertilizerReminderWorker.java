@@ -2,6 +2,11 @@ package com.alidogukan.avora.fertilization;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import androidx.core.app.NotificationCompat;
+import androidx.work.ForegroundInfo;
+import com.alidogukan.avora.notifications.FirebaseConnectionProbe;
 
 import androidx.annotation.NonNull;
 import com.alidogukan.avora.notifications.GardenNotificationManager;
@@ -50,6 +55,19 @@ public class FertilizerReminderWorker extends Worker {
         super(context, parameters);
     }
 
+    /** WorkManager uses a short foreground task for expedited work on Android 8–11. */
+    @NonNull @Override public ForegroundInfo getForegroundInfo() {
+        Context context = AvoraLanguageManager.localizedContext(getApplicationContext());
+        String channel = "avora_reminder_checks";
+        NotificationManager manager = context.getSystemService(NotificationManager.class);
+        manager.createNotificationChannel(new NotificationChannel(channel,
+                context.getString(R.string.fertilizer_reminder_check), NotificationManager.IMPORTANCE_LOW));
+        return new ForegroundInfo(73081, new NotificationCompat.Builder(context, channel)
+                .setSmallIcon(R.drawable.ic_avora_notification_small)
+                .setContentTitle(context.getString(R.string.fertilizer_reminder_check))
+                .setSilent(true).setOngoing(true).build());
+    }
+
     @NonNull
     @Override
     public Result doWork() {
@@ -63,6 +81,7 @@ public class FertilizerReminderWorker extends Worker {
         if (!fertilizationEnabled && !stockEnabled) return Result.success();
 
         try {
+            if (!FirebaseConnectionProbe.awaitConnected(15, TimeUnit.SECONDS)) return Result.retry();
             if (!FirebaseWorkerAuthentication.awaitAuthorized(20, TimeUnit.SECONDS)) {
                 return Result.success();
             }
@@ -76,8 +95,11 @@ public class FertilizerReminderWorker extends Worker {
                     TimeUnit.SECONDS
             );
             Map<String, FertilizerProduct> products = products(productSnapshot);
-            notifyLowStockProducts(context, products);
-            if (!fertilizationEnabled) return Result.success();
+            if (!fertilizationEnabled) {
+                if (!FirebaseConnectionProbe.awaitConnected(10, TimeUnit.SECONDS)) return Result.retry();
+                notifyLowStockProducts(context, products);
+                return Result.success();
+            }
 
             DataSnapshot zonesSnapshot = Tasks.await(
                     deviceRef.child("zones").get(),
@@ -100,6 +122,8 @@ public class FertilizerReminderWorker extends Worker {
             collectRecommendations(recommendationSnapshot, recommendations, "", "");
             List<FertilizerApplication> history = new ArrayList<>();
             collectHistory(historySnapshot, history);
+            if (!FirebaseConnectionProbe.awaitConnected(10, TimeUnit.SECONDS)) return Result.retry();
+            notifyLowStockProducts(context, products);
 
             for (DataSnapshot child : zonesSnapshot.getChildren()) {
                 GardenZone zone = child.getValue(GardenZone.class);
@@ -119,7 +143,7 @@ public class FertilizerReminderWorker extends Worker {
                         new FertilizationPreferenceStore(context)
                                 .preferOrganicInputs()
                 );
-                notifyIfDue(context, zone, products, recommendations, advice);
+                notifyIfDue(context, zone, products, recommendations, advice, zoneHistory);
                 notifyAiAdvice(context, zone, zoneHistory, advice);
             }
             notifyOutcomeFollowUps(context, history, zonesSnapshot);
@@ -227,7 +251,8 @@ public class FertilizerReminderWorker extends Worker {
             GardenZone zone,
             Map<String, FertilizerProduct> products,
             List<FertilizerRecommendation> recommendations,
-            FertilizerAdvice advice
+            FertilizerAdvice advice,
+            List<FertilizerApplication> history
     ) {
         if (!isActiveSeasonTarget(zone)) {
             return;
@@ -268,7 +293,25 @@ public class FertilizerReminderWorker extends Worker {
             nextApplicationEpoch = profile.getNext_application_at_epoch();
         }
         if (nextApplicationEpoch <= 0L && applicationDecisionReady) {
-            nextApplicationEpoch = Instant.now().getEpochSecond();
+            long latestApplication = latestApplicationEpoch(history, zone.getZone_id());
+            String cycleKey = FertilizerReminderTiming.cycleKey(zone.getZone_id(),
+                    zone.getSeason().getActive_season_id(), profile.getGrowth_stage(),
+                    applicationType, next.getProductId(), latestApplication);
+            SharedPreferences state = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+            synchronized (FertilizerReminderWorker.class) {
+                long saved = state.getLong(cycleKey, 0L);
+                long now = Instant.now().getEpochSecond();
+                // Only migrate once per zone/type; an actual new cycle must get a new date.
+                String migrated = "migrated:" + zone.getZone_id() + ":" + applicationType;
+                if (saved <= 0L && !state.getBoolean(migrated, false)) {
+                    saved = FertilizerReminderTiming.legacyDueEpoch(state.getAll(),
+                            zone.getZone_id(), applicationType, latestApplication, now,
+                            ZoneId.systemDefault());
+                }
+                nextApplicationEpoch = FertilizerReminderTiming.dueEpoch(0L, saved, now);
+                state.edit().putLong(cycleKey, nextApplicationEpoch)
+                        .putBoolean(migrated, true).apply();
+            }
         }
         if (nextApplicationEpoch <= 0L) {
             return;
@@ -304,7 +347,7 @@ public class FertilizerReminderWorker extends Worker {
                 nextApplicationEpoch
         ).atZone(ZoneId.systemDefault()).toLocalDate();
         long days = ChronoUnit.DAYS.between(LocalDate.now(), due);
-        String slot = reminderSlot(days, LocalTime.now());
+        String slot = FertilizerReminderTiming.reminderSlot(days, LocalTime.now());
         if (slot == null) return;
 
         String zoneId = safe(zone.getZone_id(), "unknown");
@@ -385,17 +428,6 @@ public class FertilizerReminderWorker extends Worker {
             );
             preferences.edit().putBoolean(preferenceKey, true).apply();
         }
-    }
-
-    private static String reminderSlot(long days, LocalTime time) {
-        if (days == 0L) {
-            if (time.isBefore(LocalTime.of(8, 0))) return null;
-            if (time.isBefore(LocalTime.of(12, 0))) return "morning";
-            if (time.isBefore(LocalTime.of(18, 0))) return "noon";
-            return "evening";
-        }
-        if (days == -1L) return "next_day";
-        return days == -7L ? "final" : null;
     }
 
     private static String applicationTypeLabel(Context context, String type) {
