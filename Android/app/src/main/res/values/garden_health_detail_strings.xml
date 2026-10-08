@@ -11,4 +11,5 @@
     <string name="garden_health_open_fertilization">Gübreleme kaydını aç ›</string>
     <string name="garden_health_open_sensor">Bölgenin sensör ayarlarını aç ›</string>
     <string name="garden_health_open_irrigation">Bölgenin sulama ayarlarını aç ›</string>
+    <string name="garden_health_analysis_explanation">Puan, son analizdeki bulguyu yansıtır. Gelişim takibini yapmadığınız anlamına gelmez.</string>
 </resources>

@@ -137,45 +137,48 @@
         },
         "commands": {
           "network_configuration": {
-            ".validate": "newData.hasChildren(['requested', 'request_id', 'interface', 'mode', 'ip_address', 'prefix_length', 'gateway', 'primary_dns', 'secondary_dns', 'requested_at', 'expires_at', 'source'])",
+            ".validate": "(data.exists() && newData.child('requested').val() == data.child('requested').val() && newData.child('request_id').val() == data.child('request_id').val() && newData.child('interface').val() == data.child('interface').val() && newData.child('mode').val() == data.child('mode').val() && newData.child('ip_address').val() == data.child('ip_address').val() && newData.child('prefix_length').val() == data.child('prefix_length').val() && newData.child('gateway').val() == data.child('gateway').val() && newData.child('primary_dns').val() == data.child('primary_dns').val() && newData.child('secondary_dns').val() == data.child('secondary_dns').val() && newData.child('requested_at').val() == data.child('requested_at').val() && newData.child('expires_at').val() == data.child('expires_at').val() && newData.child('source').val() == data.child('source').val() && newData.child('acknowledged_at').val() == data.child('acknowledged_at').val()) || (newData.hasChildren(['requested', 'request_id', 'interface', 'mode', 'ip_address', 'prefix_length', 'gateway', 'primary_dns', 'secondary_dns', 'requested_at', 'expires_at', 'source']) && !newData.child('acknowledged_at').exists() && (newData.child('requested').isBoolean() && newData.child('requested').val() == true) && (newData.child('request_id').isString() && newData.child('request_id').val().matches(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/)) && (newData.child('interface').isString() && newData.child('interface').val().length > 0 && newData.child('interface').val().length <= 32 && newData.child('interface').val() != 'lo' && newData.child('interface').val().matches(/^[A-Za-z0-9_.:-]+$/)) && (newData.child('mode').isString() && (newData.child('mode').val() == 'DHCP' || newData.child('mode').val() == 'STATIC')) && (newData.child('ip_address').isString() && newData.child('ip_address').val().length <= 15) && (newData.child('prefix_length').isNumber() && newData.child('prefix_length').val() >= 1 && newData.child('prefix_length').val() <= 30 && newData.child('prefix_length').val() % 1 == 0) && (newData.child('gateway').isString() && newData.child('gateway').val().length <= 15) && (newData.child('primary_dns').isString() && newData.child('primary_dns').val().length <= 15) && (newData.child('secondary_dns').isString() && newData.child('secondary_dns').val().length <= 15) && (newData.child('requested_at').isNumber() && newData.child('requested_at').val() >= now - 10000 && newData.child('requested_at').val() <= now + 5000) && (newData.child('expires_at').isNumber() && newData.child('expires_at').val() > now && newData.child('expires_at').val() <= now + 300000) && (newData.child('source').isString() && newData.child('source').val() == 'android'))",
             "requested": {
-              ".validate": "newData.isBoolean() && newData.val() == true"
+              ".validate": "newData.val() == data.val() || (newData.isBoolean() && newData.val() == true)"
             },
             "request_id": {
-              ".validate": "newData.isString() && newData.val().matches(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/)"
+              ".validate": "newData.val() == data.val() || (newData.isString() && newData.val().matches(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/))"
             },
             "interface": {
-              ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 32 && newData.val() != 'lo' && newData.val().matches(/^[A-Za-z0-9_.:-]+$/)"
+              ".validate": "newData.val() == data.val() || (newData.isString() && newData.val().length > 0 && newData.val().length <= 32 && newData.val() != 'lo' && newData.val().matches(/^[A-Za-z0-9_.:-]+$/))"
             },
             "mode": {
-              ".validate": "newData.isString() && (newData.val() == 'DHCP' || newData.val() == 'STATIC')"
+              ".validate": "newData.val() == data.val() || (newData.isString() && (newData.val() == 'DHCP' || newData.val() == 'STATIC'))"
             },
             "ip_address": {
-              ".validate": "newData.isString() && newData.val().length <= 15"
+              ".validate": "newData.val() == data.val() || (newData.isString() && newData.val().length <= 15)"
             },
             "prefix_length": {
-              ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 30 && newData.val() % 1 == 0"
+              ".validate": "newData.val() == data.val() || (newData.isNumber() && newData.val() >= 1 && newData.val() <= 30 && newData.val() % 1 == 0)"
             },
             "gateway": {
-              ".validate": "newData.isString() && newData.val().length <= 15"
+              ".validate": "newData.val() == data.val() || (newData.isString() && newData.val().length <= 15)"
             },
             "primary_dns": {
-              ".validate": "newData.isString() && newData.val().length <= 15"
+              ".validate": "newData.val() == data.val() || (newData.isString() && newData.val().length <= 15)"
             },
             "secondary_dns": {
-              ".validate": "newData.isString() && newData.val().length <= 15"
+              ".validate": "newData.val() == data.val() || (newData.isString() && newData.val().length <= 15)"
             },
             "requested_at": {
-              ".validate": "newData.isNumber() && newData.val() >= now - 10000 && newData.val() <= now + 5000"
+              ".validate": "newData.val() == data.val() || (newData.isNumber() && newData.val() >= now - 10000 && newData.val() <= now + 5000)"
             },
             "expires_at": {
-              ".validate": "newData.isNumber() && newData.val() > now && newData.val() <= now + 300000"
+              ".validate": "newData.val() == data.val() || (newData.isNumber() && newData.val() > now && newData.val() <= now + 300000)"
             },
             "source": {
-              ".validate": "newData.isString() && newData.val() == 'android'"
+              ".validate": "newData.val() == data.val() || (newData.isString() && newData.val() == 'android')"
             },
             "$other": {
               ".validate": false
+            },
+            "acknowledged_at": {
+              ".validate": "data.exists() && newData.val() == data.val()"
             }
           }
         },
@@ -280,7 +283,139 @@
         "seedling": {
           "nodes": {
             "$nodeId": {
-              ".validate": "newData.val() == data.val()"
+              ".validate": "data.exists() && newData.child('latest').exists() == data.child('latest').exists() && newData.child('recommendation').exists() == data.child('recommendation').exists()",
+              "latest": {
+                ".validate": "data.exists() && newData.child('node_id').val() == data.child('node_id').val() && newData.child('firmware').val() == data.child('firmware').val() && newData.child('air_temperature_c').val() == data.child('air_temperature_c').val() && newData.child('air_humidity_pct').val() == data.child('air_humidity_pct').val() && newData.child('root_temperature_c').val() == data.child('root_temperature_c').val() && newData.child('soil_moisture_available').val() == data.child('soil_moisture_available').val() && newData.child('soil_moisture_pct').val() == data.child('soil_moisture_pct').val() && newData.child('soil_raw').val() == data.child('soil_raw').val() && newData.child('light_lux').val() == data.child('light_lux').val() && newData.child('rssi').val() == data.child('rssi').val() && newData.child('uptime_seconds').val() == data.child('uptime_seconds').val() && newData.child('online').val() == data.child('online').val() && newData.child('received_at_epoch').val() == data.child('received_at_epoch').val() && newData.child('status_updated_at_epoch').val() == data.child('status_updated_at_epoch').val()",
+                "node_id": {
+                  ".validate": "newData.val() == data.val()"
+                },
+                "firmware": {
+                  ".validate": "newData.val() == data.val()"
+                },
+                "air_temperature_c": {
+                  ".validate": "newData.val() == data.val()"
+                },
+                "air_humidity_pct": {
+                  ".validate": "newData.val() == data.val()"
+                },
+                "root_temperature_c": {
+                  ".validate": "newData.val() == data.val()"
+                },
+                "soil_moisture_available": {
+                  ".validate": "newData.val() == data.val()"
+                },
+                "soil_moisture_pct": {
+                  ".validate": "newData.val() == data.val()"
+                },
+                "soil_raw": {
+                  ".validate": "newData.val() == data.val()"
+                },
+                "light_lux": {
+                  ".validate": "newData.val() == data.val()"
+                },
+                "rssi": {
+                  ".validate": "newData.val() == data.val()"
+                },
+                "uptime_seconds": {
+                  ".validate": "newData.val() == data.val()"
+                },
+                "online": {
+                  ".validate": "newData.val() == data.val()"
+                },
+                "received_at_epoch": {
+                  ".validate": "newData.val() == data.val()"
+                },
+                "status_updated_at_epoch": {
+                  ".validate": "newData.val() == data.val()"
+                },
+                "$other": {
+                  ".validate": false
+                }
+              },
+              "recommendation": {
+                ".validate": "data.exists() && newData.child('score').val() == data.child('score').val() && newData.child('severity').val() == data.child('severity').val() && newData.child('title').val() == data.child('title').val() && newData.child('message').val() == data.child('message').val() && newData.child('action').val() == data.child('action').val() && newData.child('advisory_only').val() == data.child('advisory_only').val() && newData.child('updated_at_epoch').val() == data.child('updated_at_epoch').val() && newData.child('reasons').exists() == data.child('reasons').exists()",
+                "score": {
+                  ".validate": "newData.val() == data.val()"
+                },
+                "severity": {
+                  ".validate": "newData.val() == data.val()"
+                },
+                "title": {
+                  ".validate": "newData.val() == data.val()"
+                },
+                "message": {
+                  ".validate": "newData.val() == data.val()"
+                },
+                "action": {
+                  ".validate": "newData.val() == data.val()"
+                },
+                "advisory_only": {
+                  ".validate": "newData.val() == data.val()"
+                },
+                "updated_at_epoch": {
+                  ".validate": "newData.val() == data.val()"
+                },
+                "reasons": {
+                  ".validate": "data.exists() && newData.child('0').val() == data.child('0').val() && newData.child('1').val() == data.child('1').val() && newData.child('2').val() == data.child('2').val() && newData.child('3').val() == data.child('3').val() && newData.child('4').val() == data.child('4').val() && newData.child('5').val() == data.child('5').val() && newData.child('6').val() == data.child('6').val() && newData.child('7').val() == data.child('7').val() && newData.child('8').val() == data.child('8').val() && newData.child('9').val() == data.child('9').val() && newData.child('10').val() == data.child('10').val() && newData.child('11').val() == data.child('11').val() && newData.child('12').val() == data.child('12').val() && newData.child('13').val() == data.child('13').val() && newData.child('14').val() == data.child('14').val() && newData.child('15').val() == data.child('15').val()",
+                  "0": {
+                    ".validate": "newData.val() == data.val()"
+                  },
+                  "1": {
+                    ".validate": "newData.val() == data.val()"
+                  },
+                  "2": {
+                    ".validate": "newData.val() == data.val()"
+                  },
+                  "3": {
+                    ".validate": "newData.val() == data.val()"
+                  },
+                  "4": {
+                    ".validate": "newData.val() == data.val()"
+                  },
+                  "5": {
+                    ".validate": "newData.val() == data.val()"
+                  },
+                  "6": {
+                    ".validate": "newData.val() == data.val()"
+                  },
+                  "7": {
+                    ".validate": "newData.val() == data.val()"
+                  },
+                  "8": {
+                    ".validate": "newData.val() == data.val()"
+                  },
+                  "9": {
+                    ".validate": "newData.val() == data.val()"
+                  },
+                  "10": {
+                    ".validate": "newData.val() == data.val()"
+                  },
+                  "11": {
+                    ".validate": "newData.val() == data.val()"
+                  },
+                  "12": {
+                    ".validate": "newData.val() == data.val()"
+                  },
+                  "13": {
+                    ".validate": "newData.val() == data.val()"
+                  },
+                  "14": {
+                    ".validate": "newData.val() == data.val()"
+                  },
+                  "15": {
+                    ".validate": "newData.val() == data.val()"
+                  },
+                  "$other": {
+                    ".validate": false
+                  }
+                },
+                "$other": {
+                  ".validate": false
+                }
+              },
+              "$other": {
+                ".validate": false
+              }
             }
           },
           "batches": {

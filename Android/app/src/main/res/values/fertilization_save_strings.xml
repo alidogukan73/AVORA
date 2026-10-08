@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="fertilization_save_access_failed">Kayıt izni doğrulanamadı. Uygulamayı yeniden açıp deneyin; sürerse destek isteyin. Girdiğiniz bilgiler bu formda duruyor.</string>
+    <string name="fertilization_save_connection_failed">Bağlantı nedeniyle kayıt tamamlanamadı. İnternet bağlantısını kontrol edip tekrar deneyin.</string>
+    <string name="fertilization_save_busy">Veriler aynı anda güncellendiği için kayıt tamamlanamadı. Biraz bekleyip tekrar deneyin.</string>
+    <string name="fertilization_save_season_closed">Bu bölgenin sezonu kapalı. Önce yeni sezon başlatın.</string>
+    <string name="fertilization_save_unit_mismatch">Uygulama miktarının birimi stok birimiyle uyuşmuyor. Ürünü ve miktar birimini kontrol edin.</string>
+</resources>

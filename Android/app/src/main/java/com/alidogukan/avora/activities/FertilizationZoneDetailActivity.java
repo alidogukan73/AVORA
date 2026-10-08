@@ -17,6 +17,7 @@ import androidx.core.widget.NestedScrollView;
 import androidx.lifecycle.ViewModelProvider;
 
 import com.alidogukan.avora.R;
+import com.alidogukan.avora.fertilization.FertilizationSaveError;
 import com.alidogukan.avora.models.FertilizationProfile;
 import com.alidogukan.avora.models.FertilizerApplication;
 import com.alidogukan.avora.models.FertilizerProduct;
@@ -2016,11 +2017,11 @@ public class FertilizationZoneDetailActivity
             dialog.getButton(
                     androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE
             ).setEnabled(true);
-            Toast.makeText(
-                    this,
-                    R.string.fertilization_application_failed,
-                    Toast.LENGTH_LONG
-            ).show();
+            new MaterialAlertDialogBuilder(this)
+                    .setTitle(R.string.fertilization_application_failed)
+                    .setMessage(FertilizationSaveError.messageResource(error))
+                    .setPositiveButton(android.R.string.ok, null)
+                    .show();
         });
     }
 

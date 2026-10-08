@@ -123,6 +123,15 @@ public class GardenHealthDetailActivity extends AppCompatActivity {
         detail.setPadding(0, dp(4), 0, 0);
         text.addView(title);
         text.addView(detail);
+        if (result.getIssues().stream().anyMatch(issue ->
+                issue.getTarget() == GardenHealthIssue.Target.PLANT_ASSISTANT)) {
+            TextView explanation = new TextView(this);
+            explanation.setText(R.string.garden_health_analysis_explanation);
+            explanation.setTextColor(ContextCompat.getColor(this, R.color.textSecondary));
+            explanation.setTextSize(12);
+            explanation.setPadding(0, dp(6), 0, 0);
+            text.addView(explanation);
+        }
         TextView action = new TextView(this);
         action.setText(result.getIssues().size() == 1
                 ? targetLabel(result.getIssues().get(0))
