@@ -602,6 +602,7 @@ public class PlantAssistantActivity extends EdgeToEdgeActivity {
             findViewById(R.id.layoutDoctorGrowthSummary).setVisibility(View.GONE);
         }
         resultCard.setVisibility(View.VISIBLE);
+        viewModel.markAnalysisResultRendered();
         archiveAnalysis(request,
                 String.valueOf(title.getText()), String.valueOf(meta.getText()),
                 String.valueOf(context.getText()), String.valueOf(advice.getText()),
@@ -656,7 +657,14 @@ public class PlantAssistantActivity extends EdgeToEdgeActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        viewModel.setAnalysisScreenResumed(true);
         if (displayUnits != null) renderLiveData(selectedZone());
+    }
+
+    @Override
+    protected void onPause() {
+        viewModel.setAnalysisScreenResumed(false);
+        super.onPause();
     }
 
     private void savePhotoToArchive(AnalysisRequest request) {
@@ -1058,6 +1066,7 @@ public class PlantAssistantActivity extends EdgeToEdgeActivity {
 
     @Override
     protected void onDestroy() {
+        viewModel.detachAnalysisScreen();
         destroyed = true;
         photoPreviewSequence++;
         boolean hadActiveAnalysis = activeAnalysis != null;
