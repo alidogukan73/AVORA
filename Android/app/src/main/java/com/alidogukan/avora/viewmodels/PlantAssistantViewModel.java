@@ -24,6 +24,7 @@ import com.alidogukan.avora.plantassistant.PlantAssistantRecommendationStore;
 import com.alidogukan.avora.plantassistant.PlantAssistantResult;
 import com.alidogukan.avora.plantassistant.PlantAssistantVisionClient;
 import com.alidogukan.avora.plantassistant.PlantAssistantUrgency;
+import com.alidogukan.avora.plantassistant.PlantAnalysisCompletionState;
 import com.alidogukan.avora.plantassistant.PlantFollowUpStore;
 import com.alidogukan.avora.plantassistant.PlantGrowthAssessment;
 import com.alidogukan.avora.plantassistant.PlantGrowthTrendPolicy;
@@ -66,6 +67,8 @@ public final class PlantAssistantViewModel extends AndroidViewModel {
     private boolean analysisRunning;
     private int pendingAnalysisOperations;
     private volatile boolean cleared;
+    private final PlantAnalysisCompletionState completionNotifications =
+            new PlantAnalysisCompletionState();
 
     public PlantAssistantViewModel(@NonNull Application application) {
         super(application);
@@ -81,12 +84,25 @@ public final class PlantAssistantViewModel extends AndroidViewModel {
     public LiveData<List<GardenPhoto>> getPhotoMetadata() { return photoMetadata; }
     public LiveData<Boolean> getAnalysisInProgress() { return analysisInProgress; }
 
+    public void setAnalysisScreenResumed(boolean resumed) {
+        completionNotifications.setScreenResumed(resumed);
+    }
+
+    public void markAnalysisResultRendered() {
+        completionNotifications.resultRendered();
+    }
+
+    public void detachAnalysisScreen() {
+        completionNotifications.detachScreen();
+    }
+
     public boolean tryBeginAnalysis(int operationCount) {
         if (operationCount <= 0) throw new IllegalArgumentException("operationCount");
         synchronized (analysisStateLock) {
             if (cleared || analysisRunning) return false;
             analysisRunning = true;
             pendingAnalysisOperations = operationCount;
+            completionNotifications.beginAnalysis();
         }
         analysisInProgress.setValue(true);
         return true;
@@ -295,7 +311,9 @@ public final class PlantAssistantViewModel extends AndroidViewModel {
                             getApplication(), zoneId, seasonId, urgency, title, advice, photoId);
                 }
                 syncPhoto(updated, syncFailure);
-                if (actionable) {
+                // The photo/recommendation and follow-up history are always saved.
+                // Only an unseen completion needs a separate notification-center entry.
+                if (actionable && completionNotifications.shouldNotifyOnCompletion()) {
                     String notificationDescription = getApplication().getString(
                             R.string.notification_plant_analysis_saved_description);
                     if ("COMPLETED".equals(followUp.type)) {
