@@ -87,7 +87,9 @@ public final class GardenHealthNavigationTest {
         GardenHealthZoneResult result = evaluate(zone(), signal);
         String reason = result.getIssues().get(0).getReason();
         assertTrue(reason.contains("Alt yapraklarda sararma"));
-        assertTrue(reason.contains("Yapılacak:"));
+        assertTrue(reason.contains("Son analizde orta öncelikli bulgu"));
+        assertTrue(reason.contains("Öneri:"));
+        assertFalse(reason.contains("Yapılacak:"));
         assertTrue(reason.contains("Yaprak altlarını"));
         GardenHealthSummary summary = GardenHealthCalculator.calculate(
                 Arrays.asList(zone()), NOW, signal);

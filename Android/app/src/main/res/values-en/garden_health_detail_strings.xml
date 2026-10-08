@@ -11,4 +11,5 @@
     <string name="garden_health_open_fertilization">Open fertilization record ›</string>
     <string name="garden_health_open_sensor">Open area sensor settings ›</string>
     <string name="garden_health_open_irrigation">Open area irrigation settings ›</string>
+    <string name="garden_health_analysis_explanation">The score reflects the latest analysis finding. It does not mean you missed growth tracking.</string>
 </resources>

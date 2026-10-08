@@ -8,7 +8,7 @@ const {
   assertSucceeds,
   initializeTestEnvironment,
 } = require("@firebase/rules-unit-testing");
-const { get, ref, set, update } = require("firebase/database");
+const { get, ref, set, update, runTransaction } = require("firebase/database");
 
 
 const PROJECT_ID = "demo-avora-alidogukan";
@@ -938,4 +938,147 @@ test("approved family may submit feedback but cannot read the private inbox", as
   await assertFails(get(ref(family, path)));
   await assertFails(get(ref(family, `feedback_devices/${DEVICE_ID}`)));
   await assertSucceeds(get(ref(owner, path)));
+});
+
+
+function networkCommand(overrides = {}) {
+  return {
+    requested: true, request_id: "123e4567-e89b-12d3-a456-426614174020",
+    interface: "eth0", mode: "DHCP", ip_address: "", prefix_length: 24,
+    gateway: "", primary_dns: "", secondary_dns: "", source: "android",
+    requested_at: Date.now(), expires_at: Date.now() + 180000, ...overrides,
+  };
+}
+
+async function seedFertilizerDevice(command) {
+  await testEnvironment.withSecurityRulesDisabled(async (context) => {
+    await set(ref(context.database(), `devices/${DEVICE_ID}`), {
+      commands: { network_configuration: command },
+      fertilizer_products: { product: { stock_amount: 1000 } },
+      zones: {
+        "zone-001": { fertilization: { next_application_epoch: 100 } },
+        "zone-003": { fertilization: { next_application_epoch: 100 } },
+      },
+    });
+  });
+}
+
+async function recordFertilizer(db, zoneId) {
+  const device = ref(db, `devices/${DEVICE_ID}`);
+  await get(device);
+  return runTransaction(device, (value) => {
+    if (value === null) return value;
+    value.fertilizer_products.product.stock_amount -= 10;
+    value.fertilizer_history ||= {};
+    value.fertilizer_history[zoneId] = { zone_id: zoneId, applied_dose: 10 };
+    value.zones[zoneId].fertilization.next_application_epoch = 200;
+    return value;
+  }, { applyLocally: false });
+}
+
+for (const [label, command] of Object.entries({
+  initial: { requested: false },
+  expired: networkCommand({ requested_at: 1, expires_at: 2 }),
+  acknowledged: networkCommand({ requested: false, requested_at: 1,
+    expires_at: 2, acknowledged_at: 3 }),
+})) {
+  test(`atomic fertilizer records preserve ${label} network command`, async () => {
+    await seedFertilizerDevice(command);
+    const owner = authenticatedDatabase(OWNER_UID);
+    for (const zone of ["zone-001", "zone-003"]) {
+      assert.equal((await assertSucceeds(recordFertilizer(owner, zone))).committed, true);
+    }
+    const saved = (await get(ref(owner, `devices/${DEVICE_ID}`))).val();
+    assert.deepEqual(saved.commands.network_configuration, command);
+    assert.equal(saved.fertilizer_products.product.stock_amount, 980);
+    for (const zone of ["zone-001", "zone-003"]) {
+      assert.equal(saved.fertilizer_history[zone].applied_dose, 10);
+      assert.equal(saved.zones[zone].fertilization.next_application_epoch, 200);
+    }
+  });
+}
+
+test("completed network command cannot be rearmed, edited or acknowledged by client", async () => {
+  const command = networkCommand({ requested: false, requested_at: 1,
+    expires_at: 2, acknowledged_at: 3 });
+  await seedFertilizerDevice(command);
+  const owner = authenticatedDatabase(OWNER_UID);
+  const commandRef = ref(owner, `devices/${DEVICE_ID}/commands/network_configuration`);
+  for (const patch of [
+    { requested: true }, { ip_address: "192.168.1.8" }, { acknowledged_at: 4 },
+    { acknowledged_at: null }, { requested_at: Date.now(), expires_at: Date.now() + 180000 },
+    { arbitrary_command: "shutdown" },
+  ]) await assertFails(update(commandRef, patch));
+  assert.deepEqual((await get(commandRef)).val(), command);
+  // A genuinely fresh, bounded request still works after the Pi acknowledges an old one.
+  await assertSucceeds(set(commandRef, networkCommand()));
+});
+
+test("new network command cannot forge acknowledgement or retain invalid legacy fields", async () => {
+  const owner = authenticatedDatabase(OWNER_UID);
+  const commandRef = ref(owner, `devices/${DEVICE_ID}/commands/network_configuration`);
+  await assertFails(set(commandRef, networkCommand({ acknowledged_at: 3 })));
+  await seedFertilizerDevice(networkCommand({ requested: false, requested_at: 1,
+    expires_at: 2, acknowledged_at: 3, interface: "lo" }));
+  await assertFails(set(commandRef, networkCommand({ interface: "lo" })));
+  await assertSucceeds(set(commandRef, networkCommand()));
+});
+
+test("unauthorized fertilizer transaction changes neither stock nor schedule nor history", async () => {
+  const command = networkCommand({ requested: false, requested_at: 1,
+    expires_at: 2, acknowledged_at: 3 });
+  await seedFertilizerDevice(command);
+  const outsider = unclaimedDatabase(OTHER_UID);
+  await assertFails(update(ref(outsider, `devices/${DEVICE_ID}`), {
+    "fertilizer_products/product/stock_amount": 990,
+    "fertilizer_history/zone-001": { applied_dose: 10 },
+    "zones/zone-001/fertilization/next_application_epoch": 200,
+  }));
+  const saved = (await get(ref(authenticatedDatabase(OWNER_UID), `devices/${DEVICE_ID}`))).val();
+  assert.equal(saved.fertilizer_products.product.stock_amount, 1000);
+  assert.equal(saved.zones["zone-001"].fertilization.next_application_epoch, 100);
+  assert.equal(saved.fertilizer_history, undefined);
+});
+
+
+function seedlingSnapshot() {
+  return {
+    latest: { node_id: "seedling-001", firmware: "1.0", air_temperature_c: 24,
+      air_humidity_pct: 70, root_temperature_c: 23, soil_moisture_available: true,
+      soil_moisture_pct: 58, soil_raw: 1500, light_lux: 7000, rssi: -60,
+      uptime_seconds: 300, online: true, received_at_epoch: 1788271200,
+      status_updated_at_epoch: 1788271100 },
+    recommendation: { score: 84, severity: "WATCH", title: "Kontrol edin",
+      message: "Fide gözlemi", action: "Takip edin", advisory_only: true,
+      updated_at_epoch: 1788271200, reasons: ["Sıcaklık", "Nem", "Kök", "Toprak", "Işık"] },
+  };
+}
+
+test("fertilizer transaction preserves backend seedling telemetry and every recommendation reason", async () => {
+  await seedFertilizerDevice(networkCommand({ requested: false, requested_at: 1,
+    expires_at: 2, acknowledged_at: 3 }));
+  const nodePath = `devices/${DEVICE_ID}/seedling/nodes/seedling-001`;
+  const snapshot = seedlingSnapshot();
+  await testEnvironment.withSecurityRulesDisabled(c => set(ref(c.database(), nodePath), snapshot));
+  const owner = authenticatedDatabase(OWNER_UID);
+  for (const zone of ["zone-001", "zone-003"]) {
+    assert.equal((await assertSucceeds(recordFertilizer(owner, zone))).committed, true);
+  }
+  assert.deepEqual((await get(ref(owner, nodePath))).val(), snapshot);
+});
+
+test("client cannot alter, add or remove seedling telemetry or recommendation fields", async () => {
+  const nodePath = `devices/${DEVICE_ID}/seedling/nodes/seedling-001`;
+  const snapshot = seedlingSnapshot();
+  await testEnvironment.withSecurityRulesDisabled(c => set(ref(c.database(), nodePath), snapshot));
+  const owner = authenticatedDatabase(OWNER_UID);
+  for (const patch of [
+    { "latest/online": false }, { "latest/soil_moisture_pct": 90 },
+    { "latest/soil_raw": null }, { latest: null }, { recommendation: null },
+    { "recommendation/score": 100 }, { "recommendation/reasons/0": "forged" },
+    { "recommendation/reasons/4": null }, { "recommendation/reasons": null },
+    { "recommendation/reasons/5": "extra" }, { "latest/unrecognized": 1 },
+    { "recommendation/unrecognized": "forged" }, { unknown: "forged" },
+  ]) await assertFails(update(ref(owner, nodePath), patch));
+  assert.deepEqual((await get(ref(owner, nodePath))).val(), snapshot);
 });

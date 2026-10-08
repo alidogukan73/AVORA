@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="fertilization_save_access_failed">Permission to save could not be verified. Reopen the app and retry; contact support if it continues. Your entries remain in this form.</string>
+    <string name="fertilization_save_connection_failed">The record could not be saved because of a connection problem. Check your internet connection and retry.</string>
+    <string name="fertilization_save_busy">The record could not be saved while other data was changing. Wait briefly and retry.</string>
+    <string name="fertilization_save_season_closed">This zone’s season is closed. Start a new season first.</string>
+    <string name="fertilization_save_unit_mismatch">The application unit does not match the stock unit. Check the product and dose unit.</string>
+</resources>

@@ -1738,7 +1738,7 @@ public class FirebaseRepository {
          @Override
          public void onComplete(DatabaseError error, boolean committed, DataSnapshot snapshot) {
             if (error != null) {
-               completion.setException(error.toException());
+               completion.setException(new DatabaseWriteException(error));
             } else if (!committed) {
                completion.setException(new IllegalStateException(failure.get()));
             } else {

@@ -203,7 +203,8 @@ public final class GardenHealthCalculator {
                 ? (highUrgency ? "öncelikli bitki kontrolü gerekiyor"
                 : "bitki kontrolü öneriliyor")
                 : title);
-        message.append(". Yapılacak: ");
+        message.append(highUrgency ? ". Son analizde yüksek öncelikli bulgu. Öneri: "
+                : ". Son analizde orta öncelikli bulgu. Öneri: ");
         message.append(advice.isEmpty()
                 ? "Bitki Asistanı'nı açın, son analizi inceleyin ve belirtilen kontrolü uygulayın"
                 : shortened(advice, 220));
