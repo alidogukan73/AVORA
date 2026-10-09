@@ -615,66 +615,66 @@
           "photo_metadata": {
             ".indexOn": "captured_at_epoch",
             "$photoId": {
-              ".validate": "newData.hasChildren(['id', 'zone_id', 'season_id', 'note', 'related_application_id', 'analysis_title', 'analysis_meta', 'analysis_context', 'analysis_advice', 'analysis_goal', 'analysis_confidence', 'growth_score', 'growth_stage', 'growth_trend', 'growth_score_delta', 'growth_signals', 'growth_previous_captured_at_epoch', 'captured_at_epoch', 'photo_kept_on_owner_phone', 'metadata_updated_at_epoch']) && ((newData.child('analysis_goal').val() == 'growth_status' && newData.child('growth_score').val() >= 0 && (newData.child('growth_trend').val() == 'FIRST_RECORD' || newData.child('growth_trend').val() == 'IMPROVING' || newData.child('growth_trend').val() == 'STABLE' || newData.child('growth_trend').val() == 'DECLINING')) || (newData.child('growth_score').val() == -1 && newData.child('growth_stage').val() == '' && newData.child('growth_trend').val() == '' && newData.child('growth_score_delta').val() == 0 && newData.child('growth_signals').val() == '' && newData.child('growth_previous_captured_at_epoch').val() == 0))",
+              ".validate": "(data.exists() && newData.child('id').val() == data.child('id').val() && newData.child('zone_id').val() == data.child('zone_id').val() && newData.child('season_id').val() == data.child('season_id').val() && newData.child('note').val() == data.child('note').val() && newData.child('related_application_id').val() == data.child('related_application_id').val() && newData.child('analysis_title').val() == data.child('analysis_title').val() && newData.child('analysis_meta').val() == data.child('analysis_meta').val() && newData.child('analysis_context').val() == data.child('analysis_context').val() && newData.child('analysis_advice').val() == data.child('analysis_advice').val() && newData.child('analysis_goal').val() == data.child('analysis_goal').val() && newData.child('analysis_confidence').val() == data.child('analysis_confidence').val() && newData.child('growth_score').val() == data.child('growth_score').val() && newData.child('growth_stage').val() == data.child('growth_stage').val() && newData.child('growth_trend').val() == data.child('growth_trend').val() && newData.child('growth_score_delta').val() == data.child('growth_score_delta').val() && newData.child('growth_signals').val() == data.child('growth_signals').val() && newData.child('growth_previous_captured_at_epoch').val() == data.child('growth_previous_captured_at_epoch').val() && newData.child('captured_at_epoch').val() == data.child('captured_at_epoch').val() && newData.child('photo_kept_on_owner_phone').val() == data.child('photo_kept_on_owner_phone').val() && newData.child('metadata_updated_at_epoch').val() == data.child('metadata_updated_at_epoch').val()) || (newData.hasChildren(['id', 'zone_id', 'season_id', 'note', 'related_application_id', 'analysis_title', 'analysis_meta', 'analysis_context', 'analysis_advice', 'analysis_goal', 'analysis_confidence', 'growth_score', 'growth_stage', 'growth_trend', 'growth_score_delta', 'growth_signals', 'growth_previous_captured_at_epoch', 'captured_at_epoch', 'photo_kept_on_owner_phone', 'metadata_updated_at_epoch']) && ((newData.child('analysis_goal').val() == 'growth_status' && newData.child('growth_score').val() >= 0 && (newData.child('growth_trend').val() == 'FIRST_RECORD' || newData.child('growth_trend').val() == 'IMPROVING' || newData.child('growth_trend').val() == 'STABLE' || newData.child('growth_trend').val() == 'DECLINING')) || (newData.child('growth_score').val() == -1 && newData.child('growth_stage').val() == '' && newData.child('growth_trend').val() == '' && newData.child('growth_score_delta').val() == 0 && newData.child('growth_signals').val() == '' && newData.child('growth_previous_captured_at_epoch').val() == 0)) && (newData.child('id').isString() && newData.child('id').val() == $photoId && newData.child('id').val().length > 0 && newData.child('id').val().length <= 80) && (newData.child('zone_id').isString() && newData.child('zone_id').val().length > 0 && newData.child('zone_id').val().length <= 80) && (newData.child('season_id').isString() && newData.child('season_id').val().length <= 80) && (newData.child('note').isString() && newData.child('note').val().length <= 1000) && (newData.child('related_application_id').isString() && newData.child('related_application_id').val().length <= 120) && (newData.child('analysis_title').isString() && newData.child('analysis_title').val().length <= 200) && (newData.child('analysis_meta').isString() && newData.child('analysis_meta').val().length <= 1000) && (newData.child('analysis_context').isString() && newData.child('analysis_context').val().length <= 5000) && (newData.child('analysis_advice').isString() && newData.child('analysis_advice').val().length <= 5000) && (newData.child('analysis_goal').isString() && (newData.child('analysis_goal').val() == '' || newData.child('analysis_goal').val() == 'health_screening' || newData.child('analysis_goal').val() == 'growth_status')) && (newData.child('analysis_confidence').isNumber() && newData.child('analysis_confidence').val() >= 0 && newData.child('analysis_confidence').val() <= 100 && newData.child('analysis_confidence').val() % 1 == 0) && (newData.child('growth_score').isNumber() && newData.child('growth_score').val() >= -1 && newData.child('growth_score').val() <= 100 && newData.child('growth_score').val() % 1 == 0) && (newData.child('growth_stage').isString() && newData.child('growth_stage').val().length <= 120) && (newData.child('growth_trend').isString() && (newData.child('growth_trend').val() == '' || newData.child('growth_trend').val() == 'FIRST_RECORD' || newData.child('growth_trend').val() == 'IMPROVING' || newData.child('growth_trend').val() == 'STABLE' || newData.child('growth_trend').val() == 'DECLINING')) && (newData.child('growth_score_delta').isNumber() && newData.child('growth_score_delta').val() >= -100 && newData.child('growth_score_delta').val() <= 100 && newData.child('growth_score_delta').val() % 1 == 0) && (newData.child('growth_signals').isString() && newData.child('growth_signals').val().length <= 1000) && (newData.child('growth_previous_captured_at_epoch').isNumber() && newData.child('growth_previous_captured_at_epoch').val() >= 0 && newData.child('growth_previous_captured_at_epoch').val() <= 4102444800 && newData.child('growth_previous_captured_at_epoch').val() % 1 == 0) && (newData.child('captured_at_epoch').isNumber() && newData.child('captured_at_epoch').val() > 0 && newData.child('captured_at_epoch').val() <= 4102444800 && newData.child('captured_at_epoch').val() % 1 == 0) && (newData.child('photo_kept_on_owner_phone').isBoolean() && newData.child('photo_kept_on_owner_phone').val() == true) && (newData.child('metadata_updated_at_epoch').isNumber() && newData.child('metadata_updated_at_epoch').val() > 0 && newData.child('metadata_updated_at_epoch').val() <= 4102444800 && newData.child('metadata_updated_at_epoch').val() % 1 == 0))",
               "id": {
-                ".validate": "newData.isString() && newData.val() == $photoId && newData.val().length > 0 && newData.val().length <= 80"
+                ".validate": "newData.val() == data.val() || (newData.isString() && newData.val() == $photoId && newData.val().length > 0 && newData.val().length <= 80)"
               },
               "zone_id": {
-                ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 80"
+                ".validate": "newData.val() == data.val() || (newData.isString() && newData.val().length > 0 && newData.val().length <= 80)"
               },
               "season_id": {
-                ".validate": "newData.isString() && newData.val().length <= 80"
+                ".validate": "newData.val() == data.val() || (newData.isString() && newData.val().length <= 80)"
               },
               "note": {
-                ".validate": "newData.isString() && newData.val().length <= 1000"
+                ".validate": "newData.val() == data.val() || (newData.isString() && newData.val().length <= 1000)"
               },
               "related_application_id": {
-                ".validate": "newData.isString() && newData.val().length <= 120"
+                ".validate": "newData.val() == data.val() || (newData.isString() && newData.val().length <= 120)"
               },
               "analysis_title": {
-                ".validate": "newData.isString() && newData.val().length <= 200"
+                ".validate": "newData.val() == data.val() || (newData.isString() && newData.val().length <= 200)"
               },
               "analysis_meta": {
-                ".validate": "newData.isString() && newData.val().length <= 1000"
+                ".validate": "newData.val() == data.val() || (newData.isString() && newData.val().length <= 1000)"
               },
               "analysis_context": {
-                ".validate": "newData.isString() && newData.val().length <= 5000"
+                ".validate": "newData.val() == data.val() || (newData.isString() && newData.val().length <= 5000)"
               },
               "analysis_advice": {
-                ".validate": "newData.isString() && newData.val().length <= 5000"
+                ".validate": "newData.val() == data.val() || (newData.isString() && newData.val().length <= 5000)"
               },
               "analysis_goal": {
-                ".validate": "newData.isString() && (newData.val() == '' || newData.val() == 'health_screening' || newData.val() == 'growth_status')"
+                ".validate": "newData.val() == data.val() || (newData.isString() && (newData.val() == '' || newData.val() == 'health_screening' || newData.val() == 'growth_status'))"
               },
               "analysis_confidence": {
-                ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100 && newData.val() % 1 == 0"
+                ".validate": "newData.val() == data.val() || (newData.isNumber() && newData.val() >= 0 && newData.val() <= 100 && newData.val() % 1 == 0)"
               },
               "growth_score": {
-                ".validate": "newData.isNumber() && newData.val() >= -1 && newData.val() <= 100 && newData.val() % 1 == 0"
+                ".validate": "newData.val() == data.val() || (newData.isNumber() && newData.val() >= -1 && newData.val() <= 100 && newData.val() % 1 == 0)"
               },
               "growth_stage": {
-                ".validate": "newData.isString() && newData.val().length <= 120"
+                ".validate": "newData.val() == data.val() || (newData.isString() && newData.val().length <= 120)"
               },
               "growth_trend": {
-                ".validate": "newData.isString() && (newData.val() == '' || newData.val() == 'FIRST_RECORD' || newData.val() == 'IMPROVING' || newData.val() == 'STABLE' || newData.val() == 'DECLINING')"
+                ".validate": "newData.val() == data.val() || (newData.isString() && (newData.val() == '' || newData.val() == 'FIRST_RECORD' || newData.val() == 'IMPROVING' || newData.val() == 'STABLE' || newData.val() == 'DECLINING'))"
               },
               "growth_score_delta": {
-                ".validate": "newData.isNumber() && newData.val() >= -100 && newData.val() <= 100 && newData.val() % 1 == 0"
+                ".validate": "newData.val() == data.val() || (newData.isNumber() && newData.val() >= -100 && newData.val() <= 100 && newData.val() % 1 == 0)"
               },
               "growth_signals": {
-                ".validate": "newData.isString() && newData.val().length <= 1000"
+                ".validate": "newData.val() == data.val() || (newData.isString() && newData.val().length <= 1000)"
               },
               "growth_previous_captured_at_epoch": {
-                ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 4102444800 && newData.val() % 1 == 0"
+                ".validate": "newData.val() == data.val() || (newData.isNumber() && newData.val() >= 0 && newData.val() <= 4102444800 && newData.val() % 1 == 0)"
               },
               "captured_at_epoch": {
-                ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= 4102444800 && newData.val() % 1 == 0"
+                ".validate": "newData.val() == data.val() || (newData.isNumber() && newData.val() > 0 && newData.val() <= 4102444800 && newData.val() % 1 == 0)"
               },
               "photo_kept_on_owner_phone": {
-                ".validate": "newData.isBoolean() && newData.val() == true"
+                ".validate": "newData.val() == data.val() || (newData.isBoolean() && newData.val() == true)"
               },
               "metadata_updated_at_epoch": {
-                ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= 4102444800 && newData.val() % 1 == 0"
+                ".validate": "newData.val() == data.val() || (newData.isNumber() && newData.val() > 0 && newData.val() <= 4102444800 && newData.val() % 1 == 0)"
               },
               "$other": {
                 ".validate": false

@@ -510,7 +510,7 @@ test("growth photo metadata accepts only the bounded owner schema", async () => 
   await assertSucceeds(set(ref(owner, `${basePath}/${validId}`), null));
 });
 
-test("portable restore skips legacy photo metadata that newer rules reject", async () => {
+test("unrelated writes preserve unchanged legacy photo metadata", async () => {
   const owner = authenticatedDatabase(OWNER_UID);
   const devicePath = `devices/${DEVICE_ID}`;
   const legacyId = "legacy-photo-001";
@@ -527,7 +527,7 @@ test("portable restore skips legacy photo metadata that newer rules reject", asy
     );
   });
 
-  await assertFails(update(ref(owner, devicePath), {
+  await assertSucceeds(update(ref(owner, devicePath), {
     "profile/name": "AVORA",
     [`garden_journal/photo_metadata/${legacyId}/note`]:
       "Kurallar sıkılaştırılmadan önce oluşturulmuş kayıt",
@@ -956,8 +956,8 @@ async function seedFertilizerDevice(command) {
       commands: { network_configuration: command },
       fertilizer_products: { product: { stock_amount: 1000 } },
       zones: {
-        "zone-001": { fertilization: { next_application_epoch: 100 } },
-        "zone-003": { fertilization: { next_application_epoch: 100 } },
+        "zone-001": { fertilization: { next_application_at_epoch: 100 } },
+        "zone-003": { fertilization: { next_application_at_epoch: 100 } },
       },
     });
   });
@@ -971,7 +971,7 @@ async function recordFertilizer(db, zoneId) {
     value.fertilizer_products.product.stock_amount -= 10;
     value.fertilizer_history ||= {};
     value.fertilizer_history[zoneId] = { zone_id: zoneId, applied_dose: 10 };
-    value.zones[zoneId].fertilization.next_application_epoch = 200;
+    value.zones[zoneId].fertilization.next_application_at_epoch = 200;
     return value;
   }, { applyLocally: false });
 }
@@ -993,7 +993,7 @@ for (const [label, command] of Object.entries({
     assert.equal(saved.fertilizer_products.product.stock_amount, 980);
     for (const zone of ["zone-001", "zone-003"]) {
       assert.equal(saved.fertilizer_history[zone].applied_dose, 10);
-      assert.equal(saved.zones[zone].fertilization.next_application_epoch, 200);
+      assert.equal(saved.zones[zone].fertilization.next_application_at_epoch, 200);
     }
   });
 }
@@ -1032,11 +1032,11 @@ test("unauthorized fertilizer transaction changes neither stock nor schedule nor
   await assertFails(update(ref(outsider, `devices/${DEVICE_ID}`), {
     "fertilizer_products/product/stock_amount": 990,
     "fertilizer_history/zone-001": { applied_dose: 10 },
-    "zones/zone-001/fertilization/next_application_epoch": 200,
+    "zones/zone-001/fertilization/next_application_at_epoch": 200,
   }));
   const saved = (await get(ref(authenticatedDatabase(OWNER_UID), `devices/${DEVICE_ID}`))).val();
   assert.equal(saved.fertilizer_products.product.stock_amount, 1000);
-  assert.equal(saved.zones["zone-001"].fertilization.next_application_epoch, 100);
+  assert.equal(saved.zones["zone-001"].fertilization.next_application_at_epoch, 100);
   assert.equal(saved.fertilizer_history, undefined);
 });
 
@@ -1081,4 +1081,91 @@ test("client cannot alter, add or remove seedling telemetry or recommendation fi
     { "recommendation/unrecognized": "forged" }, { unknown: "forged" },
   ]) await assertFails(update(ref(owner, nodePath), patch));
   assert.deepEqual((await get(ref(owner, nodePath))).val(), snapshot);
+});
+
+
+function legacyPhoto(id) {
+  return { id, zone_id: "zone-003", note: "Eski gelişim analizi",
+    related_application_id: "plant_assistant", analysis_title: "Salatalık gelişimi",
+    analysis_meta: "Orta", analysis_context: "Eski analiz kaydı", analysis_advice: "Gözlemleyin",
+    captured_at_epoch: 1788271200, photo_kept_on_owner_phone: true,
+    metadata_updated_at_epoch: 1788271260 };
+}
+
+test("cold-cache fertilizer transaction preserves legacy and current analysis records", async () => {
+  await seedFertilizerDevice(networkCommand({ requested: false, requested_at: 1, expires_at: 2, acknowledged_at: 3 }));
+  const photos = { old: legacyPhoto("old"), current: validGrowthPhoto("current") };
+  await testEnvironment.withSecurityRulesDisabled(async c => {
+    await update(ref(c.database(), `devices/${DEVICE_ID}`), {
+      "garden_journal/photo_metadata": photos,
+      "seedling/nodes/seedling-001": seedlingSnapshot(),
+    });
+  });
+  const owner = authenticatedDatabase(OWNER_UID);
+  const root = ref(owner, `devices/${DEVICE_ID}`);
+  const attempts = [];
+  const result = await assertSucceeds(runTransaction(root, value => {
+    attempts.push(value === null ? "awaiting_snapshot" : "applying");
+    if (value === null) return value;
+    value.fertilizer_products.product.stock_amount -= 20;
+    value.fertilizer_history = {};
+    for (const zone of ["zone-001", "zone-003"]) {
+      value.fertilizer_history[zone] = { zone_id: zone, applied_dose: 10 };
+      value.zones[zone].fertilization.next_application_at_epoch = 200;
+    }
+    return value;
+  }, { applyLocally: false }));
+  assert.equal(attempts[0], "awaiting_snapshot");
+  assert.ok(attempts.includes("applying"));
+  assert.equal(result.committed, true);
+  assert.equal(result.snapshot.val().fertilizer_products.product.stock_amount, 980);
+  assert.deepEqual(result.snapshot.val().garden_journal.photo_metadata, photos);
+  assert.deepEqual(result.snapshot.val().seedling.nodes["seedling-001"], seedlingSnapshot());
+});
+
+test("legacy photo allowance cannot create or modify incomplete records", async () => {
+  const owner = authenticatedDatabase(OWNER_UID);
+  const base = `devices/${DEVICE_ID}/garden_journal/photo_metadata`;
+  const old = legacyPhoto("old");
+  await assertFails(set(ref(owner, `${base}/old`), old));
+  await testEnvironment.withSecurityRulesDisabled(c => set(ref(c.database(), `${base}/old`), old));
+  await assertSucceeds(set(ref(owner, `${base}/old`), old));
+  await assertFails(update(ref(owner, `${base}/old`), { note: "changed" }));
+  await assertFails(update(ref(owner, `${base}/old`), { zone_id: "zone-001" }));
+  await assertFails(update(ref(owner, `${base}/old`), { analysis_context: null }));
+  await assertFails(update(ref(owner, `${base}/old`), { api_key: "forbidden" }));
+  await assertSucceeds(set(ref(owner, `${base}/old`), validGrowthPhoto("old")));
+});
+
+test("editing a current photo must revalidate all fields even when an invalid legacy field is unchanged", async () => {
+  const owner = authenticatedDatabase(OWNER_UID);
+  const path = `devices/${DEVICE_ID}/garden_journal/photo_metadata/oversized`;
+  const old = validGrowthPhoto("oversized", { analysis_advice: "x".repeat(5001) });
+  await testEnvironment.withSecurityRulesDisabled(c => set(ref(c.database(), path), old));
+  await assertSucceeds(set(ref(owner, path), old));
+  await assertFails(update(ref(owner, path), { note: "changed" }));
+  await assertSucceeds(set(ref(owner, path), validGrowthPhoto("oversized")));
+});
+
+
+test("approved family can save from cold cache while protected device state remains unchanged", async () => {
+  await seedFertilizerDevice(networkCommand({ requested: false, requested_at: 1, expires_at: 2, acknowledged_at: 3 }));
+  await testEnvironment.withSecurityRulesDisabled(async c => {
+    await set(ref(c.database(), `device_access/${DEVICE_ID}/${FAMILY_UID}`), { approved: true });
+    await update(ref(c.database(), `devices/${DEVICE_ID}`), {
+      "user_feedback_email_state/activation_epoch": 123,
+      "weather/irrigation_settings/manual_watering_max_duration_seconds": 18000,
+      "garden_journal/photo_metadata/old": legacyPhoto("old"),
+    });
+  });
+  const root = ref(unclaimedDatabase(FAMILY_UID), `devices/${DEVICE_ID}`);
+  const saved = await assertSucceeds(runTransaction(root, value => {
+    if (value === null) return value;
+    value.fertilizer_history = { application: { zone_id: "zone-003", applied_dose: 10 } };
+    value.fertilizer_products.product.stock_amount -= 10;
+    return value;
+  }, { applyLocally: false }));
+  assert.equal(saved.committed, true);
+  assert.equal(saved.snapshot.val().user_feedback_email_state.activation_epoch, 123);
+  assert.equal(saved.snapshot.val().weather.irrigation_settings.manual_watering_max_duration_seconds, 18000);
 });
