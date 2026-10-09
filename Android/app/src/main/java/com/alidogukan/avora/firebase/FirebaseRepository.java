@@ -81,7 +81,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 public class FirebaseRepository {
@@ -1395,8 +1394,12 @@ public class FirebaseRepository {
          }
          applicationIds.add(batchIds);
       }
-      return runAtomicDeviceUpdate("Gübre uygulaması kaydedilemedi.", root -> {
-         long recordedAt = System.currentTimeMillis() / 1000L;
+      return runAtomicDeviceUpdate("Gübre uygulaması kaydedilemedi.", root ->
+            applyFertilizerBatches(root, batches, applicationIds, System.currentTimeMillis() / 1000L));
+   }
+
+   static void applyFertilizerBatches(MutableData root, List<FertilizerApplicationBatch> batches,
+                                      List<List<String>> applicationIds, long recordedAt) {
          for (int batchIndex = 0; batchIndex < batches.size(); batchIndex++) {
             FertilizerApplicationBatch batch = batches.get(batchIndex);
             double totalDose = 0.0;
@@ -1416,8 +1419,8 @@ public class FirebaseRepository {
                writeFertilizerApplication(root, applicationIds.get(batchIndex).get(index), batch.applications.get(index), batch.product, batch.appliedUnit, batch.deductStock, recordedAt);
             }
          }
-      });
    }
+
    public Task<Void> updateFertilizerApplicationSafely(FertilizerApplication value) {
       if (value == null || value.getApplication_id() == null || value.getApplication_id().isBlank()) {
          return Tasks.forException(new IllegalArgumentException("Gübre uygulama kaydı bulunamadı."));
@@ -1480,7 +1483,7 @@ public class FirebaseRepository {
       });
    }
 
-   private void writeFertilizerApplication(MutableData root, String applicationId, BulkFertilizerApplication application, FertilizerProduct product, String appliedUnit, boolean stockDeducted, long recordedAt) {
+   private static void writeFertilizerApplication(MutableData root, String applicationId, BulkFertilizerApplication application, FertilizerProduct product, String appliedUnit, boolean stockDeducted, long recordedAt) {
       List<String> seasonIds = ensureActiveSeasonsForWrite(root, application.zoneId, recordedAt);
       String type = normalizedApplicationType(application.applicationType);
       int intervalDays = Math.max(0, product.getMinimum_interval_days());
@@ -1520,7 +1523,7 @@ public class FirebaseRepository {
       updateScheduleIfNewer(root, history, recordedAt);
    }
 
-   private void updateScheduleIfNewer(MutableData root, MutableData history, long recordedAt) {
+   private static void updateScheduleIfNewer(MutableData root, MutableData history, long recordedAt) {
       String zoneId = stringValue(history.child("zone_id"));
       String type = normalizedApplicationType(stringValue(history.child("application_type")));
       long appliedAt = longValue(history.child("applied_at_epoch"));
@@ -1538,7 +1541,7 @@ public class FirebaseRepository {
       }
    }
 
-   private List<String> ensureActiveSeasonsForWrite(
+   private static List<String> ensureActiveSeasonsForWrite(
          MutableData root, String zoneId, long now) {
       String primary = ensureActiveSeasonForWrite(root, zoneId, now);
       LinkedHashSet<String> seasonIds = new LinkedHashSet<>();
@@ -1558,7 +1561,7 @@ public class FirebaseRepository {
       return new ArrayList<>(seasonIds);
    }
 
-   private String ensureActiveSeasonForWrite(MutableData root, String zoneId, long now) {
+   private static String ensureActiveSeasonForWrite(MutableData root, String zoneId, long now) {
       if (zoneId == null || zoneId.isBlank()) {
          throw new IllegalStateException("Bölge bilgisi gerekli.");
       }
@@ -1654,7 +1657,7 @@ public class FirebaseRepository {
       return primary.isBlank() ? includeLegacy : seasonId.equals(primary);
    }
 
-   private void copyHistoryToSchedule(MutableData schedule, MutableData history, long recordedAt) {
+   private static void copyHistoryToSchedule(MutableData schedule, MutableData history, long recordedAt) {
       long appliedAt = longValue(history.child("applied_at_epoch"));
       long nextAt = longValue(history.child("next_application_at_epoch"));
       schedule.child("product_id").setValue(stringValue(history.child("product_id")));
@@ -1666,7 +1669,7 @@ public class FirebaseRepository {
       schedule.child("updated_at_epoch").setValue(recordedAt);
    }
 
-   private void updateNutritionPointers(MutableData root, String zoneId, MutableData history, long recordedAt) {
+   private static void updateNutritionPointers(MutableData root, String zoneId, MutableData history, long recordedAt) {
       long appliedAt = longValue(history.child("applied_at_epoch"));
       long nextAt = longValue(history.child("next_application_at_epoch"));
       MutableData profile = root.child("zones").child(zoneId).child("fertilization");
@@ -1679,7 +1682,7 @@ public class FirebaseRepository {
       plan.child("updated_at_epoch").setValue(recordedAt);
    }
 
-   private void clearNutritionPointers(MutableData root, String zoneId, long recordedAt) {
+   private static void clearNutritionPointers(MutableData root, String zoneId, long recordedAt) {
       MutableData profile = root.child("zones").child(zoneId).child("fertilization");
       profile.child("last_application_at_epoch").setValue(0L);
       profile.child("next_application_at_epoch").setValue(0L);
@@ -1690,7 +1693,7 @@ public class FirebaseRepository {
       plan.child("updated_at_epoch").setValue(recordedAt);
    }
 
-   private void changeStock(MutableData root, String productId, String appliedUnit, double amountToDeduct, long recordedAt) {
+   private static void changeStock(MutableData root, String productId, String appliedUnit, double amountToDeduct, long recordedAt) {
       if (productId == null || productId.isBlank()) {
          throw new IllegalStateException("Stok güncellemesi için ürün kimliği eksik.");
       }
@@ -1719,33 +1722,11 @@ public class FirebaseRepository {
 
    private Task<Void> runAtomicDeviceUpdate(String fallbackMessage, DeviceMutation mutation) {
       TaskCompletionSource<Void> completion = new TaskCompletionSource<>();
-      AtomicReference<String> failure = new AtomicReference<>(fallbackMessage);
-      this.deviceRef.runTransaction(new Transaction.Handler() {
-         @NonNull
-         @Override
-         public Transaction.Result doTransaction(@NonNull MutableData currentData) {
-            try {
-               mutation.apply(currentData);
-               return Transaction.success(currentData);
-            } catch (RuntimeException error) {
-               if (error.getMessage() != null && !error.getMessage().isBlank()) {
-                  failure.set(error.getMessage());
-               }
-               return Transaction.abort();
-            }
-         }
-
-         @Override
-         public void onComplete(DatabaseError error, boolean committed, DataSnapshot snapshot) {
-            if (error != null) {
-               completion.setException(new DatabaseWriteException(error));
-            } else if (!committed) {
-               completion.setException(new IllegalStateException(failure.get()));
-            } else {
-               completion.setResult(null);
-            }
-         }
-      });
+      this.deviceRef.runTransaction(new AtomicDeviceTransaction(fallbackMessage, mutation::apply,
+            error -> {
+               if (error == null) completion.setResult(null);
+               else completion.setException(error);
+            }), false);
       return completion.getTask();
    }
 
