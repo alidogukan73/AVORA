@@ -681,6 +681,23 @@
               }
             }
           }
+        },
+        "fertilizer_write_guard": {
+          ".validate": "newData.hasChildren(['revision', 'operation_id', 'checks']) && ((newData.child('revision').val() == data.child('revision').val() && newData.child('operation_id').val() == data.child('operation_id').val()) || (newData.child('revision').isNumber() && newData.child('revision').val() == (data.child('revision').exists() ? data.child('revision').val() + 1 : 1)))",
+          "revision": {
+            ".validate": "newData.isNumber() && newData.val() >= 1"
+          },
+          "checks": {
+            "$check": {
+              ".validate": "newData.hasChildren(['path', 'exists', 'branch']) && newData.child('path').isString() && newData.child('path').val().matches(/^(fertilizer_products|fertilizer_history|fertilizer_plans|zones|garden_journal\\/seasons)(\\/.*)?$/) && newData.child('exists').isBoolean() && newData.child('branch').isBoolean() && ((newData.parent().parent().child('revision').val() == data.parent().parent().child('revision').val() && newData.child('path').val() == data.child('path').val() && newData.child('exists').val() == data.child('exists').val() && newData.child('branch').val() == data.child('branch').val() && newData.child('value').val() == data.child('value').val()) || (!(newData.parent().parent().child('revision').val() == data.parent().parent().child('revision').val()) && root.child('devices').child($deviceId).child(newData.child('path').val()).exists() == newData.child('exists').val() && (newData.child('branch').val() == true ? root.child('devices').child($deviceId).child(newData.child('path').val()).hasChildren() : root.child('devices').child($deviceId).child(newData.child('path').val()).val() == newData.child('value').val())))"
+            }
+          },
+          "$other": {
+            ".validate": false
+          },
+          "operation_id": {
+            ".validate": "newData.isString() && newData.val().matches(/^[0-9a-f-]{36}$/)"
+          }
         }
       }
     },
