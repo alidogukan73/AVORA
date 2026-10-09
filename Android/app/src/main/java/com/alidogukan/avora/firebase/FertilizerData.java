@@ -73,7 +73,7 @@ final class FertilizerData {
         Map<String, Object> result = new LinkedHashMap<>(writes);
         Map<String, Object> indexed = new LinkedHashMap<>();
         int index = 0;
-        for (Object check : checks.values()) indexed.put("c" + index++, check);
+        for (Object check : new java.util.TreeMap<>(checks).values()) indexed.put("c" + index++, check);
         result.put("fertilizer_write_guard", Map.of("revision", revision + 1, "operation_id", operationId, "checks", indexed));
         return result;
     }

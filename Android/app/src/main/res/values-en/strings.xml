@@ -11,4 +11,14 @@
     <string name="weather_temperature_chart_title">Temperature chart</string>
     <string name="fertilization_area_unit">Zone area (%1$s)</string>
     <string name="fertilization_tank_unit">Tank volume (%1$s)</string>
+    <string name="fertilization_saved_receipt">%1$s\n%2$s · %3$s %4$s\nApplication date: %5$s</string>
+    <string name="fertilization_saved_stock_deducted">The applied amount was deducted from stock.</string>
+    <string name="fertilization_saved_stock_unchanged">Stock deduction was not selected; stock is unchanged.</string>
+    <string name="fertilization_saved_separate_type">This application was saved under its own type. The nutrition fertilizer plan is tracked separately.</string>
+    <string name="fertilization_recorded_type">%1$s recorded: %2$s · %3$s</string>
+    <string name="fertilization_type_preview">%1$s · %2$s</string>
+    <string name="fertilization_type_next">%1$s · Next date: %2$s</string>
+    <string name="fertilization_duplicate_title">A record already exists for this date</string>
+    <string name="fertilization_duplicate_message">%1$s already has a record dated %2$s. Do not record the same application again. Was this a separate actual application?</string>
+    <string name="fertilization_duplicate_confirm">Record separate application</string>
 </resources>

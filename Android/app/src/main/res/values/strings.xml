@@ -147,7 +147,17 @@
     <string
         name="fertilization_invalid_dose">Sıfırdan büyük geçerli bir miktar girin.</string>
     <string
-        name="fertilization_application_saved">Gübre uygulaması kaydedildi ve sonraki tarih güncellendi.</string>
+        name="fertilization_application_saved">Uygulama kaydedildi.</string>
+    <string name="fertilization_saved_receipt">%1$s\n%2$s · %3$s %4$s\nUygulama tarihi: %5$s</string>
+    <string name="fertilization_saved_stock_deducted">Uygulama miktarı stoktan düşüldü.</string>
+    <string name="fertilization_saved_stock_unchanged">Stoktan düşme seçilmedi; stok miktarı değişmedi.</string>
+    <string name="fertilization_saved_separate_type">Bu uygulama kendi türünde kaydedildi. Besleme gübresi planı ayrı takip edilir.</string>
+    <string name="fertilization_recorded_type">%1$s kaydı: %2$s · %3$s</string>
+    <string name="fertilization_type_preview">%1$s · %2$s</string>
+    <string name="fertilization_type_next">%1$s · Sonraki tarih: %2$s</string>
+    <string name="fertilization_duplicate_title">Bu tarih için kayıt var</string>
+    <string name="fertilization_duplicate_message">%1$s için %2$s tarihli bir kayıt zaten bulunuyor. Aynı uygulamayı yeniden kaydetmeyin. Bu ayrı bir gerçek uygulama mı?</string>
+    <string name="fertilization_duplicate_confirm">Ayrı uygulamayı kaydet</string>
     <string
         name="fertilization_application_failed">Gübre uygulaması kaydedilemedi.</string>
     <string
@@ -281,7 +291,7 @@
     <string
         name="fertilizer_stock_low">DÜŞÜK STOK · %1$s %2$s kaldı</string>
     <string
-        name="fertilization_deduct_stock">Kaydederken %1$s %2$s stoktan düş</string>
+        name="fertilization_deduct_stock">Uygulanan miktarı stoktan düş (mevcut stok: %1$s %2$s)</string>
     <string
         name="fertilization_insufficient_stock">Girilen miktar mevcut stoktan fazla. Stoktan düşmeyi kapatın veya miktarı kontrol edin.</string>
     <string

@@ -1,4 +1,4 @@
-# AVORA 3.7.5 — telefonda doğrulanan gübre kayıt hatası
+# AVORA 3.7.5–3.7.6 — telefonda doğrulanan gübre kayıt hatası
 
 ## Kanıt ve neden
 
@@ -48,8 +48,35 @@ Firebase atomik çoklu alan güncellemeleri:
   13.101 bayt kayıt isteği 548 ms'de doğrulandı; fotoğraf metadatası korundu.
   Bu süre yerel test ölçümüdür, telefon/ağ performans garantisi değildir.
 - APK mevcut uygulamayla aynı sertifikayla imzalandı.
-- Telefon kabulü: yeni APK yüklendikten sonra kullanıcının gerçek kaydıyla
-  yeniden kontrol edilecek; otomatik testler telefon kabulü yerine geçmez.
+- 3.7.5 telefona veriler korunarak yüklendi. Kullanıcının iki denemesi de
+  sunucuda doğrulandı: 1. bölge, Biohumagro, 10 ml, 9 Ekim, CONDITIONER,
+  stoktan düşme kapalı. Böylece MAX_RETRIES kayıt sorununun giderildiği görüldü.
+- Kullanıcı görünür onay alamadığı için kaydedilmediğini düşündü. Kullanıcının
+  açık onayıyla son tekrar yedeklendi ve atomik olarak kaldırıldı; ilk kayıt
+  ve stok korundu.
+
+## 3.7.6 ekran ve sağlık puanı düzeltmesi
+
+- Başarı mesajı geçici Toast yerine ürün, miktar, tarih, uygulama türü ve stok
+  sonucunu gösteren bir onay penceresidir.
+- Bölge ekranı kayıtlı uygulamaları sürekli gösterir. Önizleme, seçilen ürünün
+  uygulama türündeki son/sonraki tarihe bakar.
+- Aynı ürün ve aynı tarih için mevcut son kayıt yeniden girildiğinde ayrı bir
+  gerçek uygulama olduğunun onayı gerekir. Bu uyarı tüm geçmişteki mükerrer
+  kayıtları tarayan genel bir kontrol değildir.
+- Sağlık puanı seçili plan ürününün uygulama takvimine bakar. Biohumagro
+  planında kaydedilmiş toprak düzenleyici uygulaması eski genel tarihten
+  kaynaklanan 10 puan kesintisini kaldırır; farklı ürünün kaydı bekleyen
+  besleme gübresi uygulamasını tamamlanmış göstermez.
+- Stok kutusu mevcut miktarla düşülecek miktarı karıştırmaz; yalnız girilen
+  uygulama miktarının düşüleceğini açıkça söyler.
+- Ürün listesi profil verisinden sonra geldiğinde eski “Kaydedilmemiş
+  değişiklikler” işaretinin ekranda kalması da düzeltildi.
+- 555 Android testi ve 33 kural testi başarılı. Son sürüm 3.7.6 (86).
+- Fiziksel telefonda ilk gerçek kayıt günlükte görüldü; 1. bölge 100/100,
+  sonraki toprak düzenleyici tarihi 24-10-2026 ve mevcut kayıt tarihi
+  09-10-2026 olarak doğrulandı. 3. bölge 88/100; kalan 12 puan son analizdeki
+  orta öncelikli bulguyu gösteriyor.
 
 Gizli bilgiler içermeyen yerel kanıtlar `.artifacts/phone-fertilizer-20261009`
 ve `.artifacts/fertilizer-scoped-20261009` altındadır. Özel veri kopyası Git'e

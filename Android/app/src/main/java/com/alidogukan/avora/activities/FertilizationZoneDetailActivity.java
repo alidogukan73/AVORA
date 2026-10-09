@@ -19,6 +19,8 @@ import androidx.lifecycle.ViewModelProvider;
 import com.alidogukan.avora.R;
 import com.alidogukan.avora.fertilization.FertilizationSaveError;
 import com.alidogukan.avora.models.FertilizationProfile;
+import com.alidogukan.avora.models.FertilizerApplicationSchedule;
+import com.alidogukan.avora.fertilization.FertilizerApplicationTiming;
 import com.alidogukan.avora.models.FertilizerApplication;
 import com.alidogukan.avora.models.FertilizerProduct;
 import com.alidogukan.avora.fertilization.FertilizerAdvice;
@@ -113,6 +115,7 @@ public class FertilizationZoneDetailActivity
     private String selectedStage = "NOT_SET";
     private String originalProductId = "";
     private String selectedProductId = "";
+    private FertilizationProfile applicationScheduleProfile;
     private long originalLastApplicationAt;
     private long originalNextApplicationAt;
     private double originalAreaM2;
@@ -394,6 +397,11 @@ public class FertilizationZoneDetailActivity
     }
 
     private void renderZone(GardenZone zone) {
+        if (zone != null) {
+            applicationScheduleProfile = zone.getFertilization();
+            renderRecordedApplications();
+            if (remoteLoaded) updateApplicationPreview();
+        }
         if (
                 zone == null
                         || (remoteLoaded && hasUnsavedChanges())
@@ -545,7 +553,9 @@ public class FertilizationZoneDetailActivity
             }
         }
         rebuildProductOptions();
-        updateRecordButton();
+        // Products may arrive after the zone profile. Reconcile the whole
+        // draft indicator once the saved product can be selected again.
+        updateUnsavedState();
         renderZoneAiAdvice();
     }
 
@@ -1988,6 +1998,28 @@ public class FertilizationZoneDetailActivity
             String applicationNotes,
             long appliedAtEpoch
     ) {
+        if (FertilizerApplicationTiming.alreadyRecorded(applicationScheduleProfile,
+                applicationTypeFor(product), product.getProduct_id(), appliedAtEpoch)) {
+            new MaterialAlertDialogBuilder(this)
+                    .setTitle(R.string.fertilization_duplicate_title)
+                    .setMessage(getString(R.string.fertilization_duplicate_message, product.getName(),
+                            Instant.ofEpochSecond(appliedAtEpoch).atZone(ZoneId.systemDefault())
+                                    .toLocalDate().format(displayDateFormat())))
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .setPositiveButton(R.string.fertilization_duplicate_confirm, (confirmation, which) ->
+                            commitApplication(dialog, product, dose, appliedUnit, suggestedMin, suggestedMax,
+                                    deductStock, applicationMethod, applicationNotes, appliedAtEpoch))
+                    .show();
+            return;
+        }
+        commitApplication(dialog, product, dose, appliedUnit, suggestedMin, suggestedMax,
+                deductStock, applicationMethod, applicationNotes, appliedAtEpoch);
+    }
+
+    private void commitApplication(androidx.appcompat.app.AlertDialog dialog,
+            FertilizerProduct product, double dose, String appliedUnit, double suggestedMin,
+            double suggestedMax, boolean deductStock, String applicationMethod,
+            String applicationNotes, long appliedAtEpoch) {
         dialog.getButton(
                 androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE
         ).setEnabled(false);
@@ -2008,11 +2040,24 @@ public class FertilizationZoneDetailActivity
                 applicationTypeFor(product)
         ).addOnSuccessListener(result -> {
             dialog.dismiss();
-            Toast.makeText(
-                    this,
-                    R.string.fertilization_application_saved,
-                    Toast.LENGTH_LONG
-            ).show();
+            updateApplicationPreview();
+            renderRecordedApplications();
+            String type = applicationTypeFor(product);
+            String receipt = getString(R.string.fertilization_saved_receipt,
+                    applicationTypeLabel(type), product.getName(), formatDose(dose), appliedUnit,
+                    Instant.ofEpochSecond(appliedAtEpoch).atZone(ZoneId.systemDefault())
+                            .toLocalDate().format(displayDateFormat()));
+            receipt += "\n\n" + getString(deductStock
+                    ? R.string.fertilization_saved_stock_deducted
+                    : R.string.fertilization_saved_stock_unchanged);
+            if (!"NUTRITION".equals(type)) {
+                receipt += "\n\n" + getString(R.string.fertilization_saved_separate_type);
+            }
+            new MaterialAlertDialogBuilder(this)
+                    .setTitle(R.string.fertilization_application_saved)
+                    .setMessage(receipt)
+                    .setPositiveButton(android.R.string.ok, null)
+                    .show();
         }).addOnFailureListener(error -> {
             dialog.getButton(
                     androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE
@@ -2167,6 +2212,20 @@ public class FertilizationZoneDetailActivity
         }
     }
 
+    private void renderRecordedApplications() {
+        TextView recorded = findViewById(R.id.txtRecordedApplications);
+        List<String> rows = new ArrayList<>();
+        for (String type : List.of("NUTRITION", "ORGANIC", "CONDITIONER", "BIOSTIMULANT")) {
+            FertilizerApplicationSchedule schedule = FertilizerApplicationTiming.schedule(applicationScheduleProfile, type);
+            if (schedule.getLast_application_at_epoch() <= 0L) continue;
+            rows.add(getString(R.string.fertilization_recorded_type, applicationTypeLabel(type),
+                    Instant.ofEpochSecond(schedule.getLast_application_at_epoch()).atZone(ZoneId.systemDefault())
+                            .toLocalDate().format(displayDateFormat()), safe(schedule.getProduct_name())));
+        }
+        recorded.setText(String.join("\n", rows));
+        recorded.setVisibility(rows.isEmpty() ? View.GONE : View.VISIBLE);
+    }
+
     private void updateApplicationPreview() {
         if (isSeasonEndStage()) {
             txtApplicationPreview.setVisibility(View.VISIBLE);
@@ -2174,12 +2233,21 @@ public class FertilizationZoneDetailActivity
             txtApplicationPreview.setTextColor(getColor(R.color.textSecondary));
             return;
         }
-        if (originalLastApplicationAt > 0L) {
-            txtApplicationPreview.setVisibility(View.GONE);
+        FertilizerProduct product = selectedProduct();
+        String type = product == null ? "NUTRITION" : applicationTypeFor(product);
+        FertilizerApplicationSchedule schedule = FertilizerApplicationTiming.schedule(
+                applicationScheduleProfile, type);
+        if (schedule.getLast_application_at_epoch() > 0L) {
+            if (schedule.getNext_application_at_epoch() > 0L) {
+                txtApplicationPreview.setVisibility(View.VISIBLE);
+                txtApplicationPreview.setText(getString(R.string.fertilization_type_next,
+                        applicationTypeLabel(type), Instant.ofEpochSecond(schedule.getNext_application_at_epoch())
+                                .atZone(ZoneId.systemDefault()).toLocalDate().format(displayDateFormat())));
+                txtApplicationPreview.setTextColor(getColor(R.color.textSecondary));
+            } else txtApplicationPreview.setVisibility(View.GONE);
             return;
         }
         txtApplicationPreview.setVisibility(View.VISIBLE);
-        FertilizerProduct product = selectedProduct();
         long epoch = calculateFirstApplicationEpoch(
                 currentPlantingDate(),
                 product == null
@@ -2202,7 +2270,7 @@ public class FertilizationZoneDetailActivity
                 .atZone(ZoneId.systemDefault())
                 .toLocalDate();
         boolean overdue = date.isBefore(LocalDate.now());
-        txtApplicationPreview.setText(
+        String firstApplication =
                 overdue
                         ? getString(
                                 R.string.fertilization_first_application_overdue,
@@ -2212,8 +2280,9 @@ public class FertilizationZoneDetailActivity
                                 R.string.fertilization_first_application,
                                 date.format(displayDateFormat()),
                                 product.getMinimum_interval_days()
-                        )
-        );
+                        );
+        txtApplicationPreview.setText(getString(R.string.fertilization_type_preview,
+                applicationTypeLabel(type), firstApplication));
         txtApplicationPreview.setTextColor(
                 getColor(
                         overdue ? R.color.offline : R.color.primary
