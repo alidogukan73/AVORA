@@ -117,9 +117,10 @@ public final class GardenHealthCalculator {
             }
         }
         FertilizationProfile profile = zone.getFertilization();
+        long nextApplication = com.alidogukan.avora.fertilization.FertilizerApplicationTiming
+                .plannedNextApplication(profile);
         if (profile != null && profile.isEnabled()
-                && profile.getNext_application_at_epoch() > 0
-                && profile.getNext_application_at_epoch() <= now) {
+                && nextApplication > 0 && nextApplication <= now) {
             issues.add(new GardenHealthIssue("Gübreleme kaydı bekleniyor", 10, FERTILIZATION));
         }
         if (assistantSignal != null && assistantSignal.appliesTo(zone, now)

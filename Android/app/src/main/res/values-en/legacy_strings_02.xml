@@ -15,7 +15,7 @@
     <string name="fertilizer_stock_unknown">Stock information not entered</string>
     <string name="fertilizer_stock_available">Stock: %1$s %2$s</string>
     <string name="fertilizer_stock_low">LOW STOCK · %1$s %2$s remaining</string>
-    <string name="fertilization_deduct_stock">Deduct %1$s %2$s from stock when saving</string>
+    <string name="fertilization_deduct_stock">Deduct the applied amount from stock (available: %1$s %2$s)</string>
     <string name="fertilization_insufficient_stock">The entered amount is greater than current stock. Disable stock deduction or check the amount.</string>
     <string name="fertilizer_remove">Delete / Deactivate</string>
     <string name="fertilizer_delete_title">Delete fertilizer product</string>

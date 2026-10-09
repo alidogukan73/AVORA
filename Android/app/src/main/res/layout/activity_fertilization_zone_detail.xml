@@ -114,6 +114,15 @@
                         android:textColor="@color/warning"
                         android:textSize="13sp" />
 
+                    <TextView
+                        android:id="@+id/txtRecordedApplications"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:textColor="@color/primary"
+                        android:textSize="14sp"
+                        android:visibility="gone" />
+
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btnRecordFertilizerApplication"
                         style="@style/Widget.AVORA.Button.Primary"

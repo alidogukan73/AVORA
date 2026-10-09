@@ -20,6 +20,27 @@ public final class GardenHealthNavigationTest {
     private static final long NOW = 2_000_000L;
 
     @Test
+    public void recordedPlannedConditionerClearsPenaltyWithoutHidingOtherProductsDueDate() {
+        GardenZone zone = zone();
+        FertilizationProfile profile = new FertilizationProfile();
+        profile.setEnabled(true);
+        profile.setActive_product_id("conditioner");
+        profile.setNext_application_at_epoch(NOW - 86400);
+        com.alidogukan.avora.models.FertilizerApplicationSchedule schedule =
+                new com.alidogukan.avora.models.FertilizerApplicationSchedule();
+        schedule.setProduct_id("conditioner");
+        schedule.setLast_application_at_epoch(NOW);
+        schedule.setNext_application_at_epoch(NOW + 86400);
+        profile.setApplication_schedules(java.util.Map.of("CONDITIONER", schedule));
+        zone.setFertilization(profile);
+        assertEquals(100, GardenHealthCalculator.evaluateZone(zone, NOW).getScore());
+        profile.setActive_product_id("nutrition");
+        GardenHealthZoneResult result = GardenHealthCalculator.evaluateZone(zone, NOW);
+        assertEquals(90, result.getScore());
+        assertSingleIssue(result, FERTILIZATION, 10);
+    }
+
+    @Test
     public void completedLowUrgencyObservationDoesNotReduceHealthScore() {
         GardenHealthZoneResult result = evaluate(zone(), signal("Düşük"));
         assertEquals(100, result.getScore());

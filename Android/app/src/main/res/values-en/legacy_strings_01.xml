@@ -70,7 +70,7 @@
     <string name="fertilization_manual_record_warning">Save only if you actually applied it. The next date will be calculated from this record.</string>
     <string name="fertilization_record_confirm">Save application</string>
     <string name="fertilization_invalid_dose">Enter a valid amount greater than zero.</string>
-    <string name="fertilization_application_saved">Fertilizer application saved and the next date updated.</string>
+    <string name="fertilization_application_saved">Application saved.</string>
     <string name="fertilization_application_failed">Could not save fertilizer application.</string>
     <string name="fertilizer_history_open">Application history</string>
     <string name="fertilizer_bulk_save">Record Bulk Application</string>

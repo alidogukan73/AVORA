@@ -56,16 +56,13 @@ import com.alidogukan.avora.models.GardenProfile;
 import com.alidogukan.avora.models.DisplayUnitSettings;
 import com.alidogukan.avora.models.DeviceInfoSnapshot;
 import com.google.android.gms.tasks.Task;
-import com.google.android.gms.tasks.TaskCompletionSource;
 import com.google.android.gms.tasks.Tasks;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.database.MutableData;
 import com.google.firebase.database.Query;
 import com.google.firebase.database.ServerValue;
-import com.google.firebase.database.Transaction;
 import com.google.firebase.database.ValueEventListener;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
@@ -1394,11 +1391,11 @@ public class FirebaseRepository {
          }
          applicationIds.add(batchIds);
       }
-      return runAtomicDeviceUpdate("Gübre uygulaması kaydedilemedi.", root ->
+      return runScopedFertilizerUpdate(root ->
             applyFertilizerBatches(root, batches, applicationIds, System.currentTimeMillis() / 1000L));
    }
 
-   static void applyFertilizerBatches(MutableData root, List<FertilizerApplicationBatch> batches,
+   static void applyFertilizerBatches(FertilizerData root, List<FertilizerApplicationBatch> batches,
                                       List<List<String>> applicationIds, long recordedAt) {
          for (int batchIndex = 0; batchIndex < batches.size(); batchIndex++) {
             FertilizerApplicationBatch batch = batches.get(batchIndex);
@@ -1428,8 +1425,8 @@ public class FirebaseRepository {
       if (!Double.isFinite(value.getApplied_dose()) || value.getApplied_dose() <= 0.0) {
          return Tasks.forException(new IllegalArgumentException("Uygulama miktarı geçersiz."));
       }
-      return runAtomicDeviceUpdate("Gübre uygulama kaydı güncellenemedi.", root -> {
-         MutableData history = root.child("fertilizer_history").child(value.getApplication_id());
+      return runScopedFertilizerUpdate(root -> {
+         FertilizerData history = root.child("fertilizer_history").child(value.getApplication_id());
          if (history.getValue() == null) {
             throw new IllegalStateException("Düzenlenecek gübre uygulama kaydı artık mevcut değil.");
          }
@@ -1467,8 +1464,8 @@ public class FirebaseRepository {
       if (target == null || target.getApplication_id() == null || target.getApplication_id().isBlank()) {
          return Tasks.forException(new IllegalArgumentException("Silinecek gübre uygulama kaydı bulunamadı."));
       }
-      return runAtomicDeviceUpdate("Gübre uygulama kaydı silinemedi.", root -> {
-         MutableData history = root.child("fertilizer_history").child(target.getApplication_id());
+      return runScopedFertilizerUpdate(root -> {
+         FertilizerData history = root.child("fertilizer_history").child(target.getApplication_id());
          if (history.getValue() == null) {
             throw new IllegalStateException("Silinecek gübre uygulama kaydı artık mevcut değil.");
          }
@@ -1483,13 +1480,13 @@ public class FirebaseRepository {
       });
    }
 
-   private static void writeFertilizerApplication(MutableData root, String applicationId, BulkFertilizerApplication application, FertilizerProduct product, String appliedUnit, boolean stockDeducted, long recordedAt) {
+   private static void writeFertilizerApplication(FertilizerData root, String applicationId, BulkFertilizerApplication application, FertilizerProduct product, String appliedUnit, boolean stockDeducted, long recordedAt) {
       List<String> seasonIds = ensureActiveSeasonsForWrite(root, application.zoneId, recordedAt);
       String type = normalizedApplicationType(application.applicationType);
       int intervalDays = Math.max(0, product.getMinimum_interval_days());
       long nextAt = intervalDays == 0 ? 0L
             : application.appliedAt + (long)intervalDays * 86400L;
-      MutableData history = root.child("fertilizer_history").child(applicationId);
+      FertilizerData history = root.child("fertilizer_history").child(applicationId);
       history.child("season_id").setValue(seasonIds.get(0));
       history.child("season_ids").setValue(new ArrayList<>(seasonIds));
       history.child("application_id").setValue(applicationId);
@@ -1523,11 +1520,11 @@ public class FirebaseRepository {
       updateScheduleIfNewer(root, history, recordedAt);
    }
 
-   private static void updateScheduleIfNewer(MutableData root, MutableData history, long recordedAt) {
+   private static void updateScheduleIfNewer(FertilizerData root, FertilizerData history, long recordedAt) {
       String zoneId = stringValue(history.child("zone_id"));
       String type = normalizedApplicationType(stringValue(history.child("application_type")));
       long appliedAt = longValue(history.child("applied_at_epoch"));
-      MutableData schedule = root.child("zones").child(zoneId).child("fertilization").child("application_schedules").child(type);
+      FertilizerData schedule = root.child("zones").child(zoneId).child("fertilization").child("application_schedules").child(type);
       long scheduledAt = longValue(schedule.child("last_application_at_epoch"));
       long scheduledNextAt = longValue(schedule.child("next_application_at_epoch"));
       long candidateNextAt = longValue(history.child("next_application_at_epoch"));
@@ -1542,13 +1539,13 @@ public class FirebaseRepository {
    }
 
    private static List<String> ensureActiveSeasonsForWrite(
-         MutableData root, String zoneId, long now) {
+         FertilizerData root, String zoneId, long now) {
       String primary = ensureActiveSeasonForWrite(root, zoneId, now);
       LinkedHashSet<String> seasonIds = new LinkedHashSet<>();
       seasonIds.add(primary);
-      MutableData active = root.child("zones").child(zoneId)
+      FertilizerData active = root.child("zones").child(zoneId)
             .child("season").child("active_season_ids");
-      for (MutableData child : active.getChildren()) {
+      for (FertilizerData child : active.getChildren()) {
          Object raw = child.getValue();
          if (raw instanceof Boolean && !Boolean.TRUE.equals(raw)) continue;
          String value = raw instanceof String ? ((String) raw).trim() : "";
@@ -1561,12 +1558,17 @@ public class FirebaseRepository {
       return new ArrayList<>(seasonIds);
    }
 
-   private static String ensureActiveSeasonForWrite(MutableData root, String zoneId, long now) {
+   private static String ensureActiveSeasonForWrite(FertilizerData root, String zoneId, long now) {
       if (zoneId == null || zoneId.isBlank()) {
          throw new IllegalStateException("Bölge bilgisi gerekli.");
       }
-      MutableData zone = root.child("zones").child(zoneId);
-      MutableData state = zone.child("season");
+      FertilizerData zone = root.child("zones").child(zoneId);
+      if (!zone.exists()) {
+         throw new IllegalStateException("Bölge artık mevcut değil. Bölge listesini yenileyin.");
+      }
+      FertilizerData state = zone.child("season");
+      // Season writers change this when adding/removing active seasons.
+      state.child("updated_at_epoch").getValue();
       String status = stringValue(state.child("status"));
       String existingId = stringValue(state.child("active_season_id"));
       if (SeasonStatus.isActive(status) && !existingId.isBlank()) {
@@ -1593,7 +1595,7 @@ public class FirebaseRepository {
       state.child("include_legacy_records").setValue(true);
       state.child("updated_at_epoch").setValue(now);
 
-      MutableData manifest = root.child("garden_journal").child("seasons").child(seasonId);
+      FertilizerData manifest = root.child("garden_journal").child("seasons").child(seasonId);
       manifest.child("season_id").setValue(seasonId);
       manifest.child("zone_id").setValue(zoneId);
       manifest.child("zone_name").setValue(zoneName);
@@ -1610,13 +1612,13 @@ public class FirebaseRepository {
       return seasonId;
    }
 
-   private void recalculateApplicationSchedule(MutableData root, String zoneId, String type, long recordedAt) {
-      MutableData seasonState = root.child("zones").child(zoneId).child("season");
+   private void recalculateApplicationSchedule(FertilizerData root, String zoneId, String type, long recordedAt) {
+      FertilizerData seasonState = root.child("zones").child(zoneId).child("season");
       String activeSeasonId = stringValue(seasonState.child("active_season_id"));
       boolean includeLegacy = booleanValue(seasonState.child("include_legacy_records"));
-      MutableData latest = null;
+      FertilizerData latest = null;
       long latestAt = Long.MIN_VALUE;
-      for (MutableData candidate : root.child("fertilizer_history").getChildren()) {
+      for (FertilizerData candidate : root.child("fertilizer_history").getChildren()) {
          if (!zoneId.equals(stringValue(candidate.child("zone_id")))) {
             continue;
          }
@@ -1633,7 +1635,7 @@ public class FirebaseRepository {
             latestAt = candidateAt;
          }
       }
-      MutableData schedule = root.child("zones").child(zoneId).child("fertilization").child("application_schedules").child(type);
+      FertilizerData schedule = root.child("zones").child(zoneId).child("fertilization").child("application_schedules").child(type);
       if (latest == null) {
          schedule.setValue(null);
          if ("NUTRITION".equals(type)) {
@@ -1648,8 +1650,8 @@ public class FirebaseRepository {
    }
 
    private static boolean fertilizerRecordBelongsToSeason(
-         MutableData record, String seasonId, boolean includeLegacy) {
-      for (MutableData child : record.child("season_ids").getChildren()) {
+         FertilizerData record, String seasonId, boolean includeLegacy) {
+      for (FertilizerData child : record.child("season_ids").getChildren()) {
          if (seasonId.equals(stringValue(child))) return true;
          if (seasonId.equals(child.getKey()) && booleanValue(child)) return true;
       }
@@ -1657,7 +1659,7 @@ public class FirebaseRepository {
       return primary.isBlank() ? includeLegacy : seasonId.equals(primary);
    }
 
-   private static void copyHistoryToSchedule(MutableData schedule, MutableData history, long recordedAt) {
+   private static void copyHistoryToSchedule(FertilizerData schedule, FertilizerData history, long recordedAt) {
       long appliedAt = longValue(history.child("applied_at_epoch"));
       long nextAt = longValue(history.child("next_application_at_epoch"));
       schedule.child("product_id").setValue(stringValue(history.child("product_id")));
@@ -1669,35 +1671,35 @@ public class FirebaseRepository {
       schedule.child("updated_at_epoch").setValue(recordedAt);
    }
 
-   private static void updateNutritionPointers(MutableData root, String zoneId, MutableData history, long recordedAt) {
+   private static void updateNutritionPointers(FertilizerData root, String zoneId, FertilizerData history, long recordedAt) {
       long appliedAt = longValue(history.child("applied_at_epoch"));
       long nextAt = longValue(history.child("next_application_at_epoch"));
-      MutableData profile = root.child("zones").child(zoneId).child("fertilization");
+      FertilizerData profile = root.child("zones").child(zoneId).child("fertilization");
       profile.child("last_application_at_epoch").setValue(appliedAt);
       profile.child("next_application_at_epoch").setValue(nextAt);
       profile.child("updated_at_epoch").setValue(recordedAt);
-      MutableData plan = root.child("fertilizer_plans").child("plan-" + zoneId);
+      FertilizerData plan = root.child("fertilizer_plans").child("plan-" + zoneId);
       plan.child("last_application_at_epoch").setValue(appliedAt);
       plan.child("next_application_at_epoch").setValue(nextAt);
       plan.child("updated_at_epoch").setValue(recordedAt);
    }
 
-   private static void clearNutritionPointers(MutableData root, String zoneId, long recordedAt) {
-      MutableData profile = root.child("zones").child(zoneId).child("fertilization");
+   private static void clearNutritionPointers(FertilizerData root, String zoneId, long recordedAt) {
+      FertilizerData profile = root.child("zones").child(zoneId).child("fertilization");
       profile.child("last_application_at_epoch").setValue(0L);
       profile.child("next_application_at_epoch").setValue(0L);
       profile.child("updated_at_epoch").setValue(recordedAt);
-      MutableData plan = root.child("fertilizer_plans").child("plan-" + zoneId);
+      FertilizerData plan = root.child("fertilizer_plans").child("plan-" + zoneId);
       plan.child("last_application_at_epoch").setValue(0L);
       plan.child("next_application_at_epoch").setValue(0L);
       plan.child("updated_at_epoch").setValue(recordedAt);
    }
 
-   private static void changeStock(MutableData root, String productId, String appliedUnit, double amountToDeduct, long recordedAt) {
+   private static void changeStock(FertilizerData root, String productId, String appliedUnit, double amountToDeduct, long recordedAt) {
       if (productId == null || productId.isBlank()) {
          throw new IllegalStateException("Stok güncellemesi için ürün kimliği eksik.");
       }
-      MutableData product = root.child("fertilizer_products").child(productId);
+      FertilizerData product = root.child("fertilizer_products").child(productId);
       if (product.getValue() == null) {
          throw new IllegalStateException("Stok güncellenecek gübre ürünü bulunamadı.");
       }
@@ -1720,14 +1722,8 @@ public class FirebaseRepository {
       product.child("updated_at_epoch").setValue(recordedAt);
    }
 
-   private Task<Void> runAtomicDeviceUpdate(String fallbackMessage, DeviceMutation mutation) {
-      TaskCompletionSource<Void> completion = new TaskCompletionSource<>();
-      this.deviceRef.runTransaction(new AtomicDeviceTransaction(fallbackMessage, mutation::apply,
-            error -> {
-               if (error == null) completion.setResult(null);
-               else completion.setException(error);
-            }), false);
-      return completion.getTask();
+   private Task<Void> runScopedFertilizerUpdate(DeviceMutation mutation) {
+      return ScopedFertilizerWrite.run(this.deviceRef, mutation::apply);
    }
 
    private static String normalizedApplicationType(String value) {
@@ -1932,29 +1928,29 @@ public class FirebaseRepository {
    }
 
 
-   private static String stringValue(MutableData data) {
+   private static String stringValue(FertilizerData data) {
       Object value = data.getValue();
       return value == null ? "" : String.valueOf(value);
    }
 
-   private static double numberValue(MutableData data) {
+   private static double numberValue(FertilizerData data) {
       Object value = data.getValue();
       return value instanceof Number ? ((Number)value).doubleValue() : 0.0;
    }
 
-   private static long longValue(MutableData data) {
+   private static long longValue(FertilizerData data) {
       Object value = data.getValue();
       return value instanceof Number ? ((Number)value).longValue() : 0L;
    }
 
-   private static boolean booleanValue(MutableData data) {
+   private static boolean booleanValue(FertilizerData data) {
       Object value = data.getValue();
       return value instanceof Boolean && (Boolean)value;
    }
 
    @FunctionalInterface
    private interface DeviceMutation {
-      void apply(MutableData root);
+      void apply(FertilizerData root);
    }
    public Task<Void> requestZoneValveTest(GardenZone zone, int durationSeconds) {
       Map<String, Object> command = new HashMap<>();

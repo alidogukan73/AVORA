@@ -134,6 +134,87 @@ after(async () => {
   await testEnvironment.cleanup();
 });
 
+function scopedFertilizerFixture() {
+  return JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", "fertilizer-scoped.json"), "utf8"));
+}
+
+async function seedScopedFertilizer(extra = {}) {
+  const fixture = scopedFertilizerFixture();
+  await testEnvironment.withSecurityRulesDisabled(async context => {
+    await set(ref(context.database(), `devices/${DEVICE_ID}`), { ...fixture.device, ...extra });
+  });
+  return fixture;
+}
+
+test("production fertilizer payload commits atomically during large sensor updates", async () => {
+  const fixture = await seedScopedFertilizer({sensor_history: {archive: "x".repeat(10 * 1024 * 1024)}});
+  const owner = authenticatedDatabase(OWNER_UID);
+  const device = ref(owner, `devices/${DEVICE_ID}`);
+  assert.ok(JSON.stringify(fixture.updates).length < 30000);
+  await Promise.all([
+    assertSucceeds(update(device, fixture.updates)),
+    (async () => {
+      for (let i = 0; i < 20; i++) await update(device, {"status/sample": i, "sensor_history/latest": i});
+    })(),
+  ]);
+  assert.equal((await get(ref(owner, `devices/${DEVICE_ID}/fertilizer_products/product/stock_amount`))).val(), 980);
+  assert.equal((await get(ref(owner, `devices/${DEVICE_ID}/fertilizer_history`))).size, 2);
+  assert.equal((await get(ref(owner, `devices/${DEVICE_ID}/sensor_history/latest`))).val(), 19);
+});
+
+test("stale fertilizer stock rejects history and schedules together", async () => {
+  const fixture = await seedScopedFertilizer();
+  const owner = authenticatedDatabase(OWNER_UID);
+  const device = ref(owner, `devices/${DEVICE_ID}`);
+  await update(device, {"fertilizer_products/product/stock_amount": 950});
+  await assertFails(update(device, fixture.updates));
+  assert.equal((await get(ref(owner, `devices/${DEVICE_ID}/fertilizer_history`))).exists(), false);
+  assert.equal((await get(ref(owner, `devices/${DEVICE_ID}/zones/zone-001/fertilization/next_application_at_epoch`))).val(), 100);
+  assert.equal((await get(ref(owner, `devices/${DEVICE_ID}/fertilizer_products/product/stock_amount`))).val(), 950);
+});
+
+test("season closure rejects a pending fertilizer record without stock deduction", async () => {
+  const fixture = await seedScopedFertilizer();
+  const owner = authenticatedDatabase(OWNER_UID);
+  const device = ref(owner, `devices/${DEVICE_ID}`);
+  await update(device, {"zones/zone-003/season/status": "CLOSED"});
+  await assertFails(update(device, fixture.updates));
+  assert.equal((await get(ref(owner, `devices/${DEVICE_ID}/fertilizer_products/product/stock_amount`))).val(), 1000);
+});
+
+test("two simultaneous fertilizer operations cannot spend the same stock snapshot", async () => {
+  const fixture = await seedScopedFertilizer();
+  const owner = authenticatedDatabase(OWNER_UID);
+  const second = JSON.parse(JSON.stringify(fixture.updates).replaceAll("application-one", "application-other-one").replaceAll("application-three", "application-other-three"));
+  second.fertilizer_write_guard.operation_id = "00000000-0000-0000-0000-000000000002";
+  const results = await Promise.allSettled([
+    update(ref(owner, `devices/${DEVICE_ID}`), fixture.updates),
+    update(ref(owner, `devices/${DEVICE_ID}`), second),
+  ]);
+  assert.equal(results.filter(result => result.status === "fulfilled").length, 1);
+  assert.equal((await get(ref(owner, `devices/${DEVICE_ID}/fertilizer_products/product/stock_amount`))).val(), 980);
+  assert.equal((await get(ref(owner, `devices/${DEVICE_ID}/fertilizer_history`))).size, 2);
+});
+
+test("persisted fertilizer guard permits unrelated writes and unchanged parent transactions", async () => {
+  const fixture = await seedScopedFertilizer();
+  const owner = authenticatedDatabase(OWNER_UID);
+  const device = ref(owner, `devices/${DEVICE_ID}`);
+  await assertSucceeds(update(device, fixture.updates));
+  await assertSucceeds(update(device, {"status/online": true}));
+  await get(device);
+  await assertSucceeds(runTransaction(device, current => {
+    if (!current) return current;
+    current.status = {online: true, sample: 1};
+    return current;
+  }));
+});
+
+test("fertilizer guards do not grant access to an unapproved user", async () => {
+  const fixture = await seedScopedFertilizer();
+  await assertFails(update(ref(unclaimedDatabase(OTHER_UID), `devices/${DEVICE_ID}`), fixture.updates));
+});
+
 test("only the claimed device owner can read or write the device", async () => {
   await testEnvironment.withSecurityRulesDisabled(async (context) => {
     await set(ref(context.database(), `devices/${DEVICE_ID}/status`), {
