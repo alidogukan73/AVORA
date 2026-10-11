@@ -178,8 +178,12 @@ public final class NotificationSignalWorker extends Worker {
                 }
                 NotificationSignalCoordinator.evaluateWatering(context, watering, zones);
             }
+            android.util.Log.i("AvoraNotificationScan", "Background scan completed");
             return Result.success();
-        } catch (Exception ignored) {
+        } catch (Exception error) {
+            // Only the exception type; messages can contain private Firebase data.
+            android.util.Log.w("AvoraNotificationScan", "Background scan retry: "
+                    + error.getClass().getSimpleName());
             return Result.retry();
         }
     }
@@ -206,13 +210,11 @@ public final class NotificationSignalWorker extends Worker {
     }
 
     private Double number(DataSnapshot value) {
-        Number number = value.getValue(Number.class);
-        return number == null ? null : number.doubleValue();
+        return NotificationSnapshotNumbers.number(value);
     }
 
     private long longNumber(DataSnapshot value) {
-        Number number = value.getValue(Number.class);
-        return number == null ? 0L : number.longValue();
+        return NotificationSnapshotNumbers.epoch(value);
     }
 
     private Map<String, Long> latestSeedlingLogEpochs(
@@ -231,8 +233,8 @@ public final class NotificationSignalWorker extends Worker {
         for (int index = 0; index < reads.size(); index++) {
             long latest = 0L;
             for (DataSnapshot child : reads.get(index).getResult().getChildren()) {
-                Number createdAt = child.child("created_at_epoch").getValue(Number.class);
-                if (createdAt != null) latest = Math.max(latest, createdAt.longValue());
+                latest = Math.max(latest,
+                        NotificationSnapshotNumbers.epoch(child.child("created_at_epoch")));
             }
             values.put(batchIds.get(index), latest);
         }

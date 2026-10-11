@@ -7,6 +7,8 @@ import androidx.work.ExistingPeriodicWorkPolicy;
 import androidx.work.NetworkType;
 import androidx.work.PeriodicWorkRequest;
 import androidx.work.WorkManager;
+import androidx.work.ExistingWorkPolicy;
+import androidx.work.OneTimeWorkRequest;
 
 import java.util.concurrent.TimeUnit;
 
@@ -16,9 +18,19 @@ import java.util.concurrent.TimeUnit;
 public final class NotificationSignalScheduler {
 
     private static final String PERIODIC =
-            "avora-notification-signals";
+            "avora-notification-signals-v2";
 
     private NotificationSignalScheduler() {
+    }
+
+    /** Refresh after an alarm or package update even if an old scan is in backoff. */
+    public static void runNow(Context context) {
+        WorkManager.getInstance(context.getApplicationContext()).enqueueUniqueWork(
+                "avora-notification-signals-immediate", ExistingWorkPolicy.KEEP,
+                new OneTimeWorkRequest.Builder(NotificationSignalWorker.class)
+                        .setConstraints(new Constraints.Builder()
+                                .setRequiredNetworkType(NetworkType.CONNECTED).build())
+                        .build());
     }
 
     public static void schedule(Context context) {
@@ -26,6 +38,10 @@ public final class NotificationSignalScheduler {
                 WorkManager.getInstance(
                         context.getApplicationContext()
                 );
+
+        // The old numeric-reader failure could leave this job in five-hour
+        // exponential backoff. Retire only that job and start a fresh cadence.
+        manager.cancelUniqueWork("avora-notification-signals");
 
         manager.enqueueUniquePeriodicWork(
                 PERIODIC,

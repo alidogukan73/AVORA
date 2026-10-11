@@ -17,5 +17,6 @@ public final class FertilizerReminderAlarmReceiver extends BroadcastReceiver {
                 && !Intent.ACTION_TIMEZONE_CHANGED.equals(action)) return;
         FertilizerReminderScheduler.scheduleAlarm(context);
         FertilizerReminderScheduler.runNow(context);
+        com.alidogukan.avora.notifications.NotificationSignalScheduler.runNow(context);
     }
 }
